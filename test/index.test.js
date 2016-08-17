@@ -23,7 +23,8 @@ describe('index', () => {
             repos: {
                 get: sinon.stub(),
                 createStatus: sinon.stub(),
-                getBranch: sinon.stub()
+                getBranch: sinon.stub(),
+                getContent: sinon.stub()
             }
         };
 
@@ -297,6 +298,153 @@ describe('index', () => {
                 assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: configSuccess.token
+                });
+
+                assert.deepEqual(error, err);
+            });
+        });
+    });
+
+    describe('getFile', () => {
+        const scmUrl = 'git@github.com:screwdriver-cd/models.git';
+        const content = `IyB3b3JrZmxvdzoKIyAgICAgLSBwdWJsaXNoCgpqb2JzOgogICAgbWFpbjoK\n
+ICAgICAgICBpbWFnZTogbm9kZTo2CiAgICAgICAgc3RlcHM6CiAgICAgICAg\n
+ICAgIC0gaW5zdGFsbDogbnBtIGluc3RhbGwKICAgICAgICAgICAgLSB0ZXN0\n
+OiBucG0gdGVzdAoKICAgICMgcHVibGlzaDoKICAgICMgICAgIHN0ZXBzOgog\n
+ICAgIyAgICAgICAgIGNvbmZpZ3VyZTogLi9zY3JpcHRzL2NvbmZpZ3VyZQog\n
+ICAgIyAgICAgICAgIGluc3RhbGw6IG5wbSBpbnN0YWxsCiAgICAjICAgICAg\n
+ICAgYnVtcDogbnBtIHJ1biBidW1wCiAgICAjICAgICAgICAgcHVibGlzaDog\n
+bnBtIHB1Ymxpc2ggJiYgZ2l0IHB1c2ggb3JpZ2luIC0tdGFncyAtcQo=\n'`;
+        const returnData = {
+            type: 'file',
+            content,
+            encoding: 'base64'
+        };
+        const returnInvalidData = {
+            type: 'notFile'
+        };
+        const expectedYaml = `# workflow:
+#     - publish
+
+jobs:
+    main:
+        image: node:6
+        steps:
+            - install: npm install
+            - test: npm test
+
+    # publish:
+    #     steps:
+    #         configure: ./scripts/configure
+    #         install: npm install
+    #         bump: npm run bump
+    #         publish: npm publish && git push origin --tags -q
+`;
+        const config = {
+            scmUrl,
+            path: 'screwdriver.yaml',
+            token: 'somerandomtoken',
+            ref: '46f1a0bd5592a2f9244ca321b129902a06b53e03'
+        };
+
+        const configNoRef = {
+            scmUrl,
+            path: 'screwdriver.yaml',
+            token: 'somerandomtoken'
+        };
+
+        it('promises to get content when a ref is passed', () => {
+            githubMock.repos.getContent.yieldsAsync(null, returnData);
+
+            return scm.getFile(config)
+            .catch(() => {
+                assert.fail('This should not fail the test');
+            })
+            .then((data) => {
+                assert.calledWith(githubMock.repos.getContent, {
+                    user: 'screwdriver-cd',
+                    repo: 'models',
+                    path: config.path,
+                    ref: config.ref
+                });
+
+                assert.calledWith(githubMock.authenticate, {
+                    type: 'oauth',
+                    token: config.token
+                });
+
+                assert.deepEqual(data, expectedYaml);
+            });
+        });
+
+        it('promises to get content when a ref is not passed', () => {
+            githubMock.repos.getContent.yieldsAsync(null, returnData);
+
+            return scm.getFile(configNoRef)
+            .catch(() => {
+                assert.fail('This should not fail the test');
+            })
+            .then((data) => {
+                assert.calledWith(githubMock.repos.getContent, {
+                    user: 'screwdriver-cd',
+                    repo: 'models',
+                    path: configNoRef.path,
+                    ref: 'master'
+                });
+
+                assert.calledWith(githubMock.authenticate, {
+                    type: 'oauth',
+                    token: config.token
+                });
+
+                assert.deepEqual(data, expectedYaml);
+            });
+        });
+
+        it('returns error when path is not a file', () => {
+            githubMock.repos.getContent.yieldsAsync(null, returnInvalidData);
+
+            return scm.getFile(config)
+            .then(() => {
+                assert.fail('This should not fail the test');
+            })
+            .catch((err) => {
+                assert.calledWith(githubMock.repos.getContent, {
+                    user: 'screwdriver-cd',
+                    repo: 'models',
+                    path: config.path,
+                    ref: config.ref
+                });
+
+                assert.calledWith(githubMock.authenticate, {
+                    type: 'oauth',
+                    token: config.token
+                });
+
+                assert.strictEqual(err.message, 'Path (screwdriver.yaml) does not point to file');
+            });
+        });
+
+        it('returns an error when github command fails', () => {
+            const err = new Error('githubError');
+
+            githubMock.repos.getContent.yieldsAsync(err);
+
+            return scm.getFile(config)
+            .then(() => {
+                assert.fail('This should not fail the test');
+            })
+            .catch(error => {
+                assert.calledWith(githubMock.repos.getContent, {
+                    user: 'screwdriver-cd',
+                    repo: 'models',
+                    path: config.path,
+                    ref: config.ref
+                });
+
+                assert.calledWith(githubMock.authenticate, {
+                    type: 'oauth',
+                    token: config.token
                 });
 
                 assert.deepEqual(error, err);

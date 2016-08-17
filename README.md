@@ -64,6 +64,21 @@ The `updateCommitStatus` function will update the commit status for a given repo
 
 The `updateCommitStatus` function returns a promise that will resolve to the data returned back from github.
 
+### getFile
+The parameters required are:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config        | Object | Configuration Object |
+| config.scmUrl | String | The scmUrl to get permissions on |
+| config.token | String | The github token to check permissions on |
+| config.path | String | The path to the file on github to read |
+| config.ref | String | The reference to the github repo, could be a branch or sha |
+
+The `getFile` function returns a promise that will resolve to the contents of a file that is returned back from github.
+
+The function will reject if the path does not point to a file.
+
 ## Testing
 
 ```bash
