@@ -26,7 +26,7 @@ function getInfo(scmUrl) {
         throw new Error(`Invalid scmUrl: ${scmUrl}`);
     }
 
-    const branch = matched[MATCH_COMPONENT_BRANCH_NAME] || '';
+    const branch = matched[MATCH_COMPONENT_BRANCH_NAME] || '#master';
 
     return {
         user: matched[MATCH_COMPONENT_USER_NAME],
@@ -70,12 +70,7 @@ class GithubScm extends Scm {
     */
     formatScmUrl(scmUrl) {
         let result = scmUrl;
-        let branchName = getInfo(result).branch;
-
-        // Check if branch name exists
-        if (!branchName) {
-            branchName = 'master';
-        }
+        const branchName = getInfo(result).branch;
 
         // Do not convert branch name to lowercase
         result = result.split('#')[0].toLowerCase().concat(`#${branchName}`);
@@ -148,7 +143,7 @@ class GithubScm extends Scm {
 
     /**
     * Update the commit status for a given repo and sha
-    * @method get
+    * @method updateCommitStatus
     * @param  {Object}   config              Configuration
     * @param  {String}   config.scmUrl       The scmUrl to get permissions on
     * @param  {String}   config.sha          The sha to apply the status to
@@ -180,6 +175,49 @@ class GithubScm extends Scm {
                 }
 
                 return resolve(data);
+            });
+        });
+    }
+
+    /**
+    * Fetch content of a file from github
+    * @method getFile
+    * @param  {Object}   config              Configuration
+    * @param  {String}   config.scmUrl       The scmUrl to get permissions on
+    * @param  {String}   config.path         The file in the repo to fetch
+    * @param  {String}   config.token        The token used to authenticate to the SCM
+    * @param  {String}   config.ref          The reference to the SCM, either branch or sha
+    * @return {Promise}
+    */
+    _getFile(config) {
+        const scmInfo = getInfo(config.scmUrl);
+
+        this.github.authenticate({
+            type: 'oauth',
+            token: config.token
+        });
+
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'getContent',
+                params: {
+                    user: scmInfo.user,
+                    repo: scmInfo.repo,
+                    path: config.path,
+                    ref: config.ref || scmInfo.branch
+                }
+            }, (error, data) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                if (data.type !== 'file') {
+                    return reject(new Error(`Path (${config.path}) does not point to file`));
+                }
+
+                const contents = new Buffer(data.content, data.encoding).toString();
+
+                return resolve(contents);
             });
         });
     }
