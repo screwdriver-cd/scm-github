@@ -41,7 +41,7 @@
   "dependencies": {
     "circuit-fuses": "^1.0.2",
     "github": "^2.4.1",
-    "screwdriver-data-schema": "^10.0.3",
+    "screwdriver-data-schema": "^10.0.5",
     "screwdriver-scm-base": "^1.0.0"
   }
 }

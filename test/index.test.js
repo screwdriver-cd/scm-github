@@ -213,19 +213,22 @@ describe('index', () => {
                 pull: false
             }
         };
-        const configSuccess = {
-            scmUrl,
-            sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
-            buildStatus: 'SUCCESS',
-            token: 'somerandomtoken'
-        };
-
+        let configSuccess;
         const configFailure = {
             scmUrl,
             sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
             buildStatus: 'FAILURE',
             token: 'somerandomtoken'
         };
+
+        beforeEach(() => {
+            configSuccess = {
+                scmUrl,
+                sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
+                buildStatus: 'SUCCESS',
+                token: 'somerandomtoken'
+            };
+        });
 
         it('promises to update commit status on success', () => {
             githubMock.repos.createStatus.yieldsAsync(null, data);
@@ -250,6 +253,33 @@ describe('index', () => {
             .catch(() => {
                 assert.fail('This should not fail the test');
             });
+        });
+
+        it('sets a target_url when id passed in', () => {
+            githubMock.repos.createStatus.yieldsAsync(null, data);
+            configSuccess.url = 'http://localhost/v3/builds/1234/logs';
+
+            return scm.updateCommitStatus(configSuccess)
+                .then((result) => {
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        user: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: configSuccess.sha,
+                        state: 'success',
+                        context: 'screwdriver',
+                        target_url: 'http://localhost/v3/builds/1234/logs'
+                    });
+
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: configSuccess.token
+                    });
+
+                    assert.deepEqual(result, data);
+                })
+                .catch((err) => {
+                    assert.fail(err, 'This should not fail the test');
+                });
         });
 
         it('promises to update commit status on failure', () => {

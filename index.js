@@ -149,6 +149,7 @@ class GithubScm extends Scm {
     * @param  {String}   config.sha          The sha to apply the status to
     * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
     * @param  {String}   config.token        The token used to authenticate to the SCM
+    * @param  {String}   [config.url]        Optional target url
     * @return {Promise}
     */
     _updateCommitStatus(config) {
@@ -159,16 +160,22 @@ class GithubScm extends Scm {
             token: config.token
         });
 
+        const params = {
+            user: scmInfo.user,
+            repo: scmInfo.repo,
+            sha: config.sha,
+            state: STATE_MAP[config.buildStatus] || 'failure',
+            context: 'screwdriver'
+        };
+
+        if (config.url) {
+            params.target_url = config.url;
+        }
+
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'createStatus',
-                params: {
-                    user: scmInfo.user,
-                    repo: scmInfo.repo,
-                    sha: config.sha,
-                    state: STATE_MAP[config.buildStatus] || 'failure',
-                    context: 'screwdriver'
-                }
+                params
             }, (error, data) => {
                 if (error) {
                     return reject(error);
