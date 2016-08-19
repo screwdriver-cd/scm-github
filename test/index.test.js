@@ -357,19 +357,15 @@ describe('index', () => {
                 assert.fail('This should not fail the test');
             })
             .catch(() => {
-                assert.deepEqual(scm.stats(), {
-                    requests: {
-                        total: 1,
-                        timeouts: 0,
-                        success: 0,
-                        failure: 1,
-                        concurrent: 0,
-                        averageTime: 1
-                    },
-                    breaker: {
-                        isClosed: true
-                    }
-                });
+                // Because averageTime isn't deterministic on how long it will take,
+                // will need to check each value separately.
+                const stats = scm.stats();
+
+                assert.strictEqual(stats.requests.total, 1);
+                assert.strictEqual(stats.requests.timeouts, 0);
+                assert.strictEqual(stats.requests.success, 0);
+                assert.strictEqual(stats.requests.failure, 1);
+                assert.strictEqual(stats.breaker.isClosed, true);
             });
         });
     });
