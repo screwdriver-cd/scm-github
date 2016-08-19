@@ -79,6 +79,9 @@ The `getFile` function returns a promise that will resolve to the contents of a 
 
 The function will reject if the path does not point to a file.
 
+### stats
+Returns circuit breaker statistics for interactions with github
+
 ## Testing
 
 ```bash
