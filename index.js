@@ -228,6 +228,27 @@ class GithubScm extends Scm {
             });
         });
     }
+
+    /**
+    * Retrieve stats for the executor
+    * @method stats
+    * @param  {Response} Object          Object containing stats for the executor
+    */
+    stats() {
+        return {
+            requests: {
+                total: this.breaker.getTotalRequests(),
+                timeouts: this.breaker.getTimeouts(),
+                success: this.breaker.getSuccessfulRequests(),
+                failure: this.breaker.getFailedRequests(),
+                concurrent: this.breaker.getConcurrentRequests(),
+                averageTime: this.breaker.getAverageRequestTime()
+            },
+            breaker: {
+                isClosed: this.breaker.isClosed()
+            }
+        };
+    }
 }
 
 module.exports = GithubScm;
