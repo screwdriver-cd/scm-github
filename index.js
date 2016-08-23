@@ -58,6 +58,8 @@ class GithubScm extends Scm {
     * Constructor
     * @method constructor
     * @param  {Object} options           Configuration options
+    * @param  {Object} options.retry     Configuration options for circuit breaker retries
+    * @param  {Object} options.breaker   Configuration options for circuit breaker
     * @return {GithubScm}
     */
     constructor(config) {
@@ -67,7 +69,10 @@ class GithubScm extends Scm {
         this.github = new Github();
 
         // eslint-disable-next-line no-underscore-dangle
-        this.breaker = new Breaker(this._githubCommand.bind(this));
+        this.breaker = new Breaker(this._githubCommand.bind(this), {
+            retry: config.retry,
+            breaker: config.breaker
+        });
     }
     /**
     * Format the scmUrl for the specific source control

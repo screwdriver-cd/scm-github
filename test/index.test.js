@@ -34,7 +34,11 @@ describe('index', () => {
         GithubScm = require('../index');
         /* eslint-enable global-require */
 
-        scm = new GithubScm();
+        scm = new GithubScm({
+            retry: {
+                minTimeout: 10
+            }
+        });
     });
 
     afterEach(() => {
@@ -348,23 +352,21 @@ describe('index', () => {
         });
 
         it('returns the correct stats', () => {
-            const err = new Error('githubError');
-
-            githubMock.repos.createStatus.yieldsAsync(err);
+            githubMock.repos.createStatus.yieldsAsync(null, {});
 
             return scm.updateCommitStatus(configSuccess)
-            .then(() => {
+            .catch(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(() => {
+            .then(() => {
                 // Because averageTime isn't deterministic on how long it will take,
                 // will need to check each value separately.
                 const stats = scm.stats();
 
                 assert.strictEqual(stats.requests.total, 1);
                 assert.strictEqual(stats.requests.timeouts, 0);
-                assert.strictEqual(stats.requests.success, 0);
-                assert.strictEqual(stats.requests.failure, 1);
+                assert.strictEqual(stats.requests.success, 1);
+                assert.strictEqual(stats.requests.failure, 0);
                 assert.strictEqual(stats.breaker.isClosed, true);
             });
         });
