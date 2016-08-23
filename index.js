@@ -41,10 +41,16 @@ class GithubScm extends Scm {
     * @method _githubCommand
     * @param  {Object}   options            An object that tells what command & params to run
     * @param  {String}   options.action     Github method. For example: get
+    * @param  {String}   options.token      Github token used for authentication of requests
     * @param  {Object}   options.params     Parameters to run with
     * @param  {Function} callback           Callback function from github API
     */
     _githubCommand(options, callback) {
+        this.github.authenticate({
+            type: 'oauth',
+            token: options.token
+        });
+
         this.github.repos[options.action](options.params, callback);
     }
 
@@ -89,14 +95,10 @@ class GithubScm extends Scm {
     _getPermissions(config) {
         const scmInfo = getInfo(config.scmUrl);
 
-        this.github.authenticate({
-            type: 'oauth',
-            token: config.token
-        });
-
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'get',
+                token: config.token,
                 params: {
                     user: scmInfo.user,
                     repo: scmInfo.repo
@@ -122,14 +124,10 @@ class GithubScm extends Scm {
     _getCommitSha(config) {
         const scmInfo = getInfo(config.scmUrl);
 
-        this.github.authenticate({
-            type: 'oauth',
-            token: config.token
-        });
-
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'getBranch',
+                token: config.token,
                 params: scmInfo
             }, (error, data) => {
                 if (error) {
@@ -155,11 +153,6 @@ class GithubScm extends Scm {
     _updateCommitStatus(config) {
         const scmInfo = getInfo(config.scmUrl);
 
-        this.github.authenticate({
-            type: 'oauth',
-            token: config.token
-        });
-
         const params = {
             user: scmInfo.user,
             repo: scmInfo.repo,
@@ -175,6 +168,7 @@ class GithubScm extends Scm {
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'createStatus',
+                token: config.token,
                 params
             }, (error, data) => {
                 if (error) {
@@ -199,14 +193,10 @@ class GithubScm extends Scm {
     _getFile(config) {
         const scmInfo = getInfo(config.scmUrl);
 
-        this.github.authenticate({
-            type: 'oauth',
-            token: config.token
-        });
-
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'getContent',
+                token: config.token,
                 params: {
                     user: scmInfo.user,
                     repo: scmInfo.repo,
