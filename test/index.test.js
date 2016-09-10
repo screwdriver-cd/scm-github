@@ -109,6 +109,7 @@ describe('index', () => {
                 assert.calledWith(githubMock.repos.getBranch, {
                     user: 'screwdriver-cd',
                     repo: 'models',
+                    host: 'github.com',
                     branch: 'master'
                 });
 
@@ -134,6 +135,7 @@ describe('index', () => {
                 assert.calledWith(githubMock.repos.getBranch, {
                     user: 'screwdriver-cd',
                     repo: 'models',
+                    host: 'github.com',
                     branch: 'master'
                 });
 
@@ -514,6 +516,44 @@ jobs:
                     token: config.token
                 });
 
+                assert.deepEqual(error, err);
+            });
+        });
+    });
+
+    describe('getId', () => {
+        const scmUrl = 'git@github.com:foo/bar.git#test';
+        const expectedId = 'github.com:123456:test';
+        const returnData = {
+            id: 123456
+        };
+        const returnInvalidData = {
+            error: true
+        };
+        const config = {
+            scmUrl,
+            token: 'somerandomtoken'
+        };
+
+        it('returns the correct scmId', () => {
+            githubMock.repos.get.yieldsAsync(null, returnData);
+
+            return scm.getId(config)
+            .catch(() => {
+                assert.fail('This should not fail the test');
+            })
+            .then((scmId) => {
+                assert.strictEqual(scmId, expectedId);
+            });
+        });
+
+        it('returns an error when github command fails', () => {
+            const err = new Error('githubError');
+
+            githubMock.repos.get.yieldsAsync(err, returnInvalidData);
+
+            return scm.getId(config)
+            .catch(error => {
                 assert.deepEqual(error, err);
             });
         });

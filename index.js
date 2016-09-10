@@ -6,6 +6,7 @@ const Scm = require('screwdriver-scm-base');
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
+const MATCH_COMPONENT_HOST_NAME = 1;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -31,6 +32,7 @@ function getInfo(scmUrl) {
     return {
         user: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
+        host: matched[MATCH_COMPONENT_HOST_NAME],
         branch: branch.slice(1)
     };
 }
@@ -243,6 +245,35 @@ class GithubScm extends Scm {
                 isClosed: this.breaker.isClosed()
             }
         };
+    }
+
+    /**
+     * Return a unique identifier for the scmUrl
+     * @method getId
+     * @param {Object}    config        Configuration
+     * @param {String}    config.scmUrl The scmUrl to generate ID
+     * @param {String}    config.token  The token used to authenticate to the SCM
+     * @return {Promise}
+     */
+    getId(config) {
+        const scmInfo = getInfo(config.scmUrl);
+
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'get',
+                token: config.token,
+                params: {
+                    user: scmInfo.user,
+                    repo: scmInfo.repo
+                }
+            }, (error, data) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                return resolve(`${scmInfo.host}:${data.id}:${scmInfo.branch}`);
+            });
+        });
     }
 }
 
