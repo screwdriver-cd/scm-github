@@ -521,11 +521,22 @@ jobs:
         });
     });
 
-    describe('getId', () => {
+    describe('getRepoId', () => {
         const scmUrl = 'git@github.com:foo/bar.git#test';
-        const expectedId = 'github.com:123456:test';
-        const returnData = {
-            id: 123456
+        const expectedRepoId = {
+            id: 'github.com:123456:test',
+            name: 'foo/bar',
+            url: 'https://github.com/foo/bar/tree/test'
+        };
+        const repoData = {
+            id: 123456,
+            full_name: 'foo/bar'
+        };
+        const branchData = {
+            /* eslint no-underscore-dangle: ["error", { "allow": [_links] }] */
+            _link: {
+                url: 'https://github.com/foo/bar/tree/test'
+            }
         };
         const returnInvalidData = {
             error: true
@@ -535,24 +546,37 @@ jobs:
             token: 'somerandomtoken'
         };
 
-        it('returns the correct scmId', () => {
-            githubMock.repos.get.yieldsAsync(null, returnData);
+        it('returns the correct repoId', () => {
+            githubMock.repos.get.yieldsAsync(null, repoData);
+            githubMock.repos.getBranch.yieldsAsync(null, branchData);
 
-            return scm.getId(config)
+            return scm.getRepoId(config)
             .catch(() => {
                 assert.fail('This should not fail the test');
             })
-            .then((scmId) => {
-                assert.strictEqual(scmId, expectedId);
+            .then((repoId) => {
+                assert.strictEqual(repoId, expectedRepoId);
             });
         });
 
-        it('returns an error when github command fails', () => {
+        it('returns an error when github get command fails', () => {
             const err = new Error('githubError');
 
             githubMock.repos.get.yieldsAsync(err, returnInvalidData);
 
-            return scm.getId(config)
+            return scm.getRepoId(config)
+            .catch(error => {
+                assert.deepEqual(error, err);
+            });
+        });
+
+        it('returns an error when github getBranch command fails', () => {
+            const err = new Error('githubError');
+
+            githubMock.repos.get.yieldsAsync(null, repoData);
+            githubMock.repos.getBranch.yieldsAsync(err, returnInvalidData);
+
+            return scm.getRepoId(config)
             .catch(error => {
                 assert.deepEqual(error, err);
             });

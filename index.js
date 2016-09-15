@@ -248,30 +248,47 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Return a unique identifier for the scmUrl
-     * @method getId
+     * Get repository object for storing new pipeline
+     * @method getRepoId
      * @param {Object}    config        Configuration
      * @param {String}    config.scmUrl The scmUrl to generate ID
      * @param {String}    config.token  The token used to authenticate to the SCM
      * @return {Promise}
      */
-    getId(config) {
+    _getRepoId(config) {
         const scmInfo = getInfo(config.scmUrl);
 
         return new Promise((resolve, reject) => {
             this.breaker.runCommand({
                 action: 'get',
                 token: config.token,
-                params: {
-                    user: scmInfo.user,
-                    repo: scmInfo.repo
-                }
-            }, (error, data) => {
+                params: scmInfo
+            }, (error, repoInfo) => {
+                const result = {};
+
                 if (error) {
                     return reject(error);
                 }
 
-                return resolve(`${scmInfo.host}:${data.id}:${scmInfo.branch}`);
+                result.id = `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`;
+                result.name = repoInfo.full_name;
+
+                return resolve(result);
+            });
+        }).then((result) => {
+            this.breaker.runCommand({
+                action: 'getBranch',
+                token: config.token,
+                params: scmInfo
+            }, (error, branchInfo) => {
+                if (error) {
+                    return Promise.reject(error);
+                }
+
+                /* eslint no-underscore-dangle: ["error", { "allow": [_links] }] */
+                result.url = branchInfo._links.html;
+
+                return Promise.resolve(result);
             });
         });
     }
