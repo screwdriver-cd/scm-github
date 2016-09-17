@@ -248,6 +248,55 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get data for a specific repo
+     * @method getCommitSha
+     * @param  {Object}   config            Configuration
+     * @param  {String}   config.scmUrl     The scmUrl to get data of
+     * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @return {Promise}
+     */
+    _getRepoInfo(scmInfo, token) {
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'get',
+                token,
+                params: scmInfo
+            }, (error, repoInfo) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                return resolve(repoInfo);
+            });
+        });
+    }
+
+    /**
+     * Get a url for a specific branch
+     * @method getRepoId
+     * @param  {Object}    config        Configuration
+     * @param  {String}    config.scmUrl The scmUrl to get url of
+     * @param  {String}    config.token  The token used to authenticate to the SCM
+     * @return {Promise}
+     */
+    _getBranchUrl(scmInfo, token) {
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'getBranch',
+                token,
+                params: scmInfo
+            }, (error, branchInfo) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                // eslint-disable-next-line no-underscore-dangle
+                return resolve(branchInfo._links.html);
+            });
+        });
+    }
+
+    /**
      * Get repository object for storing new pipeline
      * @method getRepoId
      * @param {Object}    config        Configuration
@@ -258,38 +307,20 @@ class GithubScm extends Scm {
     _getRepoId(config) {
         const scmInfo = getInfo(config.scmUrl);
 
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand({
-                action: 'get',
-                token: config.token,
-                params: scmInfo
-            }, (error, repoInfo) => {
-                const result = {};
+        return Promise.all([
+            // eslint-disable-next-line no-underscore-dangle
+            this._getRepoInfo(scmInfo, config.token),
+            // eslint-disable-next-line no-underscore-dangle
+            this._getBranchUrl(scmInfo, config.token)
+        ]).then(result => {
+            const repoInfo = result[0];
+            const branchUrl = result[1];
 
-                if (error) {
-                    return reject(error);
-                }
-
-                result.id = `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`;
-                result.name = repoInfo.full_name;
-
-                return resolve(result);
-            });
-        }).then((result) => {
-            this.breaker.runCommand({
-                action: 'getBranch',
-                token: config.token,
-                params: scmInfo
-            }, (error, branchInfo) => {
-                if (error) {
-                    return Promise.reject(error);
-                }
-
-                /* eslint no-underscore-dangle: ["error", { "allow": [_links] }] */
-                result.url = branchInfo._links.html;
-
-                return Promise.resolve(result);
-            });
+            return {
+                id: `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`,
+                name: repoInfo.full_name,
+                url: branchUrl
+            };
         });
     }
 }

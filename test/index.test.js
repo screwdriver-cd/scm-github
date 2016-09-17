@@ -533,12 +533,12 @@ jobs:
             full_name: 'foo/bar'
         };
         const branchData = {
-            /* eslint no-underscore-dangle: ["error", { "allow": [_links] }] */
-            _link: {
-                url: 'https://github.com/foo/bar/tree/test'
+            // eslint-disable-next-line no-underscore-dangle
+            _links: {
+                html: 'https://github.com/foo/bar/tree/test'
             }
         };
-        const returnInvalidData = {
+        const invalidData = {
             error: true
         };
         const config = {
@@ -554,15 +554,16 @@ jobs:
             .catch(() => {
                 assert.fail('This should not fail the test');
             })
-            .then((repoId) => {
-                assert.strictEqual(repoId, expectedRepoId);
+            .then(repoId => {
+                assert.deepEqual(repoId, expectedRepoId);
             });
         });
 
         it('returns an error when github get command fails', () => {
             const err = new Error('githubError');
 
-            githubMock.repos.get.yieldsAsync(err, returnInvalidData);
+            githubMock.repos.get.yieldsAsync(err, invalidData);
+            githubMock.repos.getBranch.yieldsAsync(err, branchData);
 
             return scm.getRepoId(config)
             .catch(error => {
@@ -574,7 +575,7 @@ jobs:
             const err = new Error('githubError');
 
             githubMock.repos.get.yieldsAsync(null, repoData);
-            githubMock.repos.getBranch.yieldsAsync(err, returnInvalidData);
+            githubMock.repos.getBranch.yieldsAsync(err, invalidData);
 
             return scm.getRepoId(config)
             .catch(error => {
