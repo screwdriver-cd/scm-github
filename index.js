@@ -249,11 +249,10 @@ class GithubScm extends Scm {
 
     /**
      * Get data for a specific repo
-     * @method getCommitSha
-     * @param  {Object}   config            Configuration
-     * @param  {String}   config.scmUrl     The scmUrl to get data of
-     * @param  {String}   config.token      The token used to authenticate to the SCM
-     * @return {Promise}
+     * @method _getRepoInfo
+     * @param  {Object}   scmInfo        The result of getScmInfo
+     * @param  {String}   token          The token used to authenticate to the SCM
+     * @return {Promise}                 Resolves to the result object of GitHub repository API
      */
     _getRepoInfo(scmInfo, token) {
         return new Promise((resolve, reject) => {
@@ -273,11 +272,10 @@ class GithubScm extends Scm {
 
     /**
      * Get a url for a specific branch
-     * @method getRepoId
-     * @param  {Object}    config        Configuration
-     * @param  {String}    config.scmUrl The scmUrl to get url of
-     * @param  {String}    config.token  The token used to authenticate to the SCM
-     * @return {Promise}
+     * @method _getBranchUrl
+     * @param  {Object}    scmInfo       The result of getScmInfo
+     * @param  {String}    token         The token used to authenticate to the SCM
+     * @return {Promise}                 Resolves to the url of the specified branch in the scmInfo
      */
     _getBranchUrl(scmInfo, token) {
         return new Promise((resolve, reject) => {
@@ -298,10 +296,10 @@ class GithubScm extends Scm {
 
     /**
      * Get repository object for storing new pipeline
-     * @method getRepoId
-     * @param {Object}    config        Configuration
-     * @param {String}    config.scmUrl The scmUrl to generate ID
-     * @param {String}    config.token  The token used to authenticate to the SCM
+     * @method _getRepoId
+     * @param  {Object}    config        Configuration
+     * @param  {String}    config.scmUrl The scmUrl to get permissions on
+     * @param  {String}    config.token  The token used to authenticate to the SCM
      * @return {Promise}
      */
     _getRepoId(config) {
