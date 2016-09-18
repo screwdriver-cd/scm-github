@@ -310,16 +310,11 @@ class GithubScm extends Scm {
             this._getRepoInfo(scmInfo, config.token),
             // eslint-disable-next-line no-underscore-dangle
             this._getBranchUrl(scmInfo, config.token)
-        ]).then(result => {
-            const repoInfo = result[0];
-            const branchUrl = result[1];
-
-            return {
-                id: `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`,
-                name: repoInfo.full_name,
-                url: branchUrl
-            };
-        });
+        ]).then(([repoInfo, branchUrl]) => ({
+            id: `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`,
+            name: repoInfo.full_name,
+            url: branchUrl
+        }));
     }
 }
 
