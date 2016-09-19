@@ -6,6 +6,7 @@ const Scm = require('screwdriver-scm-base');
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
+const MATCH_COMPONENT_HOST_NAME = 1;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -31,6 +32,7 @@ function getInfo(scmUrl) {
     return {
         user: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
+        host: matched[MATCH_COMPONENT_HOST_NAME],
         branch: branch.slice(1)
     };
 }
@@ -243,6 +245,76 @@ class GithubScm extends Scm {
                 isClosed: this.breaker.isClosed()
             }
         };
+    }
+
+    /**
+     * Get data for a specific repo
+     * @method _getRepoInfo
+     * @param  {Object}   scmInfo        The result of getScmInfo
+     * @param  {String}   token          The token used to authenticate to the SCM
+     * @return {Promise}                 Resolves to the result object of GitHub repository API
+     */
+    _getRepoInfo(scmInfo, token) {
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'get',
+                token,
+                params: scmInfo
+            }, (error, repoInfo) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                return resolve(repoInfo);
+            });
+        });
+    }
+
+    /**
+     * Get a url for a specific branch
+     * @method _getBranchUrl
+     * @param  {Object}    scmInfo       The result of getScmInfo
+     * @param  {String}    token         The token used to authenticate to the SCM
+     * @return {Promise}                 Resolves to the url of the specified branch in the scmInfo
+     */
+    _getBranchUrl(scmInfo, token) {
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand({
+                action: 'getBranch',
+                token,
+                params: scmInfo
+            }, (error, branchInfo) => {
+                if (error) {
+                    return reject(error);
+                }
+
+                // eslint-disable-next-line no-underscore-dangle
+                return resolve(branchInfo._links.html);
+            });
+        });
+    }
+
+    /**
+     * Get repository object for storing new pipeline
+     * @method _getRepoId
+     * @param  {Object}    config        Configuration
+     * @param  {String}    config.scmUrl The scmUrl to get permissions on
+     * @param  {String}    config.token  The token used to authenticate to the SCM
+     * @return {Promise}
+     */
+    _getRepoId(config) {
+        const scmInfo = getInfo(config.scmUrl);
+
+        return Promise.all([
+            // eslint-disable-next-line no-underscore-dangle
+            this._getRepoInfo(scmInfo, config.token),
+            // eslint-disable-next-line no-underscore-dangle
+            this._getBranchUrl(scmInfo, config.token)
+        ]).then(([repoInfo, branchUrl]) => ({
+            id: `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`,
+            name: repoInfo.full_name,
+            url: branchUrl
+        }));
     }
 }
 
