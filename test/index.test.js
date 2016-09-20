@@ -246,7 +246,8 @@ describe('index', () => {
                     repo: 'models',
                     sha: configSuccess.sha,
                     state: 'success',
-                    context: 'screwdriver'
+                    description: 'Everything looks good!',
+                    context: 'Screwdriver'
                 });
 
                 assert.calledWith(githubMock.authenticate, {
@@ -272,8 +273,36 @@ describe('index', () => {
                         repo: 'models',
                         sha: configSuccess.sha,
                         state: 'success',
-                        context: 'screwdriver',
+                        description: 'Everything looks good!',
+                        context: 'Screwdriver',
                         target_url: 'http://localhost/v3/builds/1234/logs'
+                    });
+
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: configSuccess.token
+                    });
+
+                    assert.deepEqual(result, data);
+                })
+                .catch((err) => {
+                    assert.fail(err, 'This should not fail the test');
+                });
+        });
+
+        it('sets a better context when jobName passed in', () => {
+            githubMock.repos.createStatus.yieldsAsync(null, data);
+            configSuccess.jobName = 'PR-15';
+
+            return scm.updateCommitStatus(configSuccess)
+                .then((result) => {
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        user: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: configSuccess.sha,
+                        state: 'success',
+                        description: 'Everything looks good!',
+                        context: 'Screwdriver/PR-15'
                     });
 
                     assert.calledWith(githubMock.authenticate, {
@@ -292,13 +321,17 @@ describe('index', () => {
             githubMock.repos.createStatus.yieldsAsync(null, data);
 
             return scm.updateCommitStatus(configFailure)
+            .catch(() => {
+                assert.fail('This should not fail the test');
+            })
             .then((result) => {
                 assert.calledWith(githubMock.repos.createStatus, {
                     user: 'screwdriver-cd',
                     repo: 'models',
                     sha: configFailure.sha,
                     state: 'failure',
-                    context: 'screwdriver'
+                    description: 'Did not work as expected.',
+                    context: 'Screwdriver'
                 });
 
                 assert.calledWith(githubMock.authenticate, {
@@ -307,9 +340,6 @@ describe('index', () => {
                 });
 
                 assert.deepEqual(result, data);
-            })
-            .catch(() => {
-                assert.fail('This should not fail the test');
             });
         });
 
@@ -328,7 +358,8 @@ describe('index', () => {
                     repo: 'models',
                     sha: configSuccess.sha,
                     state: 'success',
-                    context: 'screwdriver'
+                    description: 'Everything looks good!',
+                    context: 'Screwdriver'
                 });
 
                 assert.calledWith(githubMock.authenticate, {
