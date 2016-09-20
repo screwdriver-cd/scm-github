@@ -12,6 +12,13 @@ const STATE_MAP = {
     RUNNING: 'pending',
     QUEUED: 'pending'
 };
+const DESCRIPTION_MAP = {
+    SUCCESS: 'Everything looks good!',
+    FAILURE: 'Did not work as expected.',
+    ABORTED: 'Aborted mid-flight',
+    RUNNING: 'Testing your code...',
+    QUEUED: 'Looking for a place to park...'
+};
 
 /**
 * Get repo information
@@ -154,18 +161,20 @@ class GithubScm extends Scm {
     * @param  {String}   config.sha          The sha to apply the status to
     * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
     * @param  {String}   config.token        The token used to authenticate to the SCM
+    * @param  {String}   [config.jobName]    Optional name of the job that finished
     * @param  {String}   [config.url]        Optional target url
     * @return {Promise}
     */
     _updateCommitStatus(config) {
         const scmInfo = getInfo(config.scmUrl);
-
+        const context = config.jobName ? `Screwdriver/${config.jobName}` : 'Screwdriver';
         const params = {
             user: scmInfo.user,
             repo: scmInfo.repo,
             sha: config.sha,
             state: STATE_MAP[config.buildStatus] || 'failure',
-            context: 'screwdriver'
+            description: DESCRIPTION_MAP[config.buildStatus] || 'failure',
+            context
         };
 
         if (config.url) {
