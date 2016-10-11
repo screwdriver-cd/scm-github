@@ -1,4 +1,5 @@
 'use strict';
+
 const assert = require('chai').assert;
 const mockery = require('mockery');
 const sinon = require('sinon');
@@ -194,7 +195,7 @@ describe('index', () => {
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.get, {
                     user: 'screwdriver-cd',
                     repo: 'models'
@@ -352,7 +353,7 @@ describe('index', () => {
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.createStatus, {
                     user: 'screwdriver-cd',
                     repo: 'models',
@@ -368,6 +369,7 @@ describe('index', () => {
                 });
 
                 assert.deepEqual(error, err);
+                assert.strictEqual(scm.breaker.getTotalRequests(), 5);
             });
         });
     });
@@ -528,13 +530,15 @@ jobs:
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
+            err.code = 404;
+
             githubMock.repos.getContent.yieldsAsync(err);
 
             return scm.getFile(config)
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.getContent, {
                     user: 'screwdriver-cd',
                     repo: 'models',
@@ -548,6 +552,7 @@ jobs:
                 });
 
                 assert.deepEqual(error, err);
+                assert.strictEqual(scm.breaker.getTotalRequests(), 1);
             });
         });
     });
@@ -585,7 +590,7 @@ jobs:
             .catch(() => {
                 assert.fail('This should not fail the test');
             })
-            .then(repoId => {
+            .then((repoId) => {
                 assert.deepEqual(repoId, expectedRepoId);
             });
         });
@@ -597,7 +602,7 @@ jobs:
             githubMock.repos.getBranch.yieldsAsync(err, branchData);
 
             return scm.getRepoId(config)
-            .catch(error => {
+            .catch((error) => {
                 assert.deepEqual(error, err);
             });
         });
@@ -609,7 +614,7 @@ jobs:
             githubMock.repos.getBranch.yieldsAsync(err, invalidData);
 
             return scm.getRepoId(config)
-            .catch(error => {
+            .catch((error) => {
                 assert.deepEqual(error, err);
             });
         });
