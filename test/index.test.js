@@ -1,7 +1,13 @@
 'use strict';
+
 const assert = require('chai').assert;
 const mockery = require('mockery');
 const sinon = require('sinon');
+
+const testPayloadClose = require('./data/github.pull_request.closed.json');
+const testPayloadOpen = require('./data/github.pull_request.opened.json');
+const testPayloadPush = require('./data/github.push.json');
+const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -194,7 +200,7 @@ describe('index', () => {
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.get, {
                     user: 'screwdriver-cd',
                     repo: 'models'
@@ -352,7 +358,7 @@ describe('index', () => {
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.createStatus, {
                     user: 'screwdriver-cd',
                     repo: 'models',
@@ -534,7 +540,7 @@ jobs:
             .then(() => {
                 assert.fail('This should not fail the test');
             })
-            .catch(error => {
+            .catch((error) => {
                 assert.calledWith(githubMock.repos.getContent, {
                     user: 'screwdriver-cd',
                     repo: 'models',
@@ -585,7 +591,7 @@ jobs:
             .catch(() => {
                 assert.fail('This should not fail the test');
             })
-            .then(repoId => {
+            .then((repoId) => {
                 assert.deepEqual(repoId, expectedRepoId);
             });
         });
@@ -597,7 +603,7 @@ jobs:
             githubMock.repos.getBranch.yieldsAsync(err, branchData);
 
             return scm.getRepoId(config)
-            .catch(error => {
+            .catch((error) => {
                 assert.deepEqual(error, err);
             });
         });
@@ -609,8 +615,136 @@ jobs:
             githubMock.repos.getBranch.yieldsAsync(err, invalidData);
 
             return scm.getRepoId(config)
-            .catch(error => {
+            .catch((error) => {
                 assert.deepEqual(error, err);
+            });
+        });
+    });
+
+    describe('parseHook', () => {
+        const commonPullRequestParse = {
+            branch: 'master',
+            checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+            prNum: 1,
+            prRef: 'git@github.com:baxterthehacker/public-repo.git#pull/1/merge',
+            sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+            type: 'pr',
+            username: 'baxterthehacker'
+        };
+        let payloadChecker;
+        let testHeaders;
+
+        beforeEach(() => {
+            testHeaders = {
+                'x-github-event': null
+            };
+
+            payloadChecker = sinon.stub();
+        });
+
+        it('parses a payload for a push event payload', () => {
+            testHeaders['x-github-event'] = 'push';
+
+            return scm.parseHook(testHeaders, testPayloadPush)
+            .then((result) => {
+                assert.deepEqual(result, {
+                    action: 'push',
+                    branch: 'master',
+                    checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+                    sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+                    type: 'repo',
+                    username: 'baxterthehacker'
+                });
+            });
+        });
+
+        it('parses a payload for a pull request event payload', () => {
+            testHeaders['x-github-event'] = 'pull_request';
+
+            return scm.parseHook(testHeaders, testPayloadOpen)
+            .then((result) => {
+                payloadChecker(result);
+
+                assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
+                assert.calledWith(payloadChecker, sinon.match({ action: 'opened' }));
+            });
+        });
+
+        it('parses a payload for a pull request being closed', () => {
+            testHeaders['x-github-event'] = 'pull_request';
+
+            return scm.parseHook(testHeaders, testPayloadClose)
+            .then((result) => {
+                payloadChecker(result);
+                assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
+                assert.calledWith(payloadChecker, sinon.match({ action: 'closed' }));
+            });
+        });
+
+        it('parses a payload for a pull request being synchronized', () => {
+            testHeaders['x-github-event'] = 'pull_request';
+
+            return scm.parseHook(testHeaders, testPayloadSync)
+            .then((result) => {
+                payloadChecker(result);
+                assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
+                assert.calledWith(payloadChecker, sinon.match({ action: 'synchronized' }));
+            });
+        });
+
+        it('throws an error when parsing an unsupported payload', () => {
+            testHeaders['x-github-event'] = 'other_event';
+
+            return scm.parseHook(testHeaders, testPayloadPush)
+            .then(() => {
+                assert.fail('This should not fail the tests');
+            }, (err) => {
+                assert.match(err.message, /Event other_event not supported/);
+            });
+        });
+    });
+
+    describe('parseUrl', () => {
+        const repoData = {
+            id: 8675309,
+            full_name: 'iAm/theCaptain'
+        };
+        const token = 'mygithubapitoken';
+        const repoInfo = {
+            host: 'github.com',
+            repo: 'theCaptain',
+            user: 'iAm'
+        };
+
+        it('parses a complete ssh url', () => {
+            const checkoutUrl = 'git@github.com:iAm/theCaptain.git#boat';
+
+            githubMock.repos.get.yieldsAsync(null, repoData);
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token
+            }).then((result) => {
+                assert.strictEqual(result, 'github.com:8675309:boat');
+
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({ branch: 'boat' }));
+            });
+        });
+
+        it('parses a ssh url, defaulting the branch to master', () => {
+            const checkoutUrl = 'git@github.com:iAm/theCaptain.git';
+
+            githubMock.repos.get.yieldsAsync(null, repoData);
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token
+            }).then((result) => {
+                assert.strictEqual(result, 'github.com:8675309:master');
+
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({ branch: 'master' }));
             });
         });
     });
