@@ -1,6 +1,8 @@
 'use strict';
+
 const Breaker = require('circuit-fuses');
 const Github = require('github');
+const hoek = require('hoek');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
 const MATCH_COMPONENT_BRANCH_NAME = 4;
@@ -324,6 +326,101 @@ class GithubScm extends Scm {
             name: repoInfo.full_name,
             url: branchUrl
         }));
+    }
+
+    /**
+     * Given a SCM webhook payload & its associated headers, aggregate the
+     * necessary data to execute a Screwdriver job with.
+     *
+     * Temporary shiv until 2.0 is implemented
+     * @method parseHook
+     * @param  {Object}  payloadHeaders  The request headers associated with the
+     *                                   webhook payload
+     * @param  {Object}  webhookPayload  The webhook payload received from the
+     *                                   SCM service.
+     * @return {Promise}
+     */
+    parseHook(payloadHeaders, webhookPayload) {
+        return new Promise((resolve, reject) => {
+            try {
+                // eslint-disable-next-line no-underscore-dangle
+                const result = this._parseHook(payloadHeaders, webhookPayload);
+
+                return resolve(result);
+            } catch (e) {
+                return reject(e);
+            }
+        });
+    }
+
+    /**
+     * Given a SCM webhook payload & its associated headers, aggregate the
+     * necessary data to execute a Screwdriver job with.
+     * @method parseHook
+     * @param  {Object}  payloadHeaders  The request headers associated with the
+     *                                   webhook payload
+     * @param  {Object}  webhookPayload  The webhook payload received from the
+     *                                   SCM service.
+     * @return {Object}                  A key-map of data related to the received
+     *                                   payload
+     */
+    _parseHook(payloadHeaders, webhookPayload) {
+        const type = payloadHeaders['x-github-event'];
+        const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
+
+        switch (type) {
+        case 'pull_request': {
+            let action = hoek.reach(webhookPayload, 'action');
+            const prNum = hoek.reach(webhookPayload, 'pull_request.number');
+
+            if (action === 'synchronize') {
+                action = 'synchronized';
+            }
+
+            return {
+                action,
+                branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
+                checkoutUrl,
+                prNum,
+                prRef: `${checkoutUrl}#pull/${prNum}/merge`,
+                sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
+                type: 'pr',
+                username: hoek.reach(webhookPayload, 'pull_request.user.login')
+            };
+        }
+        case 'push':
+            return {
+                action: 'push',
+                branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
+                checkoutUrl: hoek.reach(webhookPayload, 'repository.ssh_url'),
+                sha: hoek.reach(webhookPayload, 'after'),
+                type: 'repo',
+                username: hoek.reach(webhookPayload, 'sender.login')
+            };
+        default:
+            throw new Error(`Event ${type} not supported`);
+        }
+    }
+
+    /**
+     * Parses a SCM URL into a screwdriver-representable ID
+     *
+     * 'token' is required, since it is necessary to lookup the SCM ID by
+     * communicating with said SCM service.
+     * @method parseUrl
+     * @param  {Object} config              Config object
+     * @param  {String} config.checkoutUrl  The checkout URL to parse
+     * @param  {String} config.token        The token used to authenticate to the SCM service
+     * @return {Promise}                    Resolves to an ID of 'serviceName:repoId:branchName'
+     */
+    parseUrl(config) {
+        const scmInfo = getInfo(config.checkoutUrl);
+
+        // eslint-disable-next-line no-underscore-dangle
+        return this._getRepoInfo(scmInfo, config.token)
+        .then(repoInfo =>
+            `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`
+        );
     }
 }
 

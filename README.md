@@ -49,6 +49,49 @@ The `getCommitSha` function will fetch the commit sha for a given branch on a re
 
 The `getCommitSha` function returns a promise that will resolve to a git commit sha value.
 
+### parseUrl
+Required parameters:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config             | Object | Configuration Object |
+| config.checkoutUrl | String | Checkout url for a repo to parse |
+| config.token  | String | The scm token to check permissions on |
+
+#### Expected Outcome
+An scmUri (ex: `github.com:1234:branchName`, where 1234 is a repo ID number), which will be a unique identifier for the repo and branch in Screwdriver.
+
+#### Expected Promise response
+1. Resolve with an scm uri for the repository
+2. Reject if not able to parse url
+
+### parseHook
+Required parameters:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| headers        | Object | The request headers associated with the webhook payload |
+| payload        | Object | The webhook payload received from the SCM service |
+
+#### Expected Outcome
+A key-map of data related to the received payload in the form of:
+```js
+{
+    type: 'pr',         // can be 'pr' or 'repo'
+    action: 'opened',   // can be 'opened', 'closed', or 'synchronized' for type 'pr'; 'push' for type 'repo'
+    username: 'batman',
+    checkoutUrl: 'https://batman@bitbucket.org/batman/test.git',
+    branch: 'mynewbranch',
+    sha: '40171b678527',
+    prNum: 3,
+    prRef: 'refs/pull-requests/3/from'
+}
+```
+
+#### Expected Promise response
+1. Resolve with a parsed hook object
+2. Reject if not able to parse hook
+
 ### updateCommitStatus
 The parameters required are:
 
