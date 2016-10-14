@@ -374,6 +374,7 @@ describe('index', () => {
                 });
 
                 assert.deepEqual(error, err);
+                assert.strictEqual(scm.breaker.getTotalRequests(), 5);
             });
         });
     });
@@ -534,6 +535,8 @@ jobs:
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
+            err.code = 404;
+
             githubMock.repos.getContent.yieldsAsync(err);
 
             return scm.getFile(config)
@@ -554,6 +557,7 @@ jobs:
                 });
 
                 assert.deepEqual(error, err);
+                assert.strictEqual(scm.breaker.getTotalRequests(), 1);
             });
         });
     });

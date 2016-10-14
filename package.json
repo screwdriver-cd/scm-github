@@ -39,7 +39,7 @@
     "sinon": "^1.17.5"
   },
   "dependencies": {
-    "circuit-fuses": "^2.0.0",
+    "circuit-fuses": "^2.0.3",
     "github": "^2.4.1",
     "hoek": "^4.1.0",
     "screwdriver-data-schema": "^13.0.0",
