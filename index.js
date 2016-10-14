@@ -102,25 +102,19 @@ class GithubScm extends Scm {
     lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand({
-                action: 'getById',
-                token: config.token,
-                params: { id: scmId }
-            }, (error, data) => {
-                if (error) {
-                    return reject(error);
-                }
+        return this.breaker.runCommand({
+            action: 'getById',
+            token: config.token,
+            params: { id: scmId }
+        }).then((data) => {
+            const [repoOwner, repoName] = data.full_name.split('/');
 
-                const [repoOwner, repoName] = data.full_name.split('/');
-
-                return resolve({
-                    branch: scmBranch,
-                    host: scmHost,
-                    repo: repoName,
-                    user: repoOwner
-                });
-            });
+            return {
+                branch: scmBranch,
+                host: scmHost,
+                repo: repoName,
+                user: repoOwner
+            };
         });
     }
 
@@ -137,23 +131,15 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then(scmInfo =>
-            new Promise((resolve, reject) => {
-                this.breaker.runCommand({
-                    action: 'get',
-                    token: config.token,
-                    params: {
-                        repo: scmInfo.repo,
-                        user: scmInfo.user
-                    }
-                }, (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-
-                    return resolve(data.permissions);
-                });
+            this.breaker.runCommand({
+                action: 'get',
+                token: config.token,
+                params: {
+                    repo: scmInfo.repo,
+                    user: scmInfo.user
+                }
             })
-        );
+        ).then(data => data.permissions);
     }
 
     /**
@@ -169,25 +155,17 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then(scmInfo =>
-            new Promise((resolve, reject) => {
-                this.breaker.runCommand({
-                    action: 'getBranch',
-                    token: config.token,
-                    params: {
-                        branch: scmInfo.branch,
-                        host: scmInfo.host,
-                        repo: scmInfo.repo,
-                        user: scmInfo.user
-                    }
-                }, (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-
-                    return resolve(data.commit.sha);
-                });
+            this.breaker.runCommand({
+                action: 'getBranch',
+                token: config.token,
+                params: {
+                    branch: scmInfo.branch,
+                    host: scmInfo.host,
+                    repo: scmInfo.repo,
+                    user: scmInfo.user
+                }
             })
-        );
+        ).then(data => data.commit.sha);
     }
 
     /**
@@ -221,18 +199,10 @@ class GithubScm extends Scm {
                 params.target_url = config.url;
             }
 
-            return new Promise((resolve, reject) => {
-                this.breaker.runCommand({
-                    action: 'createStatus',
-                    token: config.token,
-                    params
-                }, (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-
-                    return resolve(data);
-                });
+            return this.breaker.runCommand({
+                action: 'createStatus',
+                token: config.token,
+                params
             });
         });
     }
@@ -252,31 +222,23 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then(scmInfo =>
-            new Promise((resolve, reject) => {
-                this.breaker.runCommand({
-                    action: 'getContent',
-                    token: config.token,
-                    params: {
-                        user: scmInfo.user,
-                        repo: scmInfo.repo,
-                        path: config.path,
-                        ref: config.ref || scmInfo.branch
-                    }
-                }, (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-
-                    if (data.type !== 'file') {
-                        return reject(new Error(`Path (${config.path}) does not point to file`));
-                    }
-
-                    const contents = new Buffer(data.content, data.encoding).toString();
-
-                    return resolve(contents);
-                });
+            this.breaker.runCommand({
+                action: 'getContent',
+                token: config.token,
+                params: {
+                    user: scmInfo.user,
+                    repo: scmInfo.repo,
+                    path: config.path,
+                    ref: config.ref || scmInfo.branch
+                }
             })
-        );
+        ).then((data) => {
+            if (data.type !== 'file') {
+                throw new Error(`Path (${config.path}) does not point to file`);
+            }
+
+            return new Buffer(data.content, data.encoding).toString();
+        });
     }
 
     /**
@@ -285,19 +247,7 @@ class GithubScm extends Scm {
     * @param  {Response} Object          Object containing stats for the executor
     */
     stats() {
-        return {
-            requests: {
-                total: this.breaker.getTotalRequests(),
-                timeouts: this.breaker.getTimeouts(),
-                success: this.breaker.getSuccessfulRequests(),
-                failure: this.breaker.getFailedRequests(),
-                concurrent: this.breaker.getConcurrentRequests(),
-                averageTime: this.breaker.getAverageRequestTime()
-            },
-            breaker: {
-                isClosed: this.breaker.isClosed()
-            }
-        };
+        return this.breaker.stats();
     }
 
     /**
@@ -308,18 +258,10 @@ class GithubScm extends Scm {
      * @return {Promise}                 Resolves to the result object of GitHub repository API
      */
     _getRepoInfo(scmInfo, token) {
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand({
-                action: 'get',
-                token,
-                params: scmInfo
-            }, (error, repoInfo) => {
-                if (error) {
-                    return reject(error);
-                }
-
-                return resolve(repoInfo);
-            });
+        return this.breaker.runCommand({
+            action: 'get',
+            token,
+            params: scmInfo
         });
     }
 
@@ -332,26 +274,20 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _decorateAuthor(config) {
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand({
-                action: 'getForUser',
-                scopeType: 'users',
-                token: config.token,
-                params: { user: config.username }
-            }, (error, data) => {
-                if (error) {
-                    return reject(error);
-                }
+        return this.breaker.runCommand({
+            action: 'getForUser',
+            scopeType: 'users',
+            token: config.token,
+            params: { user: config.username }
+        }).then((data) => {
+            const name = data.name ? data.name : data.login;
 
-                const name = data.name ? data.name : data.login;
-
-                return resolve({
-                    avatar: data.avatar_url,
-                    name,
-                    username: data.login,
-                    url: data.html_url
-                });
-            });
+            return {
+                avatar: data.avatar_url,
+                name,
+                username: data.login,
+                url: data.html_url
+            };
         });
     }
 
@@ -369,22 +305,14 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then(scmInfo =>
-            new Promise((resolve, reject) => {
-                this.breaker.runCommand({
-                    action: 'getCommit',
-                    token: config.token,
-                    params: {
-                        user: scmInfo.user,
-                        repo: scmInfo.repo,
-                        sha: config.sha
-                    }
-                }, (error, data) => {
-                    if (error) {
-                        return reject(error);
-                    }
-
-                    return resolve(data);
-                });
+            this.breaker.runCommand({
+                action: 'getCommit',
+                token: config.token,
+                params: {
+                    user: scmInfo.user,
+                    repo: scmInfo.repo,
+                    sha: config.sha
+                }
             })
         );
         const authorLookup = commitLookup.then(commitData =>
