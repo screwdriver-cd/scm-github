@@ -14,6 +14,82 @@ npm install screwdriver-scm-github
 ### Configure
 TODO: allow github values to be configurable
 
+## decorateUrl
+Required parameters:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config        | Object | Configuration Object |
+| config.scmUri | String | Scm uri (ex: `github.com:1234:branchName`) |
+| config.token  | String | Access token for scm |
+
+#### Expected Outcome
+Decorated url in the form of:
+```js
+{
+    url: 'https://github.com/screwdriver-cd/scm-base',
+    name: 'screwdriver-cd/scm-base',
+    branch: 'branchName'
+}
+```
+
+#### Expected Promise response
+1. Resolve with a decorated url object for the repository
+2. Reject if not able to get decorate url
+
+### decorateCommit
+Required parameters:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config        | Object | Configuration Object |
+| config.sha     | String | Commit sha to decorate |
+| config.scmUri        | String | Scm uri (ex: `github.com:1234:branchName`) |
+| config.token | String | Access token for scm |
+
+#### Expected Outcome
+Decorated commit in the form of:
+```js
+{
+    url: 'https://github.com/screwdriver-cd/scm-base/commit/5c3b2cc64ee4bdab73e44c394ad1f92208441411',
+    message: 'Use screwdriver to publish',
+    author: {
+        url: 'https://github.com/d2lam',
+        name: 'Dao Lam',
+        username: 'd2lam',
+        avatar: 'https://avatars3.githubusercontent.com/u/3401924?v=3&s=400'
+    }
+}
+```
+
+#### Expected Promise response
+1. Resolve with a decorate commit object for the repository
+2. Reject if not able to decorate commit
+
+### decorateAuthor
+Required parameters:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config        | Object | Configuration Object |
+| config.username     | String | Author to decorate |
+| config.token | String | Access token for scm |
+
+#### Expected Outcome
+Decorated author in the form of:
+```js
+{
+    url: 'https://github.com/d2lam',
+    name: 'Dao Lam',
+    username: 'd2lam',
+    avatar: 'https://avatars3.githubusercontent.com/u/3401924?v=3&s=400'
+}
+```
+
+#### Expected Promise response
+1. Resolve with a decorate author object for the repository
+2. Reject if not able to decorate author
+
 ### formatScmUrl
 The parameters required are:
 

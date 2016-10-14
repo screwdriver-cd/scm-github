@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-scm-github",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Github implementation for the scm-base class",
   "main": "index.js",
   "scripts": {
@@ -42,7 +42,8 @@
     "circuit-fuses": "^2.0.3",
     "github": "^2.4.1",
     "hoek": "^4.1.0",
-    "screwdriver-data-schema": "^13.0.0",
-    "screwdriver-scm-base": "^1.0.0"
+    "joi": "^9.1.1",
+    "screwdriver-data-schema": "^14.0.5",
+    "screwdriver-scm-base": "^2.0.3"
   }
 }
