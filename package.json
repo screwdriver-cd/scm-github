@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "circuit-fuses": "^2.0.3",
-    "github": "^2.4.1",
+    "github": "^3.0.0",
     "hoek": "^4.1.0",
     "joi": "^9.1.1",
     "screwdriver-data-schema": "^14.0.5",
