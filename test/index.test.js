@@ -861,7 +861,7 @@ jobs:
                 commit: {
                     message: 'some commit message that is here'
                 },
-                committer: {
+                author: {
                     login: username
                 },
                 html_url: 'https://link.to/commitDiff'
@@ -887,7 +887,7 @@ jobs:
                     id: scmId
                 });
                 assert.calledWith(githubMock.repos.getCommit, {
-                    owner: repoOwner,
+                    user: repoOwner,
                     repo: repoName,
                     sha
                 });
@@ -912,7 +912,7 @@ jobs:
                 assert.deepEqual(err, testError);
 
                 assert.calledWith(githubMock.repos.getCommit, {
-                    owner: 'banana',
+                    user: 'banana',
                     repo: 'peel',
                     sha
                 });
