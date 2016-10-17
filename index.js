@@ -372,7 +372,7 @@ class GithubScm extends Scm {
                     action: 'getCommit',
                     token: config.token,
                     params: {
-                        owner: scmInfo.user,
+                        user: scmInfo.user,
                         repo: scmInfo.repo,
                         sha: config.sha
                     }
@@ -388,7 +388,7 @@ class GithubScm extends Scm {
         const authorLookup = commitLookup.then(commitData =>
             this.decorateAuthor({
                 token: config.token,
-                username: commitData.committer.login
+                username: commitData.author.login
             })
         );
 
