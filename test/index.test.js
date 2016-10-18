@@ -814,6 +814,32 @@ jobs:
             });
         });
 
+        it('defaults to username when display name does not exist', () => {
+            githubMock.users.getForUser.yieldsAsync(null, {
+                login: username,
+                id: 2042,
+                avatar_url: 'https://avatars.githubusercontent.com/u/2042?v=3',
+                html_url: `https://github.com/${username}`,
+                name: null
+            });
+
+            return scm.decorateAuthor({
+                token: 'tokenfordecorateauthor',
+                username
+            }).then((data) => {
+                assert.deepEqual(data, {
+                    avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
+                    name: username,
+                    url: `https://github.com/${username}`,
+                    username
+                });
+
+                assert.calledWith(githubMock.users.getForUser, {
+                    user: username
+                });
+            });
+        });
+
         it('rejects when failing to communicate with github', () => {
             const testError = new Error('someGithubCommError');
 

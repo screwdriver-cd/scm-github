@@ -343,9 +343,11 @@ class GithubScm extends Scm {
                     return reject(error);
                 }
 
+                const name = data.name ? data.name : data.login;
+
                 return resolve({
                     avatar: data.avatar_url,
-                    name: data.name,
+                    name,
                     username: data.login,
                     url: data.html_url
                 });
