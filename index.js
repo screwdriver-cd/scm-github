@@ -100,6 +100,10 @@ class GithubScm extends Scm {
      *                                    repository-related information
      */
     lookupScmUri(config) {
+        if (config.ref) {
+            return Promise.resolve(getInfo(config.ref));
+        }
+
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
         return this.breaker.runCommand({
@@ -218,10 +222,7 @@ class GithubScm extends Scm {
     * @return {Promise}
     */
     _getFile(config) {
-        return this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        }).then(scmInfo =>
+        return this.lookupScmUri(config).then(scmInfo =>
             this.breaker.runCommand({
                 action: 'getContent',
                 token: config.token,
