@@ -100,10 +100,6 @@ class GithubScm extends Scm {
      *                                    repository-related information
      */
     lookupScmUri(config) {
-        if (config.ref) {
-            return Promise.resolve(getInfo(config.ref));
-        }
-
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
         return this.breaker.runCommand({
@@ -181,7 +177,7 @@ class GithubScm extends Scm {
     * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
     * @param  {String}   config.token        The token used to authenticate to the SCM
     * @param  {String}   [config.jobName]    Optional name of the job that finished
-    * @param  {String}   [config.url]        Optional target url
+    * @param  {String}   config.url          Target url
     * @return {Promise}
     */
     _updateCommitStatus(config) {
@@ -196,12 +192,9 @@ class GithubScm extends Scm {
                 repo: scmInfo.repo,
                 sha: config.sha,
                 state: STATE_MAP[config.buildStatus] || 'failure',
-                user: scmInfo.user
+                user: scmInfo.user,
+                target_url: config.url
             };
-
-            if (config.url) {
-                params.target_url = config.url;
-            }
 
             return this.breaker.runCommand({
                 action: 'createStatus',
@@ -389,7 +382,7 @@ class GithubScm extends Scm {
                 branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
                 checkoutUrl,
                 prNum,
-                prRef: `${checkoutUrl}#pull/${prNum}/merge`,
+                prRef: `pull/${prNum}/merge`,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
                 username: hoek.reach(webhookPayload, 'pull_request.user.login')

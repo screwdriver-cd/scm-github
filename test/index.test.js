@@ -357,6 +357,29 @@ describe('index', () => {
                 });
         });
 
+        it('sets a better context when jobName passed in', () => {
+            config.jobName = 'PR-15';
+
+            return scm.updateCommitStatus(config)
+                .then((result) => {
+                    assert.deepEqual(result, data);
+
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        user: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'success',
+                        description: 'Everything looks good!',
+                        context: 'Screwdriver/PR-15',
+                        target_url: 'https://foo.bar'
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                });
+        });
+
         it('promises to update commit status on failure', () => {
             config.buildStatus = 'FAILURE';
 
@@ -585,7 +608,7 @@ jobs:
                 });
 
                 assert.deepEqual(error, err);
-                assert.strictEqual(scm.breaker.getTotalRequests(), 1);
+                assert.strictEqual(scm.breaker.getTotalRequests(), 2);
             });
         });
     });
@@ -595,7 +618,7 @@ jobs:
             branch: 'master',
             checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
             prNum: 1,
-            prRef: 'git@github.com:baxterthehacker/public-repo.git#pull/1/merge',
+            prRef: 'pull/1/merge',
             sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
             type: 'pr',
             username: 'baxterthehacker'
