@@ -476,7 +476,6 @@ jobs:
     #         publish: npm publish && git push origin --tags -q
 `;
         const config = {
-            scmUri,
             path: 'screwdriver.yaml',
             token: 'somerandomtoken',
             ref: 'git@github.com:screwdriver-cd/models.git#pull/453/merge'
@@ -505,7 +504,7 @@ jobs:
                         user: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
-                        ref: config.ref
+                        ref: 'pull/453/merge'
                     });
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -550,7 +549,7 @@ jobs:
                         user: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
-                        ref: config.ref
+                        ref: 'pull/453/merge'
                     });
 
                     assert.calledWith(githubMock.authenticate, {
@@ -576,7 +575,7 @@ jobs:
                     user: 'screwdriver-cd',
                     repo: 'models',
                     path: config.path,
-                    ref: config.ref
+                    ref: 'pull/453/merge'
                 });
 
                 assert.calledWith(githubMock.authenticate, {

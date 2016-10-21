@@ -189,14 +189,18 @@ The parameters required are:
 | Parameter        | Type  |  Description |
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
-| config.scmUrl | String | The scmUrl to get permissions on |
+| config.scmUri | String | The scmUri to get permissions on, e.g. github.com:123456:master |
 | config.token | String | The github token to check permissions on |
 | config.path | String | The path to the file on github to read |
-| config.ref | String | The reference to the github repo, could be a branch or sha |
+| config.ref | String | The scm reference to a github repo, branch or pull request, e.g. git@github.com:screwdriver-cd-test/functional-git.git#pull/1/merge  |
+
+Either `ref` or `scmUri` is required. If both provided, `ref` will be used.
 
 The `getFile` function returns a promise that will resolve to the contents of a file that is returned back from github.
 
 The function will reject if the path does not point to a file.
+
+
 
 ### stats
 Returns circuit breaker statistics for interactions with github

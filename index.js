@@ -218,7 +218,7 @@ class GithubScm extends Scm {
     * @param  {String}   config.scmUri       The scmUri to get permissions on
     * @param  {String}   config.path         The file in the repo to fetch
     * @param  {String}   config.token        The token used to authenticate to the SCM
-    * @param  {String}   config.ref          The reference to the SCM, either branch or sha
+    * @param  {String}   config.ref          The reference to the SCM
     * @return {Promise}
     */
     _getFile(config) {
@@ -230,7 +230,7 @@ class GithubScm extends Scm {
                     user: scmInfo.user,
                     repo: scmInfo.repo,
                     path: config.path,
-                    ref: config.ref || scmInfo.branch
+                    ref: scmInfo.branch
                 }
             })
         ).then((data) => {
