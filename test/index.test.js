@@ -17,6 +17,7 @@ describe('index', () => {
     let GithubScm;
     let scm;
     let githubMock;
+    let githubMockClass;
 
     before(() => {
         mockery.enable({
@@ -40,17 +41,22 @@ describe('index', () => {
                 getForUser: sinon.stub()
             }
         };
+        githubMockClass = sinon.stub().returns(githubMock);
 
-        mockery.registerMock('github', sinon.stub().returns(githubMock));
+        mockery.registerMock('github', githubMockClass);
 
         /* eslint-disable global-require */
         GithubScm = require('../index');
         /* eslint-enable global-require */
 
         scm = new GithubScm({
-            retry: {
-                minTimeout: 10
-            }
+            fusebox: {
+                retry: {
+                    minTimeout: 1
+                }
+            },
+            oauthClientId: 'abcdefg',
+            oauthClientSecret: 'hijklmno'
         });
     });
 
@@ -67,6 +73,39 @@ describe('index', () => {
         assert.isFunction(scm.getPermissions);
         assert.isFunction(scm.getCommitSha);
         assert.isFunction(scm.updateCommitStatus);
+    });
+
+    describe('constructor', () => {
+        it('validates input', () => {
+            try {
+                scm = new GithubScm();
+                assert.fail('should not get here');
+            } catch (err) {
+                assert.instanceOf(err, Error);
+                assert.equal(err.name, 'ValidationError');
+            }
+        });
+
+        it('can configure for GitHub.com', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno'
+            });
+            assert.calledWith(githubMockClass, {});
+        });
+
+        it('can configure for GHE', () => {
+            scm = new GithubScm({
+                gheHost: 'github.screwdriver.cd',
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno'
+            });
+            assert.calledWith(githubMockClass, {
+                host: 'github.screwdriver.cd',
+                protocol: 'https',
+                pathPrefix: '/api/v3'
+            });
+        });
     });
 
     describe('getCommitSha', () => {
@@ -989,6 +1028,51 @@ jobs:
 
                 assert.calledWith(githubMock.repos.getById, {
                     id: '102498'
+                });
+            });
+        });
+    });
+
+    describe('getBellConfiguration', () => {
+        it('returns a default configuration', () => (
+            scm.getBellConfiguration().then((config) => {
+                assert.deepEqual(config, {
+                    clientId: 'abcdefg',
+                    clientSecret: 'hijklmno',
+                    forceHttps: false,
+                    isSecure: false,
+                    provider: 'github',
+                    scope: [
+                        'admin:repo_hook',
+                        'read:org',
+                        'repo:status'
+                    ]
+                });
+            })
+        ));
+
+        it('returns configuration for github enterprise', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd'
+            });
+
+            return scm.getBellConfiguration().then((config) => {
+                assert.deepEqual(config, {
+                    clientId: 'abcdefg',
+                    clientSecret: 'hijklmno',
+                    config: {
+                        uri: 'https://github.screwdriver.cd'
+                    },
+                    forceHttps: false,
+                    isSecure: false,
+                    provider: 'github',
+                    scope: [
+                        'admin:repo_hook',
+                        'read:org',
+                        'repo:status'
+                    ]
                 });
             });
         });
