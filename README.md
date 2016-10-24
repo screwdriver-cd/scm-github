@@ -217,8 +217,8 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 [license-image]: https://img.shields.io/npm/l/screwdriver-scm-github.svg
 [issues-image]: https://img.shields.io/github/issues/screwdriver-cd/scm-github.svg
 [issues-url]: https://github.com/screwdriver-cd/scm-github/issues
-[status-image]: https://cd.screwdriver.cd/pipelines/dcfd8d2b0d5ba460675a7d20b910ca298a846d17/badge
-[status-url]: https://cd.screwdriver.cd/pipelines/dcfd8d2b0d5ba460675a7d20b910ca298a846d17
+[status-image]: https://cd.screwdriver.cd/pipelines/2707e7cc74064f00937b0fad66568184ea4914ed/badge
+[status-url]: https://cd.screwdriver.cd/pipelines/2707e7cc74064f00937b0fad66568184ea4914ed
 [daviddm-image]: https://david-dm.org/screwdriver-cd/scm-github.svg?theme=shields.io
 [daviddm-url]: https://david-dm.org/screwdriver-cd/scm-github
 [scm-base-class]: https://github.com/screwdriver-cd/scm-base
