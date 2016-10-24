@@ -43,7 +43,7 @@
     "github": "^3.0.0",
     "hoek": "^4.1.0",
     "joi": "^9.2.0",
-    "screwdriver-data-schema": "^14.0.5",
+    "screwdriver-data-schema": "^14.0.12",
     "screwdriver-scm-base": "^2.1.0"
   }
 }

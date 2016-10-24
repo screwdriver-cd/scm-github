@@ -387,6 +387,7 @@ class GithubScm extends Scm {
      */
     _parseHook(payloadHeaders, webhookPayload) {
         const type = payloadHeaders['x-github-event'];
+        const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
 
         switch (type) {
@@ -406,7 +407,8 @@ class GithubScm extends Scm {
                 prRef: `pull/${prNum}/merge`,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
-                username: hoek.reach(webhookPayload, 'pull_request.user.login')
+                username: hoek.reach(webhookPayload, 'pull_request.user.login'),
+                hookId
             };
         }
         case 'push':
@@ -416,7 +418,8 @@ class GithubScm extends Scm {
                 checkoutUrl: hoek.reach(webhookPayload, 'repository.ssh_url'),
                 sha: hoek.reach(webhookPayload, 'after'),
                 type: 'repo',
-                username: hoek.reach(webhookPayload, 'sender.login')
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId
             };
         default:
             throw new Error(`Event ${type} not supported`);

@@ -653,24 +653,25 @@ jobs:
     });
 
     describe('parseHook', () => {
-        const commonPullRequestParse = {
-            branch: 'master',
-            checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
-            prNum: 1,
-            prRef: 'pull/1/merge',
-            sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
-            type: 'pr',
-            username: 'baxterthehacker'
-        };
-        let payloadChecker;
+        let commonPullRequestParse;
         let testHeaders;
 
         beforeEach(() => {
-            testHeaders = {
-                'x-github-event': null
+            commonPullRequestParse = {
+                branch: 'master',
+                checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+                prNum: 1,
+                prRef: 'pull/1/merge',
+                sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+                type: 'pr',
+                username: 'baxterthehacker',
+                hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
 
-            payloadChecker = sinon.stub();
+            testHeaders = {
+                'x-github-event': 'pull_request',
+                'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+            };
         });
 
         it('parses a payload for a push event payload', () => {
@@ -684,50 +685,35 @@ jobs:
                         checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
                         sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                         type: 'repo',
-                        username: 'baxterthehacker'
+                        username: 'baxterthehacker',
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
                     });
                 });
         });
 
-        it('parses a payload for a pull request event payload', () => {
-            testHeaders['x-github-event'] = 'pull_request';
-
-            return scm.parseHook(testHeaders, testPayloadOpen)
+        it('parses a payload for a pull request event payload', () =>
+            scm.parseHook(testHeaders, testPayloadOpen)
                 .then((result) => {
-                    payloadChecker(result);
+                    commonPullRequestParse.action = 'opened';
+                    assert.deepEqual(result, commonPullRequestParse);
+                })
+        );
 
-                    assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
-                    assert.calledWith(payloadChecker, sinon.match({
-                        action: 'opened'
-                    }));
-                });
-        });
-
-        it('parses a payload for a pull request being closed', () => {
-            testHeaders['x-github-event'] = 'pull_request';
-
-            return scm.parseHook(testHeaders, testPayloadClose)
+        it('parses a payload for a pull request being closed', () =>
+            scm.parseHook(testHeaders, testPayloadClose)
                 .then((result) => {
-                    payloadChecker(result);
-                    assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
-                    assert.calledWith(payloadChecker, sinon.match({
-                        action: 'closed'
-                    }));
-                });
-        });
+                    commonPullRequestParse.action = 'closed';
+                    assert.deepEqual(result, commonPullRequestParse);
+                })
+        );
 
-        it('parses a payload for a pull request being synchronized', () => {
-            testHeaders['x-github-event'] = 'pull_request';
-
-            return scm.parseHook(testHeaders, testPayloadSync)
+        it('parses a payload for a pull request being synchronized', () =>
+            scm.parseHook(testHeaders, testPayloadSync)
                 .then((result) => {
-                    payloadChecker(result);
-                    assert.calledWith(payloadChecker, sinon.match(commonPullRequestParse));
-                    assert.calledWith(payloadChecker, sinon.match({
-                        action: 'synchronized'
-                    }));
-                });
-        });
+                    commonPullRequestParse.action = 'synchronized';
+                    assert.deepEqual(result, commonPullRequestParse);
+                })
+        );
 
         it('throws an error when parsing an unsupported payload', () => {
             testHeaders['x-github-event'] = 'other_event';
