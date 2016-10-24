@@ -3,6 +3,7 @@
 const Breaker = require('circuit-fuses');
 const Github = require('github');
 const hoek = require('hoek');
+const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
 const MATCH_COMPONENT_BRANCH_NAME = 4;
@@ -70,23 +71,43 @@ class GithubScm extends Scm {
     /**
     * Constructor
     * @method constructor
-    * @param  {Object} options           Configuration options
-    * @param  {Object} options.retry     Configuration options for circuit breaker retries
-    * @param  {Object} options.breaker   Configuration options for circuit breaker
+    * @param  {Object} options                      Configuration options
+    * @param  {String}  [options.gheHost=null]      If using GitHub Enterprise, the host/port of the deployed instance
+    * @param  {String}  [options.gheProtocol=https] If using GitHub Enterprise, the protocol to use
+    * @param  {Boolean} [options.https=false]       Is the Screwdriver API running over HTTPS
+    * @param  {String}  options.oauthClientId       OAuth Client ID provided by GitHub application
+    * @param  {String}  options.oauthClientSecret   OAuth Client Secret provided by GitHub application
+    * @param  {Object}  [options.fusebox={}]        Circuit Breaker configuration
     * @return {GithubScm}
     */
-    constructor(config) {
+    constructor(config = {}) {
         super();
 
-        this.config = config;
-        this.github = new Github();
+        // Validate configuration
+        this.config = joi.attempt(config, joi.object().keys({
+            gheProtocol: joi.string().optional().default('https'),
+            gheHost: joi.string().optional().description('GitHub Enterpise host'),
+            https: joi.boolean().optional().default(false),
+            oauthClientId: joi.string().required(),
+            oauthClientSecret: joi.string().required(),
+            fusebox: joi.object().default({})
+        }).unknown(true), 'Invalid config for GitHub');
+
+        const githubConfig = {};
+
+        if (this.config.gheHost) {
+            githubConfig.host = this.config.gheHost;
+            githubConfig.protocol = this.config.gheProtocol;
+            githubConfig.pathPrefix = '/api/v3';
+        }
+        this.github = new Github(githubConfig);
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
             // Do not retry when there is a 404 error
             shouldRetry: err => err && err.code !== 404,
-            retry: config.retry,
-            breaker: config.breaker
+            retry: this.config.fusebox.retry,
+            breaker: this.config.fusebox.breaker
         });
     }
 
@@ -423,6 +444,30 @@ class GithubScm extends Scm {
                     `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`
                 )
         );
+    }
+
+    /**
+     * Return a valid Bell configuration (for OAuth)
+     * @method _getBellConfiguration
+     * @return {Promise}
+     */
+    _getBellConfiguration() {
+        const bellConfig = {
+            provider: 'github',
+            clientId: this.config.oauthClientId,
+            clientSecret: this.config.oauthClientSecret,
+            scope: ['admin:repo_hook', 'read:org', 'repo:status'],
+            isSecure: this.config.https,
+            forceHttps: this.config.https
+        };
+
+        if (this.config.gheHost) {
+            bellConfig.config = {
+                uri: `${this.config.gheProtocol}://${this.config.gheHost}`
+            };
+        }
+
+        return Promise.resolve(bellConfig);
     }
 }
 
