@@ -391,6 +391,13 @@ class GithubScm extends Scm {
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
 
         switch (type) {
+        case 'ping':
+            return {
+                checkoutUrl,
+                type: 'ping',
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId
+            };
         case 'pull_request': {
             let action = hoek.reach(webhookPayload, 'action');
             const prNum = hoek.reach(webhookPayload, 'pull_request.number');
@@ -415,7 +422,7 @@ class GithubScm extends Scm {
             return {
                 action: 'push',
                 branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
-                checkoutUrl: hoek.reach(webhookPayload, 'repository.ssh_url'),
+                checkoutUrl,
                 sha: hoek.reach(webhookPayload, 'after'),
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),

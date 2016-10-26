@@ -8,6 +8,7 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadPush = require('./data/github.push.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
+const testPayloadPing = require('./data/github.ping.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -672,6 +673,20 @@ jobs:
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
+        });
+
+        it('parses a payload for a ping event payload', () => {
+            testHeaders['x-github-event'] = 'ping';
+
+            return scm.parseHook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.deepEqual(result, {
+                        checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+                        type: 'ping',
+                        username: 'baxterthehacker',
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+                    });
+                });
         });
 
         it('parses a payload for a push event payload', () => {
