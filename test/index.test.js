@@ -57,7 +57,8 @@ describe('index', () => {
                 }
             },
             oauthClientId: 'abcdefg',
-            oauthClientSecret: 'hijklmno'
+            oauthClientSecret: 'hijklmno',
+            secret: 'somesecret'
         });
     });
 
@@ -90,7 +91,8 @@ describe('index', () => {
         it('can configure for GitHub.com', () => {
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
-                oauthClientSecret: 'hijklmno'
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret'
             });
             assert.calledWith(githubMockClass, {});
         });
@@ -99,7 +101,8 @@ describe('index', () => {
             scm = new GithubScm({
                 gheHost: 'github.screwdriver.cd',
                 oauthClientId: 'abcdefg',
-                oauthClientSecret: 'hijklmno'
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret'
             });
             assert.calledWith(githubMockClass, {
                 host: 'github.screwdriver.cd',
@@ -1056,7 +1059,8 @@ jobs:
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
                 oauthClientSecret: 'hijklmno',
-                gheHost: 'github.screwdriver.cd'
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
             });
 
             return scm.getBellConfiguration().then((config) => {

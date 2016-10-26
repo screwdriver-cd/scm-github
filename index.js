@@ -78,6 +78,7 @@ class GithubScm extends Scm {
     * @param  {String}  options.oauthClientId       OAuth Client ID provided by GitHub application
     * @param  {String}  options.oauthClientSecret   OAuth Client Secret provided by GitHub application
     * @param  {Object}  [options.fusebox={}]        Circuit Breaker configuration
+    * @param  {String}  options.secret              Secret to validate the signature of webhook events
     * @return {GithubScm}
     */
     constructor(config = {}) {
@@ -90,7 +91,8 @@ class GithubScm extends Scm {
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
-            fusebox: joi.object().default({})
+            fusebox: joi.object().default({}),
+            secret: joi.string().required()
         }).unknown(true), 'Invalid config for GitHub');
 
         const githubConfig = {};
