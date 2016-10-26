@@ -673,6 +673,7 @@ jobs:
             };
 
             testHeaders = {
+                'x-hub-signature': 'sha1=48a7560319d1ee2ef591e5f5f303e223934d8eac',
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
@@ -680,6 +681,7 @@ jobs:
 
         it('parses a payload for a ping event payload', () => {
             testHeaders['x-github-event'] = 'ping';
+            testHeaders['x-hub-signature'] = 'sha1=16632852b90c54f46283a90a7e2d4afb801925e5';
 
             return scm.parseHook(testHeaders, testPayloadPing)
                 .then((result) => {
@@ -709,29 +711,35 @@ jobs:
                 });
         });
 
-        it('parses a payload for a pull request event payload', () =>
-            scm.parseHook(testHeaders, testPayloadOpen)
+        it('parses a payload for a pull request event payload', () => {
+            testHeaders['x-hub-signature'] = 'sha1=568b8bf42185008f5c1c46656a12a20a9dc4341e';
+
+            return scm.parseHook(testHeaders, testPayloadOpen)
                 .then((result) => {
                     commonPullRequestParse.action = 'opened';
                     assert.deepEqual(result, commonPullRequestParse);
-                })
-        );
+                });
+        });
 
-        it('parses a payload for a pull request being closed', () =>
-            scm.parseHook(testHeaders, testPayloadClose)
+        it('parses a payload for a pull request being closed', () => {
+            testHeaders['x-hub-signature'] = 'sha1=42d1596ec3679efc2b5a18c7eb9f2e7c0093d288';
+
+            return scm.parseHook(testHeaders, testPayloadClose)
                 .then((result) => {
                     commonPullRequestParse.action = 'closed';
                     assert.deepEqual(result, commonPullRequestParse);
-                })
-        );
+                });
+        });
 
-        it('parses a payload for a pull request being synchronized', () =>
-            scm.parseHook(testHeaders, testPayloadSync)
+        it('parses a payload for a pull request being synchronized', () => {
+            testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
+
+            return scm.parseHook(testHeaders, testPayloadSync)
                 .then((result) => {
                     commonPullRequestParse.action = 'synchronized';
                     assert.deepEqual(result, commonPullRequestParse);
-                })
-        );
+                });
+        });
 
         it('throws an error when parsing an unsupported payload', () => {
             testHeaders['x-github-event'] = 'other_event';
@@ -741,6 +749,17 @@ jobs:
                     assert.fail('This should not fail the tests');
                 }, (err) => {
                     assert.match(err.message, /Event other_event not supported/);
+                });
+        });
+
+        it('throws an error when signature is not valid', () => {
+            testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
+
+            return scm.parseHook(testHeaders, testPayloadPush)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                }, (err) => {
+                    assert.match(err.message, /Invalid x-hub-signature/);
                 });
         });
     });
