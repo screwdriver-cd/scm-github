@@ -24,10 +24,13 @@ The class has a variety of knobs to tweak when interacting with GitHub.
 | config.oauthClientId | String | OAuth Client ID provided by GitHub application |
 | config.oauthClientSecret | String | OAuth Client Secret provided by GitHub application |
 | config.fusebox ({}) | Object | [Circuit Breaker configuration][circuitbreaker] |
+| config.secret | String | Secret to validate the signature of webhook events |
+
 ```js
 const scm = new GithubScm({
     oauthClientId: 'abcdef',
-    oauthClientSecret: 'hijklm'
+    oauthClientSecret: 'hijklm',
+    secret: 'somesecret'
 });
 ```
 

@@ -6,6 +6,7 @@ const hoek = require('hoek');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
+const crypto = require('crypto');
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
@@ -78,6 +79,7 @@ class GithubScm extends Scm {
     * @param  {String}  options.oauthClientId       OAuth Client ID provided by GitHub application
     * @param  {String}  options.oauthClientSecret   OAuth Client Secret provided by GitHub application
     * @param  {Object}  [options.fusebox={}]        Circuit Breaker configuration
+    * @param  {String}  options.secret              Secret to validate the signature of webhook events
     * @return {GithubScm}
     */
     constructor(config = {}) {
@@ -90,7 +92,8 @@ class GithubScm extends Scm {
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
-            fusebox: joi.object().default({})
+            fusebox: joi.object().default({}),
+            secret: joi.string().required()
         }).unknown(true), 'Invalid config for GitHub');
 
         const githubConfig = {};
@@ -375,6 +378,27 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Check validity of github webhook event signature
+     * @method _checkSignature
+     * @param   {String}    secret      The secret used to sign the payload
+     * @param   {String}    payload     The payload of the webhook event
+     * @param   {String}    signature   The signature of the webhook event
+     * @returns {boolean}
+     */
+    _checkSignature(secret, payload, signature) {
+        const hmac = crypto.createHmac('sha1', secret);
+
+        hmac.setEncoding('hex');
+        hmac.write(JSON.stringify(payload), 'utf-8');
+        hmac.end();
+
+        const sha = hmac.read();
+        const hash = `sha1=${sha}`;
+
+        return hash === signature;
+    }
+
+    /**
      * Given a SCM webhook payload & its associated headers, aggregate the
      * necessary data to execute a Screwdriver job with.
      * @method _parseHook
@@ -386,6 +410,13 @@ class GithubScm extends Scm {
      *                                   payload
      */
     _parseHook(payloadHeaders, webhookPayload) {
+        const signature = payloadHeaders['x-hub-signature'];
+
+        // eslint-disable-next-line no-underscore-dangle
+        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
+            throw new Error('Invalid x-hub-signature');
+        }
+
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
