@@ -8,6 +8,7 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadPush = require('./data/github.push.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
+const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
 const testPayloadPing = require('./data/github.ping.json');
 
 sinon.assert.expose(assert, {
@@ -679,21 +680,6 @@ jobs:
             };
         });
 
-        it('parses a payload for a ping event payload', () => {
-            testHeaders['x-github-event'] = 'ping';
-            testHeaders['x-hub-signature'] = 'sha1=16632852b90c54f46283a90a7e2d4afb801925e5';
-
-            return scm.parseHook(testHeaders, testPayloadPing)
-                .then((result) => {
-                    assert.deepEqual(result, {
-                        checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
-                        type: 'ping',
-                        username: 'baxterthehacker',
-                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
-                    });
-                });
-        });
-
         it('parses a payload for a push event payload', () => {
             testHeaders['x-github-event'] = 'push';
 
@@ -708,6 +694,15 @@ jobs:
                         username: 'baxterthehacker',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
                     });
+                });
+        });
+
+        it('resolves null for a pull request payload with an unsupported action', () => {
+            testHeaders['x-hub-signature'] = 'sha1=94b06a7767de0c55a54004c2319c0e00425351e3';
+
+            return scm.parseHook(testHeaders, testPayloadBadAction)
+                .then((result) => {
+                    assert.isNull(result);
                 });
         });
 
@@ -741,25 +736,25 @@ jobs:
                 });
         });
 
-        it('throws an error when parsing an unsupported payload', () => {
-            testHeaders['x-github-event'] = 'other_event';
+        it('resolves null when parsing an unsupported event payload', () => {
+            testHeaders['x-github-event'] = 'ping';
+            testHeaders['x-hub-signature'] = 'sha1=16632852b90c54f46283a90a7e2d4afb801925e5';
 
-            return scm.parseHook(testHeaders, testPayloadPush)
-                .then(() => {
-                    assert.fail('This should not fail the tests');
-                }, (err) => {
-                    assert.match(err.message, /Event other_event not supported/);
+            return scm.parseHook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.isNull(result);
                 });
         });
 
-        it('throws an error when signature is not valid', () => {
+        it('rejects when signature is not valid', () => {
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
-            return scm.parseHook(testHeaders, testPayloadPush)
+            return scm.parseHook(testHeaders, testPayloadPing)
                 .then(() => {
                     assert.fail('This should not fail the tests');
-                }, (err) => {
-                    assert.match(err.message, /Invalid x-hub-signature/);
+                })
+                .catch((err) => {
+                    assert.equal(err, 'Invalid x-hub-signature');
                 });
         });
     });
