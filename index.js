@@ -406,7 +406,7 @@ class GithubScm extends Scm {
      *                                   webhook payload
      * @param  {Object}  webhookPayload  The webhook payload received from the
      *                                   SCM service.
-     * @return {Object}                  A key-map of data related to the received
+     * @return {Promise}                 A key-map of data related to the received
      *                                   payload
      */
     _parseHook(payloadHeaders, webhookPayload) {
@@ -414,7 +414,7 @@ class GithubScm extends Scm {
 
         // eslint-disable-next-line no-underscore-dangle
         if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
-            throw new Error('Invalid x-hub-signature');
+            return Promise.reject('Invalid x-hub-signature');
         }
 
         const type = payloadHeaders['x-github-event'];
@@ -422,22 +422,22 @@ class GithubScm extends Scm {
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
 
         switch (type) {
-        case 'ping':
-            return {
-                checkoutUrl,
-                type: 'ping',
-                username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId
-            };
         case 'pull_request': {
             let action = hoek.reach(webhookPayload, 'action');
             const prNum = hoek.reach(webhookPayload, 'pull_request.number');
+
+            // Possible actions
+            // "opened", "closed", "reopened", "synchronize",
+            // "assigned", "unassigned", "labeled", "unlabeled", "edited"
+            if (!['opened', 'reopened', 'synchronize', 'closed'].includes(action)) {
+                return Promise.resolve(null);
+            }
 
             if (action === 'synchronize') {
                 action = 'synchronized';
             }
 
-            return {
+            return Promise.resolve({
                 action,
                 branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
                 checkoutUrl,
@@ -447,10 +447,10 @@ class GithubScm extends Scm {
                 type: 'pr',
                 username: hoek.reach(webhookPayload, 'pull_request.user.login'),
                 hookId
-            };
+            });
         }
         case 'push':
-            return {
+            return Promise.resolve({
                 action: 'push',
                 branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
                 checkoutUrl,
@@ -458,9 +458,9 @@ class GithubScm extends Scm {
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 hookId
-            };
+            });
         default:
-            throw new Error(`Event ${type} not supported`);
+            return Promise.resolve(null);
         }
     }
 
