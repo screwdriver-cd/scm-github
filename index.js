@@ -296,7 +296,7 @@ class GithubScm extends Scm {
             action: 'getForUser',
             scopeType: 'users',
             token: config.token,
-            params: { user: config.username }
+            params: { username: config.username }
         }).then((data) => {
             const name = data.name ? data.name : data.login;
 
