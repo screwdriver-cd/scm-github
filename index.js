@@ -41,7 +41,7 @@ function getInfo(scmUrl) {
     const branch = matched[MATCH_COMPONENT_BRANCH_NAME] || '#master';
 
     return {
-        user: matched[MATCH_COMPONENT_USER_NAME],
+        owner: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
         host: matched[MATCH_COMPONENT_HOST_NAME],
         branch: branch.slice(1)
@@ -137,13 +137,13 @@ class GithubScm extends Scm {
                 branch: scmBranch,
                 host: scmHost,
                 repo: repoName,
-                user: repoOwner
+                owner: repoOwner
             };
         });
     }
 
     /**
-    * Get a users permissions on a repository
+    * Get a owners permissions on a repository
     * @method _getPermissions
     * @param  {Object}   config            Configuration
     * @param  {String}   config.scmUri     The scmUri to get permissions on
@@ -160,7 +160,7 @@ class GithubScm extends Scm {
                 token: config.token,
                 params: {
                     repo: scmInfo.repo,
-                    user: scmInfo.user
+                    owner: scmInfo.owner
                 }
             })
         ).then(data => data.permissions);
@@ -186,7 +186,7 @@ class GithubScm extends Scm {
                     branch: scmInfo.branch,
                     host: scmInfo.host,
                     repo: scmInfo.repo,
-                    user: scmInfo.user
+                    owner: scmInfo.owner
                 }
             })
         ).then(data => data.commit.sha);
@@ -216,7 +216,7 @@ class GithubScm extends Scm {
                 repo: scmInfo.repo,
                 sha: config.sha,
                 state: STATE_MAP[config.buildStatus] || 'failure',
-                user: scmInfo.user,
+                owner: scmInfo.owner,
                 target_url: config.url
             };
 
@@ -244,7 +244,7 @@ class GithubScm extends Scm {
                 action: 'getContent',
                 token: config.token,
                 params: {
-                    user: scmInfo.user,
+                    owner: scmInfo.owner,
                     repo: scmInfo.repo,
                     path: config.path,
                     ref: config.ref || scmInfo.branch
@@ -327,7 +327,7 @@ class GithubScm extends Scm {
                 action: 'getCommit',
                 token: config.token,
                 params: {
-                    user: scmInfo.user,
+                    owner: scmInfo.owner,
                     repo: scmInfo.repo,
                     sha: config.sha
                 }
@@ -367,11 +367,11 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then((scmInfo) => {
-            const baseUrl = `${scmInfo.host}/${scmInfo.user}/${scmInfo.repo}`;
+            const baseUrl = `${scmInfo.host}/${scmInfo.owner}/${scmInfo.repo}`;
 
             return {
                 branch: scmInfo.branch,
-                name: `${scmInfo.user}/${scmInfo.repo}`,
+                name: `${scmInfo.owner}/${scmInfo.repo}`,
                 url: `https://${baseUrl}/tree/${scmInfo.branch}`
             };
         });
