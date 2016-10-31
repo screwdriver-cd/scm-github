@@ -869,7 +869,7 @@ jobs:
                 });
 
                 assert.calledWith(githubMock.users.getForUser, {
-                    user: username
+                    username
                 });
             });
         });
@@ -895,7 +895,7 @@ jobs:
                 });
 
                 assert.calledWith(githubMock.users.getForUser, {
-                    user: username
+                    username
                 });
             });
         });
@@ -914,7 +914,7 @@ jobs:
                 assert.deepEqual(err, testError);
 
                 assert.calledWith(githubMock.users.getForUser, {
-                    user: username
+                    username
                 });
             });
         });
@@ -978,7 +978,7 @@ jobs:
                     sha
                 });
                 assert.calledWith(githubMock.users.getForUser, {
-                    user: username
+                    username
                 });
             });
         });
