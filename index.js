@@ -27,8 +27,8 @@ const DESCRIPTION_MAP = {
 /**
 * Get repo information
 * @method getInfo
-* @param  {String} scmUrl      scmUrl of the repo
-* @return {Object}             An object with the user, repo, and branch
+* @param  {String}  scmUrl      scmUrl of the repo
+* @return {Object}              An object with the user, repo, and branch
 */
 function getInfo(scmUrl) {
     const matched = (schema.config.regex.CHECKOUT_URL).exec(scmUrl);
@@ -52,12 +52,12 @@ class GithubScm extends Scm {
     /**
     * Github command to run
     * @method _githubCommand
-    * @param  {Object}   options              An object that tells what command & params to run
-    * @param  {String}   options.action       Github method. For example: get
-    * @param  {String}   options.token        Github token used for authentication of requests
-    * @param  {Object}   options.params       Parameters to run with
-    * @param  {String}   [options.scopeType]  Type of request to make. Default is 'repos'
-    * @param  {Function} callback           Callback function from github API
+    * @param  {Object}      options              An object that tells what command & params to run
+    * @param  {String}      options.action       Github method. For example: get
+    * @param  {String}      options.token        Github token used for authentication of requests
+    * @param  {Object}      options.params       Parameters to run with
+    * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
+    * @param  {Function}    callback             Callback function from github API
     */
     _githubCommand(options, callback) {
         this.github.authenticate({
@@ -72,14 +72,14 @@ class GithubScm extends Scm {
     /**
     * Constructor
     * @method constructor
-    * @param  {Object} options                      Configuration options
-    * @param  {String}  [options.gheHost=null]      If using GitHub Enterprise, the host/port of the deployed instance
-    * @param  {String}  [options.gheProtocol=https] If using GitHub Enterprise, the protocol to use
-    * @param  {Boolean} [options.https=false]       Is the Screwdriver API running over HTTPS
-    * @param  {String}  options.oauthClientId       OAuth Client ID provided by GitHub application
-    * @param  {String}  options.oauthClientSecret   OAuth Client Secret provided by GitHub application
-    * @param  {Object}  [options.fusebox={}]        Circuit Breaker configuration
-    * @param  {String}  options.secret              Secret to validate the signature of webhook events
+    * @param  {Object}  options                      Configuration options
+    * @param  {String}  [options.gheHost=null]       If using GitHub Enterprise, the host/port of the deployed instance
+    * @param  {String}  [options.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
+    * @param  {Boolean} [options.https=false]        Is the Screwdriver API running over HTTPS
+    * @param  {String}  options.oauthClientId        OAuth Client ID provided by GitHub application
+    * @param  {String}  options.oauthClientSecret    OAuth Client Secret provided by GitHub application
+    * @param  {Object}  [options.fusebox={}]         Circuit Breaker configuration
+    * @param  {String}  options.secret               Secret to validate the signature of webhook events
     * @return {GithubScm}
     */
     constructor(config = {}) {
@@ -212,7 +212,7 @@ class GithubScm extends Scm {
             const context = config.jobName ? `Screwdriver/${config.jobName}` : 'Screwdriver';
             const params = {
                 context,
-                description: DESCRIPTION_MAP[config.buildStatus] || 'failure',
+                description: DESCRIPTION_MAP[config.buildStatus],
                 repo: scmInfo.repo,
                 sha: config.sha,
                 state: STATE_MAP[config.buildStatus] || 'failure',
@@ -269,17 +269,25 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get data for a specific repo
-     * @method _getRepoInfo
-     * @param  {Object}   scmInfo        The result of getScmInfo
-     * @param  {String}   token          The token used to authenticate to the SCM
-     * @return {Promise}                 Resolves to the result object of GitHub repository API
+     * Get id of a specific repo
+     * @method _getRepoId
+     * @param  {Object}   scmInfo               The result of getScmInfo
+     * @param  {String}   token                 The token used to authenticate to the SCM
+     * @param  {String}   config.checkoutUrl    The checkoutUrl to parse
+     * @return {Promise}                        Resolves to the result object of GitHub repository API
      */
-    _getRepoInfo(scmInfo, token) {
+    _getRepoId(scmInfo, token, checkoutUrl) {
         return this.breaker.runCommand({
             action: 'get',
             token,
-            params: scmInfo
+            params: scmInfo })
+        .then(data => data.id)
+        .catch((err) => {
+            if (err.code === 404) {
+                throw new Error(`Cannot find repository ${checkoutUrl}`);
+            }
+
+            throw new Error(err);
         });
     }
 
@@ -470,20 +478,18 @@ class GithubScm extends Scm {
      * 'token' is required, since it is necessary to lookup the SCM ID by
      * communicating with said SCM service.
      * @method _parseUrl
-     * @param  {Object} config             Config object
-     * @param  {String} config.checkoutUrl The scmUrl to parse
-     * @param  {String} config.token       The token used to authenticate to the SCM service
-     * @return {Promise}                   Resolves to an ID of 'serviceName:repoId:branchName'
+     * @param  {Object}     config              Config object
+     * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
+     * @param  {String}     config.token        The token used to authenticate to the SCM service
+     * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName'
      */
     _parseUrl(config) {
         return new Promise((resolve) => {
             resolve(getInfo(config.checkoutUrl));
         }).then(scmInfo =>
             // eslint-disable-next-line no-underscore-dangle
-            this._getRepoInfo(scmInfo, config.token)
-                .then(repoInfo =>
-                    `${scmInfo.host}:${repoInfo.id}:${scmInfo.branch}`
-                )
+            this._getRepoId(scmInfo, config.token, config.checkoutUrl)
+                .then(repoId => `${scmInfo.host}:${repoId}:${scmInfo.branch}`)
         );
     }
 
