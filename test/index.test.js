@@ -824,6 +824,23 @@ jobs:
             });
         });
 
+        it('rejects when repo does not exist', () => {
+            const notFoundError = new Error('not found');
+
+            notFoundError.code = 404;
+
+            githubMock.repos.get.yieldsAsync(notFoundError);
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token
+            }).then(() => {
+                assert.fail('This should not fail the test');
+            }, (err) => {
+                assert.match(err.message, 'Cannot find repository');
+            });
+        });
+
         it('rejects when failing to communicate with github', () => {
             const expectedError = new Error('errorCommunicatingWithGithub');
 
