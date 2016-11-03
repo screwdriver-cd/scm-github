@@ -7,6 +7,12 @@ const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
 const crypto = require('crypto');
+const DEFAULT_AUTHOR = {
+    avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+    name: 'n/a',
+    username: 'n/a',
+    url: 'https://cd.screwdriver.cd/'
+};
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
@@ -341,12 +347,16 @@ class GithubScm extends Scm {
                 }
             })
         );
-        const authorLookup = commitLookup.then(commitData =>
-            this.decorateAuthor({
+        const authorLookup = commitLookup.then((commitData) => {
+            if (!commitData.author) {
+                return DEFAULT_AUTHOR;
+            }
+
+            return this.decorateAuthor({
                 token: config.token,
                 username: commitData.author.login
-            })
-        );
+            });
+        });
 
         return Promise.all([
             commitLookup,
