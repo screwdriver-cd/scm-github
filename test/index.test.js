@@ -669,12 +669,12 @@ jobs:
                 prRef: 'pull/1/merge',
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                 type: 'pr',
-                username: 'baxterthehacker',
+                username: 'baxterthehacker2',
                 hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
 
             testHeaders = {
-                'x-hub-signature': 'sha1=48a7560319d1ee2ef591e5f5f303e223934d8eac',
+                'x-hub-signature': 'sha1=5a69278cd3e1ced08f8af4f96da683410a3cefff',
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
@@ -691,14 +691,14 @@ jobs:
                         checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
                         sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                         type: 'repo',
-                        username: 'baxterthehacker',
+                        username: 'baxterthehacker2',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
                     });
                 });
         });
 
         it('resolves null for a pull request payload with an unsupported action', () => {
-            testHeaders['x-hub-signature'] = 'sha1=94b06a7767de0c55a54004c2319c0e00425351e3';
+            testHeaders['x-hub-signature'] = 'sha1=4fe5c8f4a7e4b76a4bd46b4693e87dadf9bec110';
 
             return scm.parseHook(testHeaders, testPayloadBadAction)
                 .then((result) => {
@@ -707,7 +707,7 @@ jobs:
         });
 
         it('parses a payload for a pull request event payload', () => {
-            testHeaders['x-hub-signature'] = 'sha1=568b8bf42185008f5c1c46656a12a20a9dc4341e';
+            testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
             return scm.parseHook(testHeaders, testPayloadOpen)
                 .then((result) => {
@@ -717,7 +717,7 @@ jobs:
         });
 
         it('parses a payload for a pull request being closed', () => {
-            testHeaders['x-hub-signature'] = 'sha1=42d1596ec3679efc2b5a18c7eb9f2e7c0093d288';
+            testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
 
             return scm.parseHook(testHeaders, testPayloadClose)
                 .then((result) => {
@@ -727,7 +727,7 @@ jobs:
         });
 
         it('parses a payload for a pull request being synchronized', () => {
-            testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
+            testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
 
             return scm.parseHook(testHeaders, testPayloadSync)
                 .then((result) => {
@@ -738,7 +738,7 @@ jobs:
 
         it('resolves null when parsing an unsupported event payload', () => {
             testHeaders['x-github-event'] = 'ping';
-            testHeaders['x-hub-signature'] = 'sha1=16632852b90c54f46283a90a7e2d4afb801925e5';
+            testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
 
             return scm.parseHook(testHeaders, testPayloadPing)
                 .then((result) => {

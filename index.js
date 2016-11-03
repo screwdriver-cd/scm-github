@@ -453,7 +453,7 @@ class GithubScm extends Scm {
                 prRef: `pull/${prNum}/merge`,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
-                username: hoek.reach(webhookPayload, 'pull_request.user.login'),
+                username: hoek.reach(webhookPayload, 'sender.login'),
                 hookId
             });
         }
