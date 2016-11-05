@@ -1000,6 +1000,44 @@ jobs:
             });
         });
 
+        it('defaults author data to empty if author is missing', () => {
+            githubMock.repos.getCommit.yieldsAsync(null, {
+                commit: {
+                    message: 'some commit message that is here'
+                },
+                author: null,
+                html_url: 'https://link.to/commitDiff'
+            });
+            githubMock.users.getForUser.yieldsAsync();
+
+            return scm.decorateCommit({
+                scmUri,
+                sha,
+                token: 'tokenfordecoratecommit'
+            }).then((data) => {
+                assert.deepEqual(data, {
+                    author: {
+                        avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+                        name: 'n/a',
+                        url: 'https://cd.screwdriver.cd/',
+                        username: 'n/a'
+                    },
+                    message: 'some commit message that is here',
+                    url: 'https://link.to/commitDiff'
+                });
+
+                assert.calledWith(githubMock.repos.getById, {
+                    id: scmId
+                });
+                assert.calledWith(githubMock.repos.getCommit, {
+                    owner: repoOwner,
+                    repo: repoName,
+                    sha
+                });
+                assert.callCount(githubMock.users.getForUser, 0);
+            });
+        });
+
         it('rejects when failing to communicate with github', () => {
             const testError = new Error('theErrIexpect');
 
