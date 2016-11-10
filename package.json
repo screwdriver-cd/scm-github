@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-scm-github",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "description": "Github implementation for the scm-base class",
   "main": "index.js",
   "scripts": {
@@ -33,7 +33,6 @@
     "chai": "^3.5.0",
     "eslint": "^3.2.2",
     "eslint-config-screwdriver": "^2.0.0",
-    "eslint-plugin-import": "^2.0.1",
     "jenkins-mocha": "^3.0.4",
     "mockery": "^2.0.0",
     "sinon": "^1.17.5"
@@ -43,7 +42,7 @@
     "github": "^6.0.1",
     "hoek": "^4.1.0",
     "joi": "^9.2.0",
-    "screwdriver-data-schema": "^15.0.0",
-    "screwdriver-scm-base": "^2.3.0"
+    "screwdriver-data-schema": "^15.3.0",
+    "screwdriver-scm-base": "^2.4.0"
   }
 }

@@ -10,6 +10,8 @@ const testPayloadPush = require('./data/github.push.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
 const testPayloadPing = require('./data/github.ping.json');
+const testCommands = require('./data/commands.json');
+const testPrCommands = require('./data/prCommands.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -110,6 +112,32 @@ describe('index', () => {
                 protocol: 'https',
                 pathPrefix: '/api/v3'
             });
+        });
+    });
+
+    describe('getCheckoutCommand', () => {
+        const config = {
+            branch: 'branchName',
+            host: 'github.com',
+            org: 'screwdriver-cd',
+            repo: 'guide',
+            sha: '12345'
+        };
+
+        it('promises to get the checkout command for the pipeline branch', () =>
+            scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testCommands);
+                })
+        );
+
+        it('promises to get the checkout command for a pull request', () => {
+            config.prRef = 'pull/3/merge';
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testPrCommands);
+                });
         });
     });
 

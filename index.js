@@ -149,6 +149,52 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Checkout the source code from a repository; resolves as an object with checkout commands
+     * @method getCheckoutCommand
+     * @param  {Object}    config
+     * @param  {String}    config.branch        Pipeline branch
+     * @param  {String}    config.host          Scm host to checkout source code from
+     * @param  {String}    config.org           Scm org name
+     * @param  {String}    config.repo          Scm repo name
+     * @param  {String}    config.sha           Commit sha
+     * @param  {String}    [config.prRef]       PR reference (can be a PR branch or reference)
+     * @return {Promise}
+     */
+    _getCheckoutCommand(config) {
+        const checkoutUrl = `https://${config.host}/${config.org}/${config.repo}`;
+        const checkoutRef = config.prRef ? config.branch : config.sha; // if PR, use pipeline branch
+        const command = [];
+
+        // Git clone
+        command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+        command.push(`git clone --quiet --progress --branch ${config.branch} ${checkoutUrl}`);
+        command.push(`cd ${config.repo}`);
+        // Reset to SHA
+        command.push(`git reset --hard ${checkoutRef}`);
+        command.push(`echo Reset to ${checkoutRef}`);
+        // Set config
+        command.push('echo Setting user name and user email');
+        command.push('git config user.name sd-buildbot');
+        command.push('git config user.email dev-null@screwdriver.cd');
+
+        // For pull requests
+        if (config.prRef) {
+            const prRef = config.prRef.replace('merge', 'head:pr');
+
+            // Fetch a pull request
+            command.push(`echo Fetching PR and merging with ${config.branch}`);
+            command.push(`git fetch origin ${prRef}`);
+            // Merge a pull request with pipeline branch
+            command.push(`git merge --no-edit ${config.sha}`);
+        }
+
+        return Promise.resolve({
+            name: 'checkout-code',
+            command: command.join(' && ')
+        });
+    }
+
+    /**
     * Get a owners permissions on a repository
     * @method _getPermissions
     * @param  {Object}   config            Configuration
