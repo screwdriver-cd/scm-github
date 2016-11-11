@@ -1,4 +1,4 @@
 {
-    "name": "checkout-code",
+    "name": "sd-checkout-code",
     "command": "echo Cloning https://github.com/screwdriver-cd/guide, on branch branchName && git clone --quiet --progress --branch branchName https://github.com/screwdriver-cd/guide && cd guide && git reset --hard branchName && echo Reset to branchName && echo Setting user name and user email && git config user.name sd-buildbot && git config user.email dev-null@screwdriver.cd && echo Fetching PR and merging with branchName && git fetch origin pull/3/head:pr && git merge --no-edit 12345"
 }

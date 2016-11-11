@@ -189,7 +189,7 @@ class GithubScm extends Scm {
         }
 
         return Promise.resolve({
-            name: 'checkout-code',
+            name: 'sd-checkout-code',
             command: command.join(' && ')
         });
     }
