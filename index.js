@@ -161,14 +161,17 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _getCheckoutCommand(config) {
-        const checkoutUrl = `https://${config.host}/${config.org}/${config.repo}`;
+        const checkoutUrl = `${config.host}/${config.org}/${config.repo}`;
         const checkoutRef = config.prRef ? config.branch : config.sha; // if PR, use pipeline branch
         const command = [];
 
         // Git clone
         command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+        command.push(`export SCM_URL=${checkoutUrl}`);
+        command.push('if [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; then '
+            + 'SCM_URL="$SCM_USERNAME:$SCM_ACCESS_TOKEN@$SCM_URL"; fi');
         command.push(`git clone --quiet --progress --branch ${config.branch} `
-            + `${checkoutUrl} $SD_SOURCE_DIR`);
+            + 'https://$SCM_URL $SD_SOURCE_DIR');
         // Reset to SHA
         command.push(`git reset --hard ${checkoutRef}`);
         command.push(`echo Reset to ${checkoutRef}`);
