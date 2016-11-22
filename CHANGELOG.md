@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 4.5.0
+
+Features:
+  * Add ability to checkout with a username and access token by setting `SCM_USERNAME` and `SCM_ACCESS_TOKEN` as secrets inside `screwdriver.yaml`
+
 ## 4.4.0
 
 Features:
