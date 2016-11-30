@@ -1,9 +1,7 @@
 # scm-github
 [![Version][npm-image]][npm-url] ![Downloads][downloads-image] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] [![Dependency Status][daviddm-image]][daviddm-url] ![License][license-image]
 
-> Github implementation for the scm-base class
-
-This scm plugin extends the [scm-base-class], and provides methods to fetch and update data in github.
+> This scm plugin extends the [scm-base-class], and provides methods to fetch and update data in github.
 
 ## Usage
 
