@@ -1,3 +1,5 @@
+/* eslint no-underscore-dangle: ["error", { "allowAfterThis": true }] */
+
 'use strict';
 
 const Breaker = require('circuit-fuses');
@@ -17,6 +19,7 @@ const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
 const MATCH_COMPONENT_HOST_NAME = 1;
+const WEBHOOK_PAGE_SIZE = 30;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -146,6 +149,108 @@ class GithubScm extends Scm {
                 owner: repoOwner
             };
         });
+    }
+
+    /**
+     * Look up a webhook from a repo
+     * @method _findWebhook
+     * @param  {Object}     config
+     * @param  {Object}     config.scmInfo      Data about repo
+     * @param  {String}     config.token        Admin token for repo
+     * @param  {Number}     config.page         pagination: page number to search next
+     * @param  {String}     config.url          url for webhook notifications
+     * @return {Promise}                        Resolves a list of hooks
+     */
+    _findWebhook(config) {
+        return this.breaker.runCommand({
+            action: 'getHooks',
+            token: config.token,
+            params: {
+                owner: config.scmInfo.owner,
+                repo: config.scmInfo.repo,
+                page: config.page,
+                per_page: WEBHOOK_PAGE_SIZE
+            }
+        }).then((hooks) => {
+            const screwdriverHook = hooks.find(hook =>
+                hoek.reach(hook, 'config.url') === config.url
+            );
+
+            if (!screwdriverHook && hooks.length === WEBHOOK_PAGE_SIZE) {
+                config.page += 1;
+
+                return this._findWebhook(config);
+            }
+
+            return screwdriverHook;
+        });
+    }
+
+    /**
+     * Create or edit a webhook (edits if hookInfo exists)
+     * @method _createWebhook
+     * @param  {Object}     config
+     * @param  {Object}     [config.hookInfo]   Information about a existing webhook
+     * @param  {Object}     config.scmInfo      Information about the repo
+     * @param  {String}     config.token        admin token for repo
+     * @param  {String}     config.url          url for webhook notifications
+     * @return {Promise}                        resolves when complete
+     */
+    _createWebhook(config) {
+        let action = 'createHook';
+        const params = {
+            active: true,
+            events: ['push', 'pull_request'],
+            owner: config.scmInfo.owner,
+            repo: config.scmInfo.repo,
+            name: 'web',
+            config: {
+                content_type: 'json',
+                secret: this.config.secret,
+                url: config.url
+            }
+        };
+
+        if (config.hookInfo) {
+            action = 'editHook';
+            Object.assign(params, { id: config.hookInfo.id });
+        }
+
+        return this.breaker.runCommand({
+            action,
+            token: config.token,
+            params
+        });
+    }
+
+    /**
+     * Adds the Screwdriver webhook to the Github repository
+     * @method _addWebhook
+     * @param  {Object}    config            Config object
+     * @param  {String}    config.scmUri     The SCM URI to add the webhook to
+     * @param  {String}    config.token      Service token to authenticate with Github
+     * @param  {String}    config.webhookUrl The URL to use for the webhook notifications
+     * @return {Promise}                     Resolve means operation completed without failure.
+     */
+    _addWebhook(config) {
+        return this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        }).then(scmInfo =>
+            this._findWebhook({
+                scmInfo,
+                url: config.webhookUrl,
+                page: 1,
+                token: config.token
+            }).then(hookInfo =>
+                this._createWebhook({
+                    hookInfo,
+                    scmInfo,
+                    token: config.token,
+                    url: config.webhookUrl
+                })
+            )
+        );
     }
 
     /**
