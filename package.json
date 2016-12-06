@@ -42,7 +42,7 @@
     "circuit-fuses": "^2.0.3",
     "github": "^6.0.1",
     "hoek": "^4.1.0",
-    "joi": "^9.2.0",
+    "joi": "^10.0.5",
     "screwdriver-data-schema": "^15.4.0",
     "screwdriver-scm-base": "^2.4.0"
   },
