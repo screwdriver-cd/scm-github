@@ -34,12 +34,15 @@ describe('index', () => {
         githubMock = {
             authenticate: sinon.stub(),
             repos: {
+                createHook: sinon.stub(),
                 createStatus: sinon.stub(),
+                editHook: sinon.stub(),
                 get: sinon.stub(),
                 getBranch: sinon.stub(),
                 getById: sinon.stub(),
                 getCommit: sinon.stub(),
-                getContent: sinon.stub()
+                getContent: sinon.stub(),
+                getHooks: sinon.stub()
             },
             users: {
                 getForUser: sinon.stub()
@@ -1176,6 +1179,152 @@ jobs:
                         'repo:status'
                     ]
                 });
+            });
+        });
+    });
+
+    describe('_addWebhook', () => {
+        const webhookConfig = {
+            scmUri: 'github.com:1263:branchName',
+            token: 'fakeToken',
+            webhookUrl: 'https://somewhere.in/the/interwebs'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'dolores/violentdelights'
+            });
+            githubMock.repos.getHooks.yieldsAsync(null, [{
+                config: { url: 'https://somewhere.in/the/interwebs' },
+                id: 783150
+            }]);
+        });
+
+        it('add a hook', () => {
+            githubMock.repos.getHooks.yieldsAsync(null, []);
+            githubMock.repos.createHook.yieldsAsync(null);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(() => {
+            /* eslint-enable no-underscore-dangle */
+                assert.calledWith(githubMock.authenticate, sinon.match({
+                    token: 'fakeToken'
+                }));
+                assert.calledWith(githubMock.repos.getById, {
+                    id: '1263'
+                });
+                assert.calledWith(githubMock.repos.createHook, {
+                    active: true,
+                    config: {
+                        content_type: 'json',
+                        secret: 'somesecret',
+                        url: 'https://somewhere.in/the/interwebs'
+                    },
+                    events: ['push', 'pull_request'],
+                    name: 'web',
+                    owner: 'dolores',
+                    repo: 'violentdelights'
+                });
+            });
+        });
+
+        it('updates a pre-existing hook', () => {
+            githubMock.repos.editHook.yieldsAsync(null);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(() => {
+            /* eslint-enable no-underscore-dangle */
+                assert.calledWith(githubMock.repos.getHooks, {
+                    owner: 'dolores',
+                    repo: 'violentdelights',
+                    page: 1,
+                    per_page: 30
+                });
+                assert.calledWith(githubMock.repos.editHook, {
+                    active: true,
+                    config: {
+                        content_type: 'json',
+                        secret: 'somesecret',
+                        url: 'https://somewhere.in/the/interwebs'
+                    },
+                    events: ['push', 'pull_request'],
+                    id: 783150,
+                    name: 'web',
+                    owner: 'dolores',
+                    repo: 'violentdelights'
+                });
+            });
+        });
+
+        it('updates hook on a repo with a lot of other hooks', () => {
+            const invalidHooks = [];
+
+            for (let i = 0; i < 30; i += 1) {
+                invalidHooks.push({});
+            }
+
+            githubMock.repos.getHooks.onCall(0).yieldsAsync(null, invalidHooks);
+            githubMock.repos.editHook.yieldsAsync(null);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(() => {
+            /* eslint-enable no-underscore-dangle */
+                assert.calledWith(githubMock.repos.getHooks, {
+                    owner: 'dolores',
+                    repo: 'violentdelights',
+                    page: 2,
+                    per_page: 30
+                });
+                assert.calledWith(githubMock.repos.editHook, {
+                    active: true,
+                    config: {
+                        content_type: 'json',
+                        secret: 'somesecret',
+                        url: 'https://somewhere.in/the/interwebs'
+                    },
+                    events: ['push', 'pull_request'],
+                    id: 783150,
+                    name: 'web',
+                    owner: 'dolores',
+                    repo: 'violentdelights'
+                });
+            });
+        });
+
+        it('throws an error when failing to getHooks', () => {
+            const testError = new Error('getHooksError');
+
+            githubMock.repos.getHooks.yieldsAsync(testError);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
+            /* eslint-enable no-underscore-dangle */
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to createHook', () => {
+            const testError = new Error('createHookError');
+
+            githubMock.repos.getHooks.yieldsAsync(null, []);
+            githubMock.repos.createHook.yieldsAsync(testError);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
+            /* eslint-enable no-underscore-dangle */
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to editHook', () => {
+            const testError = new Error('editHookError');
+
+            githubMock.repos.editHook.yieldsAsync(testError);
+
+            /* eslint-disable no-underscore-dangle */
+            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
+            /* eslint-enable no-underscore-dangle */
+                assert.equal(err, testError);
             });
         });
     });
