@@ -375,8 +375,7 @@ describe('index', () => {
                 scmUri,
                 sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
                 buildStatus: 'SUCCESS',
-                token: 'somerandomtoken',
-                url: 'https://foo.bar'
+                token: 'somerandomtoken'
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
@@ -399,8 +398,7 @@ describe('index', () => {
                     sha: config.sha,
                     state: 'success',
                     description: 'Everything looks good!',
-                    context: 'Screwdriver',
-                    target_url: 'https://foo.bar'
+                    context: 'Screwdriver'
                 });
                 assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
@@ -408,6 +406,32 @@ describe('index', () => {
                 });
             })
         );
+
+        it('sets a target_url when id passed in', () => {
+            config.url = 'http://localhost/v3/builds/1234/logs';
+
+            return scm.updateCommitStatus(config)
+                .then((result) => {
+                    assert.deepEqual(result, data);
+
+                    assert.calledWith(githubMock.repos.getById, {
+                        id: '14052'
+                    });
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        user: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'success',
+                        description: 'Everything looks good!',
+                        context: 'Screwdriver',
+                        target_url: 'http://localhost/v3/builds/1234/logs'
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                });
+        });
 
         it('sets a better context when jobName passed in', () => {
             config.jobName = 'PR-15';
@@ -445,8 +469,7 @@ describe('index', () => {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR-15',
-                        target_url: 'https://foo.bar'
+                        context: 'Screwdriver/PR-15'
                     });
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -468,8 +491,7 @@ describe('index', () => {
                         sha: config.sha,
                         state: 'failure',
                         description: 'Did not work as expected.',
-                        context: 'Screwdriver',
-                        target_url: 'https://foo.bar'
+                        context: 'Screwdriver'
                     });
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -496,8 +518,7 @@ describe('index', () => {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver',
-                        target_url: 'https://foo.bar'
+                        context: 'Screwdriver'
                     });
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -514,8 +535,7 @@ describe('index', () => {
                 scmUri: 'github.com:28476:master',
                 sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
                 buildStatus: 'SUCCESS',
-                token: 'somerandomtoken',
-                url: 'https://foo.bar'
+                token: 'somerandomtoken'
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
@@ -577,7 +597,7 @@ jobs:
             scmUri,
             path: 'screwdriver.yaml',
             token: 'somerandomtoken',
-            ref: 'git@github.com:screwdriver-cd/models.git#pull/453/merge'
+            ref: '46f1a0bd5592a2f9244ca321b129902a06b53e03'
         };
 
         const configNoRef = {

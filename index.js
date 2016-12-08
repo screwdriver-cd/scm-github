@@ -399,7 +399,10 @@ class GithubScm extends Scm {
     * @return {Promise}
     */
     _getFile(config) {
-        return this.lookupScmUri(config).then(scmInfo =>
+        return this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        }).then(scmInfo =>
             this.breaker.runCommand({
                 action: 'getContent',
                 token: config.token,
