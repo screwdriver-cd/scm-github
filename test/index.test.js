@@ -17,7 +17,10 @@ sinon.assert.expose(assert, {
     prefix: ''
 });
 
-describe('index', () => {
+describe('index', function () {
+    // Time not important. Only life important.
+    this.timeout(5000);
+
     let GithubScm;
     let scm;
     let githubMock;
