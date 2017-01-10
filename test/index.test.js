@@ -1186,7 +1186,7 @@ jobs:
         });
     });
 
-    describe('_addWebhook', () => {
+    describe('addWebhook', () => {
         const webhookConfig = {
             scmUri: 'github.com:1263:branchName',
             token: 'fakeToken',
@@ -1207,9 +1207,7 @@ jobs:
             githubMock.repos.getHooks.yieldsAsync(null, []);
             githubMock.repos.createHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
                 }));
@@ -1234,9 +1232,7 @@ jobs:
         it('updates a pre-existing hook', () => {
             githubMock.repos.editHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
@@ -1269,9 +1265,7 @@ jobs:
             githubMock.repos.getHooks.onCall(0).yieldsAsync(null, invalidHooks);
             githubMock.repos.editHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
@@ -1299,9 +1293,7 @@ jobs:
 
             githubMock.repos.getHooks.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
@@ -1312,9 +1304,7 @@ jobs:
             githubMock.repos.getHooks.yieldsAsync(null, []);
             githubMock.repos.createHook.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
@@ -1324,9 +1314,7 @@ jobs:
 
             githubMock.repos.editHook.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
