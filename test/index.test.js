@@ -36,6 +36,9 @@ describe('index', function () {
     beforeEach(() => {
         githubMock = {
             authenticate: sinon.stub(),
+            pullRequests: {
+                getAll: sinon.stub()
+            },
             repos: {
                 createHook: sinon.stub(),
                 createStatus: sinon.stub(),
@@ -1316,6 +1319,69 @@ jobs:
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
+            });
+        });
+    });
+
+    describe('_getOpenedPRs', () => {
+        const scmUri = 'github.com:111:branchName';
+        const config = {
+            scmUri,
+            token: 'token'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'repoOwner/repoName'
+            });
+        });
+
+        it('returns a list of opened pull requests', () => {
+            githubMock.pullRequests.getAll.yieldsAsync(null, [
+                { number: 1 },
+                { number: 2 }
+            ]);
+
+            return scm._getOpenedPRs(config).then((data) => {
+                assert.deepEqual(data, [
+                    {
+                        name: 'PR-1',
+                        ref: 'pull/1/merge'
+                    },
+                    {
+                        name: 'PR-2',
+                        ref: 'pull/2/merge'
+                    }
+                ]);
+
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.getAll, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    state: 'open'
+                });
+            });
+        });
+
+        it('rejects when failing to lookup the SCM URI information', () => {
+            const testError = new Error('testError');
+
+            githubMock.repos.getById.yieldsAsync(testError);
+
+            return scm._getOpenedPRs(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+
+        it('rejects when failing to fetch opened pull requests', () => {
+            const testError = new Error('testError');
+
+            githubMock.pullRequests.getAll.yieldsAsync(testError);
+
+            return scm._getOpenedPRs(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
             });
         });
     });

@@ -303,6 +303,37 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get a list of objects which consist of opened PR names and refs
+     * @method _getOpenedPRs
+     * @param  {Object}      config
+     * @param  {String}      config.scmUri  The scmUri to get opened PRs from
+     * @param  {String}      config.token   The token used to authenticate with the SCM
+     * @return {Promise}
+     */
+    _getOpenedPRs(config) {
+        return this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        }).then(scmInfo =>
+            this.breaker.runCommand({
+                action: 'getAll',
+                scopeType: 'pullRequests',
+                token: config.token,
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    state: 'open'
+                }
+            })
+        ).then(pullRequests =>
+            pullRequests.map(pullRequestInfo => ({
+                name: `PR-${pullRequestInfo.number}`,
+                ref: `pull/${pullRequestInfo.number}/merge`
+            }))
+        );
+    }
+
+    /**
     * Get a owners permissions on a repository
     * @method _getPermissions
     * @param  {Object}   config            Configuration
