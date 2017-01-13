@@ -36,6 +36,9 @@ describe('index', function () {
     beforeEach(() => {
         githubMock = {
             authenticate: sinon.stub(),
+            pullRequests: {
+                getAll: sinon.stub()
+            },
             repos: {
                 createHook: sinon.stub(),
                 createStatus: sinon.stub(),
@@ -1186,7 +1189,7 @@ jobs:
         });
     });
 
-    describe('_addWebhook', () => {
+    describe('addWebhook', () => {
         const webhookConfig = {
             scmUri: 'github.com:1263:branchName',
             token: 'fakeToken',
@@ -1207,9 +1210,7 @@ jobs:
             githubMock.repos.getHooks.yieldsAsync(null, []);
             githubMock.repos.createHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
                 }));
@@ -1234,9 +1235,7 @@ jobs:
         it('updates a pre-existing hook', () => {
             githubMock.repos.editHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
@@ -1269,9 +1268,7 @@ jobs:
             githubMock.repos.getHooks.onCall(0).yieldsAsync(null, invalidHooks);
             githubMock.repos.editHook.yieldsAsync(null);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(() => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
@@ -1299,9 +1296,7 @@ jobs:
 
             githubMock.repos.getHooks.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
@@ -1312,9 +1307,7 @@ jobs:
             githubMock.repos.getHooks.yieldsAsync(null, []);
             githubMock.repos.createHook.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
@@ -1324,10 +1317,71 @@ jobs:
 
             githubMock.repos.editHook.yieldsAsync(testError);
 
-            /* eslint-disable no-underscore-dangle */
-            return scm._addWebhook(webhookConfig).then(assert.fail, (err) => {
-            /* eslint-enable no-underscore-dangle */
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
+            });
+        });
+    });
+
+    describe('_getOpenedPRs', () => {
+        const scmUri = 'github.com:111:branchName';
+        const config = {
+            scmUri,
+            token: 'token'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'repoOwner/repoName'
+            });
+        });
+
+        it('returns a list of opened pull requests', () => {
+            githubMock.pullRequests.getAll.yieldsAsync(null, [
+                { number: 1 },
+                { number: 2 }
+            ]);
+
+            return scm._getOpenedPRs(config).then((data) => {
+                assert.deepEqual(data, [
+                    {
+                        name: 'PR-1',
+                        ref: 'pull/1/merge'
+                    },
+                    {
+                        name: 'PR-2',
+                        ref: 'pull/2/merge'
+                    }
+                ]);
+
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.getAll, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    state: 'open'
+                });
+            });
+        });
+
+        it('rejects when failing to lookup the SCM URI information', () => {
+            const testError = new Error('testError');
+
+            githubMock.repos.getById.yieldsAsync(testError);
+
+            return scm._getOpenedPRs(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+
+        it('rejects when failing to fetch opened pull requests', () => {
+            const testError = new Error('testError');
+
+            githubMock.pullRequests.getAll.yieldsAsync(testError);
+
+            return scm._getOpenedPRs(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
             });
         });
     });
