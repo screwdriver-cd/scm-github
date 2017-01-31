@@ -82,6 +82,7 @@ class GithubScm extends Scm {
     * Constructor
     * @method constructor
     * @param  {Object}  options                      Configuration options
+    * @param  {Boolean} [options.privateRepo=false]  Request 'repo' scope, which allows read/write access for public & private repos
     * @param  {String}  [options.gheHost=null]       If using GitHub Enterprise, the host/port of the deployed instance
     * @param  {String}  [options.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
     * @param  {Boolean} [options.https=false]        Is the Screwdriver API running over HTTPS
@@ -96,6 +97,7 @@ class GithubScm extends Scm {
 
         // Validate configuration
         this.config = joi.attempt(config, joi.object().keys({
+            privateRepo: joi.boolean().optional().default(false),
             gheProtocol: joi.string().optional().default('https'),
             gheHost: joi.string().optional().description('GitHub Enterpise host'),
             https: joi.boolean().optional().default(false),
@@ -694,11 +696,12 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _getBellConfiguration() {
+        const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
         const bellConfig = {
             provider: 'github',
             clientId: this.config.oauthClientId,
             clientSecret: this.config.oauthClientSecret,
-            scope: ['admin:repo_hook', 'read:org', 'repo:status'],
+            scope: this.config.privateRepo === true ? scope.concat('repo') : scope,
             isSecure: this.config.https,
             forceHttps: this.config.https
         };
