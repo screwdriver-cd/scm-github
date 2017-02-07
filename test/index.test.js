@@ -12,6 +12,7 @@ const testPayloadBadAction = require('./data/github.pull_request.badAction.json'
 const testPayloadPing = require('./data/github.ping.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
+const testCustomPrCommands = require('./data/customPrCommands.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -146,6 +147,21 @@ describe('index', function () {
             return scm.getCheckoutCommand(config)
                 .then((command) => {
                     assert.deepEqual(command, testPrCommands);
+                });
+        });
+
+        it('promises to get the checkout command with custom username and email', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                username: 'pqrs',
+                email: 'dev-null@my.email.com'
+            });
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testCustomPrCommands);
                 });
         });
     });
