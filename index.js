@@ -85,6 +85,8 @@ class GithubScm extends Scm {
     * @param  {Boolean} [options.privateRepo=false]  Request 'repo' scope, which allows read/write access for public & private repos
     * @param  {String}  [options.gheHost=null]       If using GitHub Enterprise, the host/port of the deployed instance
     * @param  {String}  [options.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
+    * @param  {String}  [options.username=sd-buildbot]           GitHub username for checkout
+    * @param  {String}  [options.email=dev-null@screwdriver.cd]  GitHub user email for checkout
     * @param  {Boolean} [options.https=false]        Is the Screwdriver API running over HTTPS
     * @param  {String}  options.oauthClientId        OAuth Client ID provided by GitHub application
     * @param  {String}  options.oauthClientSecret    OAuth Client Secret provided by GitHub application
@@ -100,6 +102,8 @@ class GithubScm extends Scm {
             privateRepo: joi.boolean().optional().default(false),
             gheProtocol: joi.string().optional().default('https'),
             gheHost: joi.string().optional().description('GitHub Enterpise host'),
+            username: joi.string().optional().default('sd-buildbot'),
+            email: joi.string().optional().default('dev-null@screwdriver.cd'),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -284,8 +288,8 @@ class GithubScm extends Scm {
         command.push(`echo Reset to ${checkoutRef}`);
         // Set config
         command.push('echo Setting user name and user email');
-        command.push('git config user.name sd-buildbot');
-        command.push('git config user.email dev-null@screwdriver.cd');
+        command.push(`git config user.name ${this.config.username}`);
+        command.push(`git config user.email ${this.config.email}`);
 
         // For pull requests
         if (config.prRef) {
