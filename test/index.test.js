@@ -19,7 +19,7 @@ sinon.assert.expose(assert, {
 });
 
 describe('index', function () {
-    // Time not important. Only life important.
+    // Time not important. Only life important
     this.timeout(5000);
 
     let GithubScm;
