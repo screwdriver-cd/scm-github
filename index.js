@@ -279,13 +279,12 @@ class GithubScm extends Scm {
 
         // Git clone
         command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
-        command.push(`if [ $SCM_CLONE_TYPE = ssh ]; then export SCM_URL=${sshCheckoutUrl}; `
-                    + `else export SCM_URL=${checkoutUrl}; fi`); // use url that corresponds to clone type
-        command.push('if [ $SCM_CLONE_TYPE != ssh ] && ' // for private repos (must use https)
-            + '[ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; then '
-            + 'SCM_URL="$SCM_USERNAME:$SCM_ACCESS_TOKEN@$SCM_URL"; fi');
+        command.push(`if [[ $SCM_CLONE_TYPE = 'ssh' ]]; then export SCM_URL=${sshCheckoutUrl}; ` +
+            'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+            `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+            `else export SCM_URL=https://${checkoutUrl}; fi`);
         command.push(`git clone --quiet --progress --branch ${config.branch} `
-            + 'https://$SCM_URL $SD_SOURCE_DIR');
+            + '$SCM_URL $SD_SOURCE_DIR');
         // Reset to SHA
         command.push(`git reset --hard ${checkoutRef}`);
         command.push(`echo Reset to ${checkoutRef}`);
