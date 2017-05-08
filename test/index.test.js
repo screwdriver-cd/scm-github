@@ -38,7 +38,8 @@ describe('index', function () {
         githubMock = {
             authenticate: sinon.stub(),
             pullRequests: {
-                getAll: sinon.stub()
+                getAll: sinon.stub(),
+                get: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
@@ -178,7 +179,7 @@ describe('index', function () {
             token: 'somerandomtoken'
         };
 
-        it('promises to get the commit sha', () => {
+        it('promises to get the commit sha without prNum', () => {
             githubMock.repos.getBranch.yieldsAsync(null, branch);
             githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
@@ -201,6 +202,32 @@ describe('index', function () {
                         type: 'oauth',
                         token: config.token
                     });
+                });
+        });
+
+        it('promises to get the commit sha with prNum', () => {
+            config.prNum = 1;
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'screwdriver-cd/models'
+            });
+            githubMock.pullRequests.get.yieldsAsync(null,
+                { number: config.prNum, head: { sha: branch.commit.sha } }
+            );
+
+            return scm.getCommitSha(config)
+                .then((data) => {
+                    assert.deepEqual(data, branch.commit.sha);
+
+                    assert.calledWith(githubMock.pullRequests.get, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        number: config.prNum
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                    delete config.prNum;
                 });
         });
 
@@ -1425,6 +1452,67 @@ jobs:
             githubMock.pullRequests.getAll.yieldsAsync(testError);
 
             return scm._getOpenedPRs(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+    });
+
+    describe('_getPrInfo', () => {
+        const scmUri = 'github.com:111:branchName';
+        const config = {
+            scmUri,
+            token: 'token',
+            prNum: 1
+        };
+        const sha = 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f';
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'repoOwner/repoName'
+            });
+        });
+
+        it('returns a pull request with the given prNum', () => {
+            githubMock.pullRequests.get.yieldsAsync(null,
+                { number: 1, head: { sha } }
+            );
+
+            return scm._getPrInfo(config).then((data) => {
+                assert.deepEqual(data,
+                    {
+                        name: 'PR-1',
+                        ref: 'pull/1/merge',
+                        sha
+                    }
+                );
+
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.get, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    number: 1
+                });
+            });
+        });
+
+        it('rejects when failing to lookup the SCM URI information', () => {
+            const testError = new Error('testError');
+
+            githubMock.repos.getById.yieldsAsync(testError);
+
+            return scm._getPrInfo(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+
+        it('rejects when failing to get the pull request', () => {
+            const testError = new Error('testError');
+
+            githubMock.pullRequests.get.yieldsAsync(testError);
+
+            return scm._getPrInfo(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
                 assert.strictEqual(testError.message, err.message);
             });

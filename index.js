@@ -367,14 +367,19 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get a commit sha for a specific repo#branch
+     * Get a commit sha for a specific repo#branch or pull request
      * @method getCommitSha
      * @param  {Object}   config            Configuration
      * @param  {String}   config.scmUri     The scmUri to get commit sha of
      * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @param  {Integer}  [config.prNum]    The PR number used to fetch the PR
      * @return {Promise}
      */
     _getCommitSha(config) {
+        if (config.prNum) {
+            return this._getPrInfo(config).then(pr => pr.sha);
+        }
+
         return this.lookupScmUri({
             scmUri: config.scmUri,
             token: config.token
@@ -720,6 +725,37 @@ class GithubScm extends Scm {
         }
 
         return Promise.resolve(bellConfig);
+    }
+
+    /**
+     * Resolve a pull request object based on the config
+     * @method getPrRef
+     * @param  {Object}   config            Configuration
+     * @param  {String}   config.scmUri     The scmUri to get PR info of
+     * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @param  {Integer}  config.prNum      The PR number used to fetch the PR
+     * @return {Promise}
+     */
+    _getPrInfo(config) {
+        return this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        }).then(scmInfo =>
+            this.breaker.runCommand({
+                action: 'get',
+                scopeType: 'pullRequests',
+                token: config.token,
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    number: config.prNum
+                }
+            })
+        ).then(pullRequestInfo => ({
+            name: `PR-${pullRequestInfo.number}`,
+            ref: `pull/${pullRequestInfo.number}/merge`,
+            sha: pullRequestInfo.head.sha
+        }));
     }
 }
 
