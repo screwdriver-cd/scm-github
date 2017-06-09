@@ -459,7 +459,7 @@ describe('index', function () {
         );
 
         it('sets a better context when jobName passed in', () => {
-            config.jobName = 'PR-15';
+            config.jobName = 'batman';
 
             return scm.updateCommitStatus(config)
                 .then((result) => {
@@ -471,7 +471,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR-15',
+                        context: 'Screwdriver/batman',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
@@ -481,7 +481,7 @@ describe('index', function () {
                 });
         });
 
-        it('sets a better context when jobName passed in', () => {
+        it('sets a better context when PR jobName passed in', () => {
             config.jobName = 'PR-15';
 
             return scm.updateCommitStatus(config)
@@ -494,7 +494,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR-15',
+                        context: 'Screwdriver/PR',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
