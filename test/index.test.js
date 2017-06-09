@@ -458,7 +458,7 @@ describe('index', function () {
             })
         );
 
-        it('sets a better context when jobName passed in', () => {
+        it('sets context for PR when jobName passed in', () => {
             config.jobName = 'PR-15';
 
             return scm.updateCommitStatus(config)
@@ -471,7 +471,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR-15',
+                        context: 'Screwdriver/PR',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
@@ -481,25 +481,19 @@ describe('index', function () {
                 });
         });
 
-        it('sets a better context when jobName passed in', () => {
-            config.jobName = 'PR-15';
+        it('sets context for regular job when jobName passed in', () => {
+            config.jobName = 'main';
 
             return scm.updateCommitStatus(config)
-                .then((result) => {
-                    assert.deepEqual(result, data);
-
+                .then(() => {
                     assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR-15',
+                        context: 'Screwdriver/main',
                         target_url: 'https://foo.bar'
-                    });
-                    assert.calledWith(githubMock.authenticate, {
-                        type: 'oauth',
-                        token: config.token
                     });
                 });
         });
