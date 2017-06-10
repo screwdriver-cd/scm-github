@@ -425,7 +425,8 @@ describe('index', function () {
                 sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
                 buildStatus: 'SUCCESS',
                 token: 'somerandomtoken',
-                url: 'https://foo.bar'
+                url: 'https://foo.bar',
+                pipelineId: 675
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
@@ -448,7 +449,7 @@ describe('index', function () {
                     sha: config.sha,
                     state: 'success',
                     description: 'Everything looks good!',
-                    context: 'Screwdriver',
+                    context: 'Screwdriver/675',
                     target_url: 'https://foo.bar'
                 });
                 assert.calledWith(githubMock.authenticate, {
@@ -471,7 +472,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/PR',
+                        context: 'Screwdriver/675/PR',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
@@ -492,7 +493,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/main',
+                        context: 'Screwdriver/675/main',
                         target_url: 'https://foo.bar'
                     });
                 });
@@ -511,7 +512,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'failure',
                         description: 'Did not work as expected.',
-                        context: 'Screwdriver',
+                        context: 'Screwdriver/675',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
@@ -539,7 +540,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver',
+                        context: 'Screwdriver/675',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
