@@ -405,8 +405,9 @@ class GithubScm extends Scm {
     * @param  {String}   config.sha          The sha to apply the status to
     * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
     * @param  {String}   config.token        The token used to authenticate to the SCM
-    * @param  {String}   [config.jobName]    Optional name of the job that finished
+    * @param  {String}   config.jobName      Optional name of the job that finished
     * @param  {String}   config.url          Target url
+    * @param  {Number}   config.pipelineId   Pipeline Id
     * @return {Promise}
     */
     _updateCommitStatus(config) {
@@ -414,8 +415,10 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then((scmInfo) => {
-            const jobName = config.jobName && /^PR/.test(config.jobName) ? 'PR' : config.jobName;
-            const context = jobName ? `Screwdriver/${jobName}` : 'Screwdriver';
+            let context = `Screwdriver/${config.pipelineId}/`;
+
+            context += /^PR/.test(config.jobName) ? 'PR' : config.jobName;
+
             const params = {
                 context,
                 description: DESCRIPTION_MAP[config.buildStatus],
