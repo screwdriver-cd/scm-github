@@ -13,18 +13,19 @@ npm install screwdriver-scm-github
 
 The class has a variety of knobs to tweak when interacting with GitHub.
 
-| Parameter        | Type  |  Description |
-| :-------------   | :---- | :-------------|
-| config        | Object | Configuration Object |
-| config.gheHost (null) | String | If using GitHub Enterprise, the host/port of the deployed instance |
-| config.gheProtocol (https) | String | If using GitHub Enterprise, the protocol to use |
-| config.username (sd-buildbot) | String | GitHub username for checkout |
-| config.email (dev-null@screwdriver.cd) | String | GitHub user email for checkout |
-| config.https (false) | Boolean | Is the Screwdriver API running over HTTPS |
-| config.oauthClientId | String | OAuth Client ID provided by GitHub application |
-| config.oauthClientSecret | String | OAuth Client Secret provided by GitHub application |
-| config.fusebox ({}) | Object | [Circuit Breaker configuration][circuitbreaker] |
-| config.secret | String | Secret to validate the signature of webhook events |
+| Parameter        | Type  |  Default | Description |
+| :-------------   | :---- | :-------------| :-------------|
+| config        | Object | | Configuration Object |
+| config.gheHost | String | null | If using GitHub Enterprise, the host/port of the deployed instance |
+| config.gheProtocol | String | https | If using GitHub Enterprise, the protocol to use |
+| config.username | String | sd-buildbot | GitHub username for checkout |
+| config.email | String | dev-null@screwdriver.cd | GitHub user email for checkout |
+| config.https | Boolean | false | Is the Screwdriver API running over HTTPS |
+| config.oauthClientId | String | | OAuth Client ID provided by GitHub application |
+| config.oauthClientSecret | String | | OAuth Client Secret provided by GitHub application |
+| config.fusebox | Object | {} | [Circuit Breaker configuration][circuitbreaker] |
+| config.secret | String | | Secret to validate the signature of webhook events |
+| config.privateRepo | Boolean | false | Request 'repo' scope, which allows read/write access for public & private repos
 
 ```js
 const scm = new GithubScm({
