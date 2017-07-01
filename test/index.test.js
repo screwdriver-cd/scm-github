@@ -750,7 +750,7 @@ jobs:
             };
 
             testHeaders = {
-                'x-hub-signature': 'sha1=5a69278cd3e1ced08f8af4f96da683410a3cefff',
+                'x-hub-signature': 'sha1=a72eab99ad7f36f582f224df8d735091b06f1802',
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
@@ -768,6 +768,7 @@ jobs:
                         sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                         type: 'repo',
                         username: 'baxterthehacker2',
+                        lastCommitMessage: 'lastcommitmessage',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
                     });
                 });

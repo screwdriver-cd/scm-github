@@ -678,6 +678,7 @@ class GithubScm extends Scm {
                 sha: hoek.reach(webhookPayload, 'after'),
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
+                lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId
             });
         default:
