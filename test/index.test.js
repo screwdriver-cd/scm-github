@@ -1515,4 +1515,73 @@ jobs:
             });
         });
     });
+
+    describe('getScmContext', () => {
+        it('returns a default scmContext', () => (
+            scm.getScmContext().then((result) => {
+                assert.strictEqual(result, 'github.com');
+            })
+        ));
+
+        it('returns a scmContext for github enterprise', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            return scm.getScmContext().then((result) => {
+                assert.strictEqual(result, 'github.screwdriver.cd');
+            });
+        });
+    });
+
+    describe('canHandleUrl', () => {
+        it('returns true for default scm', () => (
+            scm.canHandleUrl({
+                scmUri: 'github.com:1234:branchName'
+            }).then((result) => {
+                assert.strictEqual(result, true);
+            })
+        ));
+
+        it('returns false for default scm', () => (
+            scm.canHandleUrl({
+                scmUri: 'github.screwdriver.cd:1234:branchName'
+            }).then((result) => {
+                assert.strictEqual(result, false);
+            })
+        ));
+
+        it('returns true for github enterprise', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            return scm.canHandleUrl({
+                scmUri: 'github.screwdriver.cd:1234:branchName'
+            }).then((result) => {
+                assert.strictEqual(result, true);
+            });
+        });
+
+        it('returns false for github enterprise', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            return scm.canHandleUrl({
+                scmUri: 'github.com:1234:branchName'
+            }).then((result) => {
+                assert.strictEqual(result, false);
+            });
+        });
+    });
 });

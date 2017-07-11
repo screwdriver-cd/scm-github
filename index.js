@@ -762,6 +762,34 @@ class GithubScm extends Scm {
             sha: pullRequestInfo.head.sha
         }));
     }
+
+    /**
+     * Get a name of scm context (e.g. github.com)
+     * @mehod getScmContext
+     * @return {Promise}
+     */
+    _getScmContext() {
+        const contextName = this.config.gheHost ? this.config.gheHost : 'github.com';
+
+        return Promise.resolve(contextName);
+    }
+
+    /**
+     * Determin a scm module can handle a specified scm url
+     * @mehod canHandleUrl
+     * @param {Object}    config
+     * @param {String}    scmUrl
+     * @return {Promise}
+     */
+    _canHandleUrl(config) {
+        return new Promise((resolve) => {
+            resolve(getInfo(config.scmUri));
+        }).then((scmInfo) => {
+            const moduleHost = this.config.gheHost ? this.config.gheHost : 'github.com';
+
+            return scmInfo.host === moduleHost;
+        });
+    }
 }
 
 module.exports = GithubScm;
