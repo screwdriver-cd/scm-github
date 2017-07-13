@@ -641,6 +641,7 @@ class GithubScm extends Scm {
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
+        const scmContexts = this._getScmContexts();
 
         switch (type) {
         case 'pull_request': {
@@ -667,7 +668,8 @@ class GithubScm extends Scm {
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
                 username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId
+                hookId,
+                scmContext: scmContexts[0]
             });
         }
         case 'push':
@@ -679,7 +681,8 @@ class GithubScm extends Scm {
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
-                hookId
+                hookId,
+                scmContext: scmContexts[0]
             });
         default:
             return Promise.resolve(null);
@@ -764,31 +767,31 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get a name of scm context (e.g. github.com)
-     * @mehod getScmContext
+     * Get an array of scm context (e.g. github:github.com)
+     * @method getScmContext
      * @return {Promise}
      */
-    _getScmContext() {
-        const contextName = this.config.gheHost ? this.config.gheHost : 'github.com';
+    _getScmContexts() {
+        const contextName = this.config.gheHost ? ['github:' + this.config.gheHost] : ['github:github.com'];
 
         return Promise.resolve(contextName);
     }
 
     /**
-     * Determin a scm module can handle a specified scm url
-     * @mehod canHandleUrl
-     * @param {Object}    config
-     * @param {String}    scmUrl
-     * @return {Promise}
+     * Determin if a scm module can handle the received webhook
+     * @method canHandleWebhook
+     * @param {Object}    headers    The request headers associated with the webhook payload
+     * @param {Object}    payload    The webhook payload received from the SCM service
+     * return {Promise}
      */
-    _canHandleUrl(config) {
-        return new Promise((resolve) => {
-            resolve(getInfo(config.scmUri));
-        }).then((scmInfo) => {
-            const moduleHost = this.config.gheHost ? this.config.gheHost : 'github.com';
-
-            return scmInfo.host === moduleHost;
-        });
+    _canHandleWebhook(headers, payload) {
+        return this._parseHook(headers, payload))
+            .then((result) => {
+                result !== null;
+            })
+            .catch((err) => {
+                false;
+            });
     }
 }
 

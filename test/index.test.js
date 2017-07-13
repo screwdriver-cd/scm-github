@@ -746,7 +746,8 @@ jobs:
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                 type: 'pr',
                 username: 'baxterthehacker2',
-                hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+                hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                scmContext: 'github:github.com'
             };
 
             testHeaders = {
@@ -769,7 +770,8 @@ jobs:
                         type: 'repo',
                         username: 'baxterthehacker2',
                         lastCommitMessage: 'lastcommitmessage',
-                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                        scmContext: 'github:github.com'
                     });
                 });
         });
@@ -1516,10 +1518,10 @@ jobs:
         });
     });
 
-    describe('getScmContext', () => {
+    describe('getScmContexts', () => {
         it('returns a default scmContext', () => (
-            scm.getScmContext().then((result) => {
-                assert.strictEqual(result, 'github.com');
+            scm.getScmContexst().then((result) => {
+                assert.deepEqual(result, ['github:github.com']);
             })
         ));
 
@@ -1531,57 +1533,66 @@ jobs:
                 secret: 'somesecret'
             });
 
-            return scm.getScmContext().then((result) => {
-                assert.strictEqual(result, 'github.screwdriver.cd');
+            return scm.getScmContexts().then((result) => {
+                assert.deepEqual(result, ['github:github.screwdriver.cd']);
             });
         });
     });
 
-    describe('canHandleUrl', () => {
-        it('returns true for default scm', () => (
-            scm.canHandleUrl({
-                scmUri: 'github.com:1234:branchName'
-            }).then((result) => {
-                assert.strictEqual(result, true);
-            })
-        ));
+    describe('canHandleWebhook', () => {
+        let testHeaders;
 
-        it('returns false for default scm', () => (
-            scm.canHandleUrl({
-                scmUri: 'github.screwdriver.cd:1234:branchName'
-            }).then((result) => {
-                assert.strictEqual(result, false);
-            })
-        ));
-
-        it('returns true for github enterprise', () => {
-            scm = new GithubScm({
-                oauthClientId: 'abcdefg',
-                oauthClientSecret: 'hijklmno',
-                gheHost: 'github.screwdriver.cd',
-                secret: 'somesecret'
-            });
-
-            return scm.canHandleUrl({
-                scmUri: 'github.screwdriver.cd:1234:branchName'
-            }).then((result) => {
-                assert.strictEqual(result, true);
-            });
+        beforeEach(() => {
+            testHeaders = {
+                'x-hub-signature': 'sha1=a72eab99ad7f36f582f224df8d735091b06f1802',
+                'x-github-event': 'pull_request',
+                'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+            };
         });
 
-        it('returns false for github enterprise', () => {
-            scm = new GithubScm({
-                oauthClientId: 'abcdefg',
-                oauthClientSecret: 'hijklmno',
-                gheHost: 'github.screwdriver.cd',
-                secret: 'somesecret'
-            });
+        it('returns a true for a pull request event payload', () => {
+            testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
-            return scm.canHandleUrl({
-                scmUri: 'github.com:1234:branchName'
-            }).then((result) => {
-                assert.strictEqual(result, false);
-            });
+            return scm.canHandleWebhook(testHeaders, testPayloadOpen)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a pull request being closed', () => {
+            testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
+            
+            return scm.canHandleWebhook(testHeaders, testPayloadClose)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a pull request being synchronized', () => {
+            testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadSync)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a push event payload', () => {
+            testHeaders['x-github-event'] = 'push';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadPush)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a false when signature is not valid', () => {
+            testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
+
+            return scm.parseHook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.strictEqual(result, false);
+                });
         });
     });
 });
