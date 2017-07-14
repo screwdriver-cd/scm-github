@@ -772,7 +772,9 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _getScmContexts() {
-        const contextName = this.config.gheHost ? ['github:' + this.config.gheHost] : ['github.com'];
+        const contextName = this.config.gheHost
+            ? [`github:${this.config.gheHost}`]
+            : ['github.com'];
 
         return Promise.resolve(contextName);
     }

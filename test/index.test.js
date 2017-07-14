@@ -1561,7 +1561,7 @@ jobs:
 
         it('returns a true for a pull request being closed', () => {
             testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
-            
+
             return scm.canHandleWebhook(testHeaders, testPayloadClose)
                 .then((result) => {
                     assert.strictEqual(result, true);
