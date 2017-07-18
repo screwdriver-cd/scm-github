@@ -769,14 +769,14 @@ class GithubScm extends Scm {
     /**
      * Get an array of scm context (e.g. github.com)
      * @method getScmContext
-     * @return {Promise}
+     * @return {Array}
      */
     _getScmContexts() {
         const contextName = this.config.gheHost
             ? [`github:${this.config.gheHost}`]
             : ['github.com'];
 
-        return Promise.resolve(contextName);
+        return contextName;
     }
 
     /**
@@ -784,7 +784,7 @@ class GithubScm extends Scm {
      * @method canHandleWebhook
      * @param {Object}    headers    The request headers associated with the webhook payload
      * @param {Object}    payload    The webhook payload received from the SCM service
-     * return {Promise}
+     * @return {Promise}
      */
     _canHandleWebhook(headers, payload) {
         return this._parseHook(headers, payload)

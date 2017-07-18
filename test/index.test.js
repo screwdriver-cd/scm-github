@@ -1519,11 +1519,11 @@ jobs:
     });
 
     describe('getScmContexts', () => {
-        it('returns a default scmContext', () => (
-            scm.getScmContexst().then((result) => {
-                assert.deepEqual(result, ['github.com']);
-            })
-        ));
+        it('returns a default scmContext', () => {
+            const result = scm.getScmContexsts();
+
+            return assert.deepEqual(result, ['github.com']);
+        });
 
         it('returns a scmContext for github enterprise', () => {
             scm = new GithubScm({
@@ -1533,9 +1533,9 @@ jobs:
                 secret: 'somesecret'
             });
 
-            return scm.getScmContexts().then((result) => {
-                assert.deepEqual(result, ['github:github.screwdriver.cd']);
-            });
+            const result = scm.getScmContexts();
+
+            return assert.deepEqual(result, ['github:github.screwdriver.cd']);
         });
     });
 
