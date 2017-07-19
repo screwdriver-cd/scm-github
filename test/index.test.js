@@ -1589,7 +1589,7 @@ jobs:
         it('returns a false when signature is not valid', () => {
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
-            return scm.parseHook(testHeaders, testPayloadPing)
+            return scm.canHandleWebhook(testHeaders, testPayloadPing)
                 .then((result) => {
                     assert.strictEqual(result, false);
                 });
