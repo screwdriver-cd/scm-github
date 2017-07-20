@@ -1520,7 +1520,7 @@ jobs:
 
     describe('getScmContexts', () => {
         it('returns a default scmContext', () => {
-            const result = scm.getScmContexsts();
+            const result = scm.getScmContexts();
 
             return assert.deepEqual(result, ['github.com']);
         });

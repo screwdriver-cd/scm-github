@@ -768,7 +768,7 @@ class GithubScm extends Scm {
 
     /**
      * Get an array of scm context (e.g. github.com)
-     * @method getScmContext
+     * @method getScmContexts
      * @return {Array}
      */
     _getScmContexts() {
@@ -780,7 +780,7 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Determin if a scm module can handle the received webhook
+     * Determine if a scm module can handle the received webhook
      * @method canHandleWebhook
      * @param {Object}    headers    The request headers associated with the webhook payload
      * @param {Object}    payload    The webhook payload received from the SCM service
