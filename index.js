@@ -788,11 +788,11 @@ class GithubScm extends Scm {
      */
     _canHandleWebhook(headers, payload) {
         return this._parseHook(headers, payload)
-            .then((result) => {
-                Promise.resolve(result !== null);
-            }).catch(() => {
-                Promise.relolve(false);
-            });
+            .then(result => (
+                Promise.resolve(result !== null)
+            )).catch(() => (
+                Promise.resolve(false)
+            ));
     }
 }
 
