@@ -1189,16 +1189,18 @@ jobs:
         it('returns a default configuration', () => (
             scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status'
-                    ]
+                    'github.com': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status'
+                        ]
+                    }
                 });
             })
         ));
@@ -1213,19 +1215,21 @@ jobs:
 
             return scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    config: {
-                        uri: 'https://github.screwdriver.cd'
-                    },
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status'
-                    ]
+                    'github:github.screwdriver.cd': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        config: {
+                            uri: 'https://github.screwdriver.cd'
+                        },
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status'
+                        ]
+                    }
                 });
             });
         });
@@ -1241,20 +1245,22 @@ jobs:
 
             return scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    config: {
-                        uri: 'https://github.screwdriver.cd'
-                    },
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status',
-                        'repo'
-                    ]
+                    'github:github.screwdriver.cd': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        config: {
+                            uri: 'https://github.screwdriver.cd'
+                        },
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status',
+                            'repo'
+                        ]
+                    }
                 });
             });
         });

@@ -716,6 +716,8 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _getBellConfiguration() {
+        const scmContexts = this._getScmContexts();
+        const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
         const bellConfig = {
             provider: 'github',
@@ -732,7 +734,9 @@ class GithubScm extends Scm {
             };
         }
 
-        return Promise.resolve(bellConfig);
+        return Promise.resolve({
+            [scmContext]: bellConfig
+        });
     }
 
     /**
