@@ -574,11 +574,11 @@ describe('index', function () {
                     // will need to check each value separately.
                     const stats = scm.stats();
 
-                    assert.strictEqual(stats.requests.total, 2);
-                    assert.strictEqual(stats.requests.timeouts, 0);
-                    assert.strictEqual(stats.requests.success, 2);
-                    assert.strictEqual(stats.requests.failure, 0);
-                    assert.strictEqual(stats.breaker.isClosed, true);
+                    assert.strictEqual(stats['github.com'].requests.total, 2);
+                    assert.strictEqual(stats['github.com'].requests.timeouts, 0);
+                    assert.strictEqual(stats['github.com'].requests.success, 2);
+                    assert.strictEqual(stats['github.com'].requests.failure, 0);
+                    assert.strictEqual(stats['github.com'].breaker.isClosed, true);
                 });
         });
     });
