@@ -955,7 +955,8 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'tokenfordecorateauthor',
-                username
+                username,
+                scmContext: 'github.com'
             }).then((data) => {
                 assert.deepEqual(data, {
                     avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -981,7 +982,8 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'tokenfordecorateauthor',
-                username
+                username,
+                scmContext: 'github.com'
             }).then((data) => {
                 assert.deepEqual(data, {
                     avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1003,7 +1005,8 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'randomtoken',
-                username
+                username,
+                scmContext: 'github.com'
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
