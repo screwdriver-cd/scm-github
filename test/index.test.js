@@ -1198,6 +1198,7 @@ jobs:
                         forceHttps: false,
                         isSecure: false,
                         provider: 'github',
+                        cookie: 'github',
                         scope: [
                             'admin:repo_hook',
                             'read:org',
@@ -1227,6 +1228,7 @@ jobs:
                         forceHttps: false,
                         isSecure: false,
                         provider: 'github',
+                        cookie: 'github-github.screwdriver.cd',
                         scope: [
                             'admin:repo_hook',
                             'read:org',
@@ -1257,6 +1259,7 @@ jobs:
                         forceHttps: false,
                         isSecure: false,
                         provider: 'github',
+                        cookie: 'github-github.screwdriver.cd',
                         scope: [
                             'admin:repo_hook',
                             'read:org',

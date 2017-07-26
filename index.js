@@ -729,8 +729,12 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
+        const cookie = this.config.gheHost
+            ? `github-${this.config.gheHost}`
+            : 'github';
         const bellConfig = {
             provider: 'github',
+            cookie,
             clientId: this.config.oauthClientId,
             clientSecret: this.config.oauthClientSecret,
             scope: this.config.privateRepo === true ? scope.concat('repo') : scope,
