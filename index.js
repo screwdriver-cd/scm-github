@@ -806,7 +806,9 @@ class GithubScm extends Scm {
                 if (result === null) {
                     return Promise.resolve(false);
                 }
-                const checkoutSshHost = this.gheHost ? `git@${this.gheHost}:` : 'git@github.com:';
+                const checkoutSshHost = this.config.gheHost
+                ? `git@${this.config.gheHost}:`
+                : 'git@github.com:';
 
                 return Promise.resolve(result.checkoutUrl.startsWith(checkoutSshHost));
             }).catch(() => (

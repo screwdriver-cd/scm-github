@@ -1603,5 +1603,21 @@ jobs:
                     assert.strictEqual(result, false);
                 });
         });
+
+        it('returns a false when different github payload', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadOpen)
+                .then((result) => {
+                    assert.strictEqual(result, false);
+                });
+        });
     });
 });
