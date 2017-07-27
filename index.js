@@ -731,7 +731,7 @@ class GithubScm extends Scm {
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
         const cookie = this.config.gheHost
             ? `github-${this.config.gheHost}`
-            : 'github';
+            : 'github-github.com';
         const bellConfig = {
             provider: 'github',
             cookie,
@@ -785,14 +785,14 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get an array of scm context (e.g. github.com)
+     * Get an array of scm context (e.g. github:github.com)
      * @method getScmContexts
      * @return {Array}
      */
     _getScmContexts() {
         const contextName = this.config.gheHost
             ? [`github:${this.config.gheHost}`]
-            : ['github.com'];
+            : ['github:github.com'];
 
         return contextName;
     }
