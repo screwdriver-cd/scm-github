@@ -132,8 +132,7 @@ describe('index', function () {
             host: 'github.com',
             org: 'screwdriver-cd',
             repo: 'guide',
-            sha: '12345',
-            scmContext: 'github:github.com'
+            sha: '12345'
         };
 
         it('promises to get the checkout command for the pipeline branch', () =>
@@ -177,8 +176,7 @@ describe('index', function () {
         };
         const config = {
             scmUri,
-            token: 'somerandomtoken',
-            scmContext: 'github:github.com'
+            token: 'somerandomtoken'
         };
 
         it('promises to get the commit sha without prNum', () => {
@@ -299,8 +297,7 @@ describe('index', function () {
         };
         const config = {
             scmUri,
-            token: 'somerandomtoken',
-            scmContext: 'github:github.com'
+            token: 'somerandomtoken'
         };
 
         beforeEach(() => {
@@ -430,8 +427,7 @@ describe('index', function () {
                 token: 'somerandomtoken',
                 url: 'https://foo.bar',
                 jobName: 'main',
-                pipelineId: 675,
-                scmContext: 'github:github.com'
+                pipelineId: 675
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
@@ -564,8 +560,7 @@ describe('index', function () {
                 sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
                 buildStatus: 'SUCCESS',
                 token: 'somerandomtoken',
-                url: 'https://foo.bar',
-                scmContext: 'github:github.com'
+                url: 'https://foo.bar'
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
@@ -579,11 +574,11 @@ describe('index', function () {
                     // will need to check each value separately.
                     const stats = scm.stats();
 
-                    assert.strictEqual(stats['github.com'].requests.total, 2);
-                    assert.strictEqual(stats['github.com'].requests.timeouts, 0);
-                    assert.strictEqual(stats['github.com'].requests.success, 2);
-                    assert.strictEqual(stats['github.com'].requests.failure, 0);
-                    assert.strictEqual(stats['github.com'].breaker.isClosed, true);
+                    assert.strictEqual(stats['github:github.com'].requests.total, 2);
+                    assert.strictEqual(stats['github:github.com'].requests.timeouts, 0);
+                    assert.strictEqual(stats['github:github.com'].requests.success, 2);
+                    assert.strictEqual(stats['github:github.com'].requests.failure, 0);
+                    assert.strictEqual(stats['github:github.com'].breaker.isClosed, true);
                 });
         });
     });
@@ -627,15 +622,13 @@ jobs:
             scmUri,
             path: 'screwdriver.yaml',
             token: 'somerandomtoken',
-            ref: 'git@github.com:screwdriver-cd/models.git#pull/453/merge',
-            scmContext: 'github:github.com'
+            ref: 'git@github.com:screwdriver-cd/models.git#pull/453/merge'
         };
 
         const configNoRef = {
             scmUri,
             path: 'screwdriver.yaml',
-            token: 'somerandomtoken',
-            scmContext: 'github:github.com'
+            token: 'somerandomtoken'
         };
 
         beforeEach(() => {
@@ -867,8 +860,7 @@ jobs:
 
             return scm.parseUrl({
                 checkoutUrl,
-                token,
-                scmContext: 'github:github.com'
+                token
             }).then((result) => {
                 assert.strictEqual(result, 'github.com:8675309:boat');
 
@@ -886,8 +878,7 @@ jobs:
 
             return scm.parseUrl({
                 checkoutUrl,
-                token,
-                scmContext: 'github:github.com'
+                token
             }).then((result) => {
                 assert.strictEqual(result, 'github.com:8675309:master');
 
@@ -904,8 +895,7 @@ jobs:
             // eslint-disable-next-line no-underscore-dangle
             return scm._parseUrl({
                 checkoutUrl: invalidCheckoutUrl,
-                token,
-                scmContext: 'github:github.com'
+                token
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -922,8 +912,7 @@ jobs:
 
             return scm.parseUrl({
                 checkoutUrl,
-                token,
-                scmContext: 'github:github.com'
+                token
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -938,8 +927,7 @@ jobs:
 
             return scm.parseUrl({
                 checkoutUrl,
-                token,
-                scmContext: 'github:github.com'
+                token
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -967,8 +955,7 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'tokenfordecorateauthor',
-                username,
-                scmContext: 'github:github.com'
+                username
             }).then((data) => {
                 assert.deepEqual(data, {
                     avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -994,8 +981,7 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'tokenfordecorateauthor',
-                username,
-                scmContext: 'github:github.com'
+                username
             }).then((data) => {
                 assert.deepEqual(data, {
                     avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1017,8 +1003,7 @@ jobs:
 
             return scm.decorateAuthor({
                 token: 'randomtoken',
-                username,
-                scmContext: 'github:github.com'
+                username
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -1067,8 +1052,7 @@ jobs:
             return scm.decorateCommit({
                 scmUri,
                 sha,
-                token: 'tokenfordecoratecommit',
-                scmContext: 'github:github.com'
+                token: 'tokenfordecoratecommit'
             }).then((data) => {
                 assert.deepEqual(data, {
                     author: {
@@ -1108,8 +1092,7 @@ jobs:
             return scm.decorateCommit({
                 scmUri,
                 sha,
-                token: 'tokenfordecoratecommit',
-                scmContext: 'github:github.com'
+                token: 'tokenfordecoratecommit'
             }).then((data) => {
                 assert.deepEqual(data, {
                     author: {
@@ -1142,8 +1125,7 @@ jobs:
             return scm.decorateCommit({
                 scmUri,
                 sha,
-                token: 'tokenforfailingtodecorate',
-                scmContext: 'github:github.com'
+                token: 'tokenforfailingtodecorate'
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -1168,8 +1150,7 @@ jobs:
 
             return scm.decorateUrl({
                 scmUri,
-                token: 'mytokenfortesting',
-                scmContext: 'github:github.com'
+                token: 'mytokenfortesting'
             }).then((data) => {
                 assert.deepEqual(data, {
                     branch: 'boat',
@@ -1191,8 +1172,7 @@ jobs:
 
             return scm.decorateUrl({
                 scmUri,
-                token: 'mytokenfortesting',
-                scmContext: 'github:github.com'
+                token: 'mytokenfortesting'
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
@@ -1293,8 +1273,7 @@ jobs:
         const webhookConfig = {
             scmUri: 'github.com:1263:branchName',
             token: 'fakeToken',
-            webhookUrl: 'https://somewhere.in/the/interwebs',
-            scmContext: 'github:github.com'
+            webhookUrl: 'https://somewhere.in/the/interwebs'
         };
 
         beforeEach(() => {
@@ -1428,8 +1407,7 @@ jobs:
         const scmUri = 'github.com:111:branchName';
         const config = {
             scmUri,
-            token: 'token',
-            scmContext: 'github:github.com'
+            token: 'token'
         };
 
         beforeEach(() => {
@@ -1493,8 +1471,7 @@ jobs:
         const config = {
             scmUri,
             token: 'token',
-            prNum: 1,
-            scmContext: 'github:github.com'
+            prNum: 1
         };
         const sha = 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f';
 

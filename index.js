@@ -509,10 +509,9 @@ class GithubScm extends Scm {
     /**
      * Decorate the author based on the Github service
      * @method _decorateAuthor
-     * @param  {Object}        config            Configuration object
-     * @param  {Object}        config.token      Service token to authenticate with Github
-     * @param  {Object}        config.username   Username to query more information for
-     * @param  {Object}        config.scmContext scmContext
+     * @param  {Object}        config          Configuration object
+     * @param  {Object}        config.token    Service token to authenticate with Github
+     * @param  {Object}        config.username Username to query more information for
      * @return {Promise}
      */
     _decorateAuthor(config) {
@@ -543,8 +542,6 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _decorateCommit(config) {
-        const scmContexts = this._getScmContexts();
-        const scmContext = scmContexts[0];
         const commitLookup = this.lookupScmUri({
             scmUri: config.scmUri,
             token: config.token
@@ -566,8 +563,7 @@ class GithubScm extends Scm {
 
             return this.decorateAuthor({
                 token: config.token,
-                username: commitData.author.login,
-                scmContext
+                username: commitData.author.login
             });
         });
 
