@@ -284,15 +284,15 @@ class GithubScm extends Scm {
             'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
-        command.push('sd-step exec core/git ' +
-             `"git clone --quiet --progress --branch ${config.branch} $SCM_URL $SD_SOURCE_DIR"`);
+        command.push(`git clone --quiet --progress --branch ${config.branch} `
+            + '$SCM_URL $SD_SOURCE_DIR');
         // Reset to SHA
-        command.push(`sd-step exec core/git "git reset --hard ${checkoutRef}"`);
+        command.push(`git reset --hard ${checkoutRef}`);
         command.push(`echo Reset to ${checkoutRef}`);
         // Set config
         command.push('echo Setting user name and user email');
-        command.push(`sd-step exec core/git "git config user.name ${this.config.username}"`);
-        command.push(`sd-step exec core/git "git config user.email ${this.config.email}"`);
+        command.push(`git config user.name ${this.config.username}`);
+        command.push(`git config user.email ${this.config.email}`);
 
         // For pull requests
         if (config.prRef) {
@@ -300,9 +300,9 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${config.branch}`);
-            command.push(`sd-step exec core/git "git fetch origin ${prRef}"`);
+            command.push(`git fetch origin ${prRef}`);
             // Merge a pull request with pipeline branch
-            command.push(`sd-step exec core/git "git merge --no-edit ${config.sha}"`);
+            command.push(`git merge --no-edit ${config.sha}`);
         }
 
         return Promise.resolve({
