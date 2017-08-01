@@ -1,7 +1,7 @@
 # scm-github
 [![Version][npm-image]][npm-url] ![Downloads][downloads-image] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] [![Dependency Status][daviddm-image]][daviddm-url] ![License][license-image]
 
-> This scm plugin extends the [scm-base-class], and provides methods to fetch and update data in github.
+> This scm plugin extends the [scm-base], and provides methods to fetch and update data in github.
 
 ## Usage
 
@@ -37,7 +37,7 @@ const scm = new GithubScm({
 
 ### Methods
 
-For more information on the exposed methods please see the [scm-base-class].
+For more information on the exposed methods please see the [scm-base].
 
 ## Testing
 
@@ -59,4 +59,4 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 [status-url]: https://cd.screwdriver.cd/pipelines/8
 [daviddm-image]: https://david-dm.org/screwdriver-cd/scm-github.svg?theme=shields.io
 [daviddm-url]: https://david-dm.org/screwdriver-cd/scm-github
-[scm-base-class]: https://github.com/screwdriver-cd/scm-base
+[scm-base]: https://github.com/screwdriver-cd/scm-base
