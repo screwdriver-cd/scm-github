@@ -709,11 +709,19 @@ class GithubScm extends Scm {
     _parseUrl(config) {
         return new Promise((resolve) => {
             resolve(getInfo(config.checkoutUrl));
-        }).then(scmInfo =>
+        }).then((scmInfo) => {
+            const myHost = this.config.gheHost
+                ? this.config.gheHost
+                : 'github.com';
+
+            if (scmInfo.host !== myHost) {
+                throw new Error('Invalid checkoutUrl is passed.');
+            }
+
             // eslint-disable-next-line no-underscore-dangle
-            this._getRepoId(scmInfo, config.token, config.checkoutUrl)
-                .then(repoId => `${scmInfo.host}:${repoId}:${scmInfo.branch}`)
-        );
+            return this._getRepoId(scmInfo, config.token, config.checkoutUrl)
+                .then(repoId => `${scmInfo.host}:${repoId}:${scmInfo.branch}`);
+        });
     }
 
     /**
@@ -804,13 +812,13 @@ class GithubScm extends Scm {
         return this._parseHook(headers, payload)
             .then((result) => {
                 if (result === null) {
-                    return Promise.resolve(false);
+                    return false;
                 }
                 const checkoutSshHost = this.config.gheHost
                     ? `git@${this.config.gheHost}:`
                     : 'git@github.com:';
 
-                return Promise.resolve(result.checkoutUrl.startsWith(checkoutSshHost));
+                return result.checkoutUrl.startsWith(checkoutSshHost);
             }).catch(() => (
                 Promise.resolve(false)
             ));

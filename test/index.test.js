@@ -939,6 +939,22 @@ jobs:
                 }));
             });
         });
+
+        it('rejects when passed checkoutUrl of another host', () => {
+            const expectedError = new Error('Invalid checkoutUrl is passed.');
+
+            githubMock.repos.get.yieldsAsync(expectedError);
+            checkoutUrl = 'git@github.screwdriver.cd:iAm/theCaptain.git#boat';
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token
+            }).then(() => {
+                assert.fail('This should not fail the test');
+            }, (err) => {
+                assert.match(err.message, 'Invalid checkoutUrl is passed.');
+            });
+        });
     });
 
     describe('decorateAuthor', () => {
