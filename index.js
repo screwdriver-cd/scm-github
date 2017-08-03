@@ -715,7 +715,7 @@ class GithubScm extends Scm {
             if (scmInfo.host !== myHost) {
                 const message = 'This checkoutUrl is not supported for your current login host.';
 
-                return Promise.reject(message);
+                return Promise.reject(new Error(message));
             }
 
             // eslint-disable-next-line no-underscore-dangle

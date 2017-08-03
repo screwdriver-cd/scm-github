@@ -951,7 +951,7 @@ jobs:
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
-                assert.match(err, message);
+                assert.match(err.message, message);
             });
         });
     });
