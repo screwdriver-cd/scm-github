@@ -713,7 +713,8 @@ class GithubScm extends Scm {
             const myHost = this.config.gheHost || 'github.com';
 
             if (scmInfo.host !== myHost) {
-                const message = 'This checkoutUrl is not supported for your current login host';
+                const message = 'This checkoutUrl is not supported for your current login host.';
+
                 return Promise.reject(message);
             }
 

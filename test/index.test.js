@@ -941,9 +941,8 @@ jobs:
         });
 
         it('rejects when passed checkoutUrl of another host', () => {
-            const expectedError = new Error('Invalid checkoutUrl is passed.');
+            const message = 'This checkoutUrl is not supported for your current login host.';
 
-            githubMock.repos.get.yieldsAsync(expectedError);
             checkoutUrl = 'git@github.screwdriver.cd:iAm/theCaptain.git#boat';
 
             return scm.parseUrl({
@@ -952,7 +951,7 @@ jobs:
             }).then(() => {
                 assert.fail('This should not fail the test');
             }, (err) => {
-                assert.match(err.message, 'Invalid checkoutUrl is passed.');
+                assert.match(err, message);
             });
         });
     });
