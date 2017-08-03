@@ -710,9 +710,7 @@ class GithubScm extends Scm {
         return new Promise((resolve) => {
             resolve(getInfo(config.checkoutUrl));
         }).then((scmInfo) => {
-            const myHost = this.config.gheHost
-                ? this.config.gheHost
-                : 'github.com';
+            const myHost = this.config.gheHost || 'github.com';
 
             if (scmInfo.host !== myHost) {
                 throw new Error('Invalid checkoutUrl is passed.');
