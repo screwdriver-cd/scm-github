@@ -713,7 +713,7 @@ class GithubScm extends Scm {
             const myHost = this.config.gheHost || 'github.com';
 
             if (scmInfo.host !== myHost) {
-                throw new Error('Invalid checkoutUrl is passed.');
+                return Promise.reject('This checkoutUrl is not supported for your current login host.');
             }
 
             // eslint-disable-next-line no-underscore-dangle
