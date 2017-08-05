@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-scm-github",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "description": "Github implementation for the scm-base class",
   "main": "index.js",
   "scripts": {
