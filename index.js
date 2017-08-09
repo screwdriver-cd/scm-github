@@ -474,7 +474,13 @@ class GithubScm extends Scm {
     * @param  {Response} Object          Object containing stats for the executor
     */
     stats() {
-        return this.breaker.stats();
+        const stats = this.breaker.stats();
+        const scmContexts = this._getScmContexts();
+        const scmContext = scmContexts[0];
+
+        return {
+            [scmContext]: stats
+        };
     }
 
     /**
@@ -641,6 +647,7 @@ class GithubScm extends Scm {
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
+        const scmContexts = this._getScmContexts();
 
         switch (type) {
         case 'pull_request': {
@@ -667,7 +674,8 @@ class GithubScm extends Scm {
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
                 username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId
+                hookId,
+                scmContext: scmContexts[0]
             });
         }
         case 'push':
@@ -679,7 +687,8 @@ class GithubScm extends Scm {
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
-                hookId
+                hookId,
+                scmContext: scmContexts[0]
             });
         default:
             return Promise.resolve(null);
@@ -700,11 +709,19 @@ class GithubScm extends Scm {
     _parseUrl(config) {
         return new Promise((resolve) => {
             resolve(getInfo(config.checkoutUrl));
-        }).then(scmInfo =>
+        }).then((scmInfo) => {
+            const myHost = this.config.gheHost || 'github.com';
+
+            if (scmInfo.host !== myHost) {
+                const message = 'This checkoutUrl is not supported for your current login host.';
+
+                return Promise.reject(new Error(message));
+            }
+
             // eslint-disable-next-line no-underscore-dangle
-            this._getRepoId(scmInfo, config.token, config.checkoutUrl)
-                .then(repoId => `${scmInfo.host}:${repoId}:${scmInfo.branch}`)
-        );
+            return this._getRepoId(scmInfo, config.token, config.checkoutUrl)
+                .then(repoId => `${scmInfo.host}:${repoId}:${scmInfo.branch}`);
+        });
     }
 
     /**
@@ -713,9 +730,15 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     _getBellConfiguration() {
+        const scmContexts = this._getScmContexts();
+        const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
+        const cookie = this.config.gheHost
+            ? `github-${this.config.gheHost}`
+            : 'github-github.com';
         const bellConfig = {
             provider: 'github',
+            cookie,
             clientId: this.config.oauthClientId,
             clientSecret: this.config.oauthClientSecret,
             scope: this.config.privateRepo === true ? scope.concat('repo') : scope,
@@ -729,7 +752,9 @@ class GithubScm extends Scm {
             };
         }
 
-        return Promise.resolve(bellConfig);
+        return Promise.resolve({
+            [scmContext]: bellConfig
+        });
     }
 
     /**
@@ -761,6 +786,42 @@ class GithubScm extends Scm {
             ref: `pull/${pullRequestInfo.number}/merge`,
             sha: pullRequestInfo.head.sha
         }));
+    }
+
+    /**
+     * Get an array of scm context (e.g. github:github.com)
+     * @method getScmContexts
+     * @return {Array}
+     */
+    _getScmContexts() {
+        const contextName = this.config.gheHost
+            ? [`github:${this.config.gheHost}`]
+            : ['github:github.com'];
+
+        return contextName;
+    }
+
+    /**
+     * Determine if a scm module can handle the received webhook
+     * @method canHandleWebhook
+     * @param {Object}    headers    The request headers associated with the webhook payload
+     * @param {Object}    payload    The webhook payload received from the SCM service
+     * @return {Promise}
+     */
+    _canHandleWebhook(headers, payload) {
+        return this._parseHook(headers, payload)
+            .then((result) => {
+                if (result === null) {
+                    return false;
+                }
+                const checkoutSshHost = this.config.gheHost
+                    ? `git@${this.config.gheHost}:`
+                    : 'git@github.com:';
+
+                return result.checkoutUrl.startsWith(checkoutSshHost);
+            }).catch(() => (
+                Promise.resolve(false)
+            ));
     }
 }
 

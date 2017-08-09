@@ -574,11 +574,11 @@ describe('index', function () {
                     // will need to check each value separately.
                     const stats = scm.stats();
 
-                    assert.strictEqual(stats.requests.total, 2);
-                    assert.strictEqual(stats.requests.timeouts, 0);
-                    assert.strictEqual(stats.requests.success, 2);
-                    assert.strictEqual(stats.requests.failure, 0);
-                    assert.strictEqual(stats.breaker.isClosed, true);
+                    assert.strictEqual(stats['github:github.com'].requests.total, 2);
+                    assert.strictEqual(stats['github:github.com'].requests.timeouts, 0);
+                    assert.strictEqual(stats['github:github.com'].requests.success, 2);
+                    assert.strictEqual(stats['github:github.com'].requests.failure, 0);
+                    assert.strictEqual(stats['github:github.com'].breaker.isClosed, true);
                 });
         });
     });
@@ -746,7 +746,8 @@ jobs:
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                 type: 'pr',
                 username: 'baxterthehacker2',
-                hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+                hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                scmContext: 'github:github.com'
             };
 
             testHeaders = {
@@ -769,7 +770,8 @@ jobs:
                         type: 'repo',
                         username: 'baxterthehacker2',
                         lastCommitMessage: 'lastcommitmessage',
-                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                        scmContext: 'github:github.com'
                     });
                 });
         });
@@ -935,6 +937,21 @@ jobs:
                 assert.calledWith(githubMock.repos.get, sinon.match({
                     branch: 'boat'
                 }));
+            });
+        });
+
+        it('rejects when passed checkoutUrl of another host', () => {
+            const message = 'This checkoutUrl is not supported for your current login host.';
+
+            checkoutUrl = 'git@github.screwdriver.cd:iAm/theCaptain.git#boat';
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token
+            }).then(() => {
+                assert.fail('This should not fail the test');
+            }, (err) => {
+                assert.match(err.message, message);
             });
         });
     });
@@ -1187,16 +1204,19 @@ jobs:
         it('returns a default configuration', () => (
             scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status'
-                    ]
+                    'github:github.com': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-github.com',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status'
+                        ]
+                    }
                 });
             })
         ));
@@ -1211,19 +1231,22 @@ jobs:
 
             return scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    config: {
-                        uri: 'https://github.screwdriver.cd'
-                    },
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status'
-                    ]
+                    'github:github.screwdriver.cd': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        config: {
+                            uri: 'https://github.screwdriver.cd'
+                        },
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-github.screwdriver.cd',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status'
+                        ]
+                    }
                 });
             });
         });
@@ -1239,20 +1262,23 @@ jobs:
 
             return scm.getBellConfiguration().then((config) => {
                 assert.deepEqual(config, {
-                    clientId: 'abcdefg',
-                    clientSecret: 'hijklmno',
-                    config: {
-                        uri: 'https://github.screwdriver.cd'
-                    },
-                    forceHttps: false,
-                    isSecure: false,
-                    provider: 'github',
-                    scope: [
-                        'admin:repo_hook',
-                        'read:org',
-                        'repo:status',
-                        'repo'
-                    ]
+                    'github:github.screwdriver.cd': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        config: {
+                            uri: 'https://github.screwdriver.cd'
+                        },
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-github.screwdriver.cd',
+                        scope: [
+                            'admin:repo_hook',
+                            'read:org',
+                            'repo:status',
+                            'repo'
+                        ]
+                    }
                 });
             });
         });
@@ -1513,6 +1539,100 @@ jobs:
                 assert.instanceOf(err, Error);
                 assert.strictEqual(testError.message, err.message);
             });
+        });
+    });
+
+    describe('getScmContexts', () => {
+        it('returns a default scmContext', () => {
+            const result = scm.getScmContexts();
+
+            return assert.deepEqual(result, ['github:github.com']);
+        });
+
+        it('returns a scmContext for github enterprise', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            const result = scm.getScmContexts();
+
+            return assert.deepEqual(result, ['github:github.screwdriver.cd']);
+        });
+    });
+
+    describe('canHandleWebhook', () => {
+        let testHeaders;
+
+        beforeEach(() => {
+            testHeaders = {
+                'x-hub-signature': 'sha1=a72eab99ad7f36f582f224df8d735091b06f1802',
+                'x-github-event': 'pull_request',
+                'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+            };
+        });
+
+        it('returns a true for a pull request event payload', () => {
+            testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadOpen)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a pull request being closed', () => {
+            testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadClose)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a pull request being synchronized', () => {
+            testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadSync)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a true for a push event payload', () => {
+            testHeaders['x-github-event'] = 'push';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadPush)
+                .then((result) => {
+                    assert.strictEqual(result, true);
+                });
+        });
+
+        it('returns a false when signature is not valid', () => {
+            testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.strictEqual(result, false);
+                });
+        });
+
+        it('returns a false when different github payload', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheHost: 'github.screwdriver.cd',
+                secret: 'somesecret'
+            });
+
+            testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadOpen)
+                .then((result) => {
+                    assert.strictEqual(result, false);
+                });
         });
     });
 });

@@ -37,6 +37,14 @@ const scm = new GithubScm({
 
 ### Methods
 
+#### getScmContexts
+
+No parameters are required.
+
+##### Expected Outcome
+
+A single element array of ScmContext(ex: `['github:github.com']`(default), `['github:github.screwdriver.cd']`), which will be a unique identifier for the scm.
+
 For more information on the exposed methods please see the [scm-base].
 
 ## Testing
