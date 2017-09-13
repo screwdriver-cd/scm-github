@@ -293,6 +293,7 @@ class GithubScm extends Scm {
         command.push('echo Setting user name and user email');
         command.push(`git config user.name ${this.config.username}`);
         command.push(`git config user.email ${this.config.email}`);
+        command.push('export GIT_URL=$SCM_URL.git');
 
         // For pull requests
         if (config.prRef) {
@@ -303,6 +304,9 @@ class GithubScm extends Scm {
             command.push(`git fetch origin ${prRef}`);
             // Merge a pull request with pipeline branch
             command.push(`git merge --no-edit ${config.sha}`);
+            command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
+        } else {
+            command.push(`export GIT_BRANCH=origin/${config.branch}`);
         }
 
         return Promise.resolve({
@@ -496,14 +500,14 @@ class GithubScm extends Scm {
             action: 'get',
             token,
             params: scmInfo })
-        .then(data => data.id)
-        .catch((err) => {
-            if (err.code === 404) {
-                throw new Error(`Cannot find repository ${checkoutUrl}`);
-            }
+            .then(data => data.id)
+            .catch((err) => {
+                if (err.code === 404) {
+                    throw new Error(`Cannot find repository ${checkoutUrl}`);
+                }
 
-            throw new Error(err);
-        });
+                throw new Error(err);
+            });
     }
 
     /**
