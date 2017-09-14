@@ -438,26 +438,26 @@ describe('index', function () {
 
         it('promises to update commit status on success', () =>
             scm.updateCommitStatus(config)
-            .then((result) => {
-                assert.deepEqual(result, data);
+                .then((result) => {
+                    assert.deepEqual(result, data);
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '14052'
-                });
-                assert.calledWith(githubMock.repos.createStatus, {
-                    owner: 'screwdriver-cd',
-                    repo: 'models',
-                    sha: config.sha,
-                    state: 'success',
-                    description: 'Everything looks good!',
-                    context: 'Screwdriver/675/main',
-                    target_url: 'https://foo.bar'
-                });
-                assert.calledWith(githubMock.authenticate, {
-                    type: 'oauth',
-                    token: config.token
-                });
-            })
+                    assert.calledWith(githubMock.repos.getById, {
+                        id: '14052'
+                    });
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'success',
+                        description: 'Everything looks good!',
+                        context: 'Screwdriver/675/main',
+                        target_url: 'https://foo.bar'
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                })
         );
 
         it('sets context for PR when jobName passed in', () => {
@@ -711,25 +711,25 @@ jobs:
             githubMock.repos.getContent.yieldsAsync(err);
 
             return scm.getFile(config)
-            .then(() => {
-                assert.fail('This should not fail the test');
-            })
-            .catch((error) => {
-                assert.calledWith(githubMock.repos.getContent, {
-                    owner: 'screwdriver-cd',
-                    repo: 'models',
-                    path: config.path,
-                    ref: config.ref
-                });
+                .then(() => {
+                    assert.fail('This should not fail the test');
+                })
+                .catch((error) => {
+                    assert.calledWith(githubMock.repos.getContent, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        path: config.path,
+                        ref: config.ref
+                    });
 
-                assert.calledWith(githubMock.authenticate, {
-                    type: 'oauth',
-                    token: config.token
-                });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
 
-                assert.deepEqual(error, err);
-                assert.strictEqual(scm.breaker.getTotalRequests(), 2);
-            });
+                    assert.deepEqual(error, err);
+                    assert.strictEqual(scm.breaker.getTotalRequests(), 2);
+                });
         });
     });
 
