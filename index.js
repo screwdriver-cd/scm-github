@@ -279,20 +279,23 @@ class GithubScm extends Scm {
 
         // Git clone
         command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+        command.push('if git --version > /dev/null 2>&1; ' +
+            'then export GIT_WRAPPER=""; ' +
+            'else export GIT_WRAPPER="sd-step exec core/git"; fi');
         command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
             `then export SCM_URL=${sshCheckoutUrl}; ` +
             'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
-        command.push('sd-step exec core/git '
+        command.push('$GIT_WRAPPER '
             + `"git clone --quiet --progress --branch ${config.branch} $SCM_URL $SD_SOURCE_DIR"`);
         // Reset to SHA
-        command.push(`sd-step exec core/git "git reset --hard ${checkoutRef}"`);
+        command.push(`$GIT_WRAPPER "git reset --hard ${checkoutRef}"`);
         command.push(`echo Reset to ${checkoutRef}`);
         // Set config
         command.push('echo Setting user name and user email');
-        command.push(`sd-step exec core/git "git config user.name ${this.config.username}"`);
-        command.push(`sd-step exec core/git "git config user.email ${this.config.email}"`);
+        command.push(`$GIT_WRAPPER "git config user.name ${this.config.username}"`);
+        command.push(`$GIT_WRAPPER "git config user.email ${this.config.email}"`);
         command.push('export GIT_URL=$SCM_URL.git');
 
         // For pull requests
@@ -301,9 +304,9 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${config.branch}`);
-            command.push(`sd-step exec core/git "git fetch origin ${prRef}"`);
+            command.push(`$GIT_WRAPPER "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
-            command.push(`sd-step exec core/git "git merge --no-edit ${config.sha}"`);
+            command.push(`$GIT_WRAPPER "git merge --no-edit ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${config.branch}`);
