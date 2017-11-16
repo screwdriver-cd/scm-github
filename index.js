@@ -275,27 +275,27 @@ class GithubScm extends Scm {
         const checkoutUrl = `${config.host}/${config.org}/${config.repo}`; // URL for https
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const checkoutRef = config.prRef ? config.branch : config.sha; // if PR, use pipeline branch
+        const gitWrapper = '$(if git --version > /dev/null 2>&1; ' +
+            "then echo 'eval'; " +
+            "else echo 'sd-step exec core/git'; fi)";
         const command = [];
 
         // Git clone
         command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
-        command.push('if git --version > /dev/null 2>&1; ' +
-            'then export GIT_WRAPPER=""; ' +
-            'else export GIT_WRAPPER="sd-step exec core/git"; fi');
         command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
             `then export SCM_URL=${sshCheckoutUrl}; ` +
             'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
-        command.push('$GIT_WRAPPER '
+        command.push(`${gitWrapper} `
             + `"git clone --quiet --progress --branch ${config.branch} $SCM_URL $SD_SOURCE_DIR"`);
         // Reset to SHA
-        command.push(`$GIT_WRAPPER "git reset --hard ${checkoutRef}"`);
+        command.push(`${gitWrapper} "git reset --hard ${checkoutRef}"`);
         command.push(`echo Reset to ${checkoutRef}`);
         // Set config
         command.push('echo Setting user name and user email');
-        command.push(`$GIT_WRAPPER "git config user.name ${this.config.username}"`);
-        command.push(`$GIT_WRAPPER "git config user.email ${this.config.email}"`);
+        command.push(`${gitWrapper} "git config user.name ${this.config.username}"`);
+        command.push(`${gitWrapper} "git config user.email ${this.config.email}"`);
         command.push('export GIT_URL=$SCM_URL.git');
 
         // For pull requests
@@ -304,9 +304,9 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${config.branch}`);
-            command.push(`$GIT_WRAPPER "git fetch origin ${prRef}"`);
+            command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
-            command.push(`$GIT_WRAPPER "git merge --no-edit ${config.sha}"`);
+            command.push(`${gitWrapper} "git merge --no-edit ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${config.branch}`);
