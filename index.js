@@ -422,12 +422,8 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         }).then((scmInfo) => {
-            let context = `Screwdriver/${config.pipelineId}/`;
-
-            context += /^PR/.test(config.jobName) ? 'PR' : config.jobName;
-
             const params = {
-                context,
+                context: `Screwdriver/${config.pipelineId}/${config.jobName}`,
                 description: DESCRIPTION_MAP[config.buildStatus],
                 repo: scmInfo.repo,
                 sha: config.sha,

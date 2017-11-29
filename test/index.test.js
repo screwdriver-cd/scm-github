@@ -473,7 +473,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/675/PR',
+                        context: 'Screwdriver/675/PR-15',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
