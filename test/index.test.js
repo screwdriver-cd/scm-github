@@ -461,7 +461,7 @@ describe('index', function () {
         );
 
         it('sets context for PR when jobName passed in', () => {
-            config.jobName = 'PR-15';
+            config.jobName = 'PR-15:test';
 
             return scm.updateCommitStatus(config)
                 .then((result) => {
@@ -473,7 +473,7 @@ describe('index', function () {
                         sha: config.sha,
                         state: 'success',
                         description: 'Everything looks good!',
-                        context: 'Screwdriver/675/PR-15',
+                        context: 'Screwdriver/675/PR:test',
                         target_url: 'https://foo.bar'
                     });
                     assert.calledWith(githubMock.authenticate, {
@@ -560,7 +560,8 @@ describe('index', function () {
                 sha: 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f',
                 buildStatus: 'SUCCESS',
                 token: 'somerandomtoken',
-                url: 'https://foo.bar'
+                url: 'https://foo.bar',
+                jobName: 'main'
             };
 
             githubMock.repos.getById.yieldsAsync(null, {
