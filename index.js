@@ -297,6 +297,8 @@ class GithubScm extends Scm {
         command.push(`${gitWrapper} "git config user.name ${this.config.username}"`);
         command.push(`${gitWrapper} "git config user.email ${this.config.email}"`);
         command.push('export GIT_URL=$SCM_URL.git');
+        // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
+        command.push('export GIT_MERGE_AUTOEDIT=no');
 
         // For pull requests
         if (config.prRef) {
@@ -306,7 +308,7 @@ class GithubScm extends Scm {
             command.push(`echo Fetching PR and merging with ${config.branch}`);
             command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
-            command.push(`${gitWrapper} "git merge --no-edit ${config.sha}"`);
+            command.push(`${gitWrapper} "git merge ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${config.branch}`);
