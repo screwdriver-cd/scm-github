@@ -288,7 +288,8 @@ class GithubScm extends Scm {
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
         command.push(`${gitWrapper} `
-            + `"git clone --quiet --progress --branch ${config.branch} $SCM_URL $SD_SOURCE_DIR"`);
+            + `"git clone --recursive --quiet --progress --branch ${config.branch} `
+            + '$SCM_URL $SD_SOURCE_DIR"');
         // Reset to SHA
         command.push(`${gitWrapper} "git reset --hard ${checkoutRef}"`);
         command.push(`echo Reset to ${checkoutRef}`);
