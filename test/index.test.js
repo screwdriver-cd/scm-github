@@ -6,6 +6,7 @@ const sinon = require('sinon');
 
 const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
+const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
@@ -745,6 +746,7 @@ jobs:
                 prNum: 1,
                 prRef: 'pull/1/merge',
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+                prSource: 'branch',
                 type: 'pr',
                 username: 'baxterthehacker2',
                 hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
@@ -791,6 +793,17 @@ jobs:
 
             return scm.parseHook(testHeaders, testPayloadOpen)
                 .then((result) => {
+                    commonPullRequestParse.action = 'opened';
+                    assert.deepEqual(result, commonPullRequestParse);
+                });
+        });
+
+        it('parses a payload for a forked pull request event payload', () => {
+            testHeaders['x-hub-signature'] = 'sha1=3b5d95f319ab1cdc8b5753495df12ce74b8075d6';
+
+            return scm.parseHook(testHeaders, testPayloadOpenFork)
+                .then((result) => {
+                    commonPullRequestParse.prSource = 'fork';
                     commonPullRequestParse.action = 'opened';
                     assert.deepEqual(result, commonPullRequestParse);
                 });
