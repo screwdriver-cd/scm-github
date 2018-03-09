@@ -524,7 +524,7 @@ describe('index', function () {
                 });
         });
 
-        it('catches and discards github command error when it has a 422 error code', () => {
+        it('catches and discards github command errors when it has a 422 error code', () => {
             const errMsg = JSON.stringify({
                 message: 'Validation Failed',
                 errors: [
@@ -563,7 +563,7 @@ describe('index', function () {
                     });
                 })
                 .catch(() => {
-                    assert(false, 'No error should be thrown if error code is 422');
+                    assert(false, 'Error should be handled if error code is 422');
                 });
         });
 
