@@ -59,7 +59,7 @@ describe('index', function () {
         };
         githubMockClass = sinon.stub().returns(githubMock);
 
-        mockery.registerMock('github', githubMockClass);
+        mockery.registerMock('@octokit/rest', githubMockClass);
 
         /* eslint-disable global-require */
         GithubScm = require('../index');
