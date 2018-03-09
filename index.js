@@ -441,6 +441,10 @@ class GithubScm extends Scm {
                 action: 'createStatus',
                 token: config.token,
                 params
+            }).catch((err) => {
+                if (err.code !== 422) {
+                    throw err;
+                }
             });
         });
     }
