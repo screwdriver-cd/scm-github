@@ -524,6 +524,49 @@ describe('index', function () {
                 });
         });
 
+        it('catches and discards github command errors when it has a 422 error code', () => {
+            const errMsg = JSON.stringify({
+                message: 'Validation Failed',
+                errors: [
+                    {
+                        resource: 'Status',
+                        code: 'custom',
+                        message: 'This SHA and context has reached the maximum number of statuses.'
+                    }
+                ],
+                // eslint-disable-next-line max-len
+                documentation_url: 'https://developer.github.com/enterprise/2.10/v3/repos/statuses/#create-a-status'
+            });
+            const err = new Error(errMsg);
+
+            err.code = 422;
+            githubMock.repos.createStatus.yieldsAsync(err);
+
+            config.buildStatus = 'FAILURE';
+
+            return scm.updateCommitStatus(config)
+                .then((result) => {
+                    assert.deepEqual(result, undefined);
+
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'failure',
+                        description: 'Did not work as expected.',
+                        context: 'Screwdriver/675/main',
+                        target_url: 'https://foo.bar'
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                })
+                .catch(() => {
+                    assert(false, 'Error should be handled if error code is 422');
+                });
+        });
+
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
