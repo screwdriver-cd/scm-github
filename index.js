@@ -122,8 +122,8 @@ class GithubScm extends Scm {
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
-            // Do not retry when there is a 404 error
-            shouldRetry: err => err && err.code !== 404,
+            // Do not retry when there is a 4XX error
+            shouldRetry: err => err && !(err.code >= 400 && err.code < 500)
             retry: this.config.fusebox.retry,
             breaker: this.config.fusebox.breaker
         });
