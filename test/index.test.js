@@ -14,6 +14,7 @@ const testPayloadPing = require('./data/github.ping.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
+const testPrFiles = require('./data/github.pull_request.files.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -40,7 +41,8 @@ describe('index', function () {
             authenticate: sinon.stub(),
             pullRequests: {
                 getAll: sinon.stub(),
-                get: sinon.stub()
+                get: sinon.stub(),
+                getFiles: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
@@ -775,6 +777,74 @@ jobs:
                     assert.deepEqual(error, err);
                     assert.strictEqual(scm.breaker.getTotalRequests(), 2);
                 });
+        });
+    });
+
+    describe('getChangedFiles', () => {
+        let type;
+        const token = 'tokenforgetchangedfiles';
+
+        it('returns changed files for a push event payload', () => {
+            type = 'repo';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                webhookPayload: testPayloadPush
+            })
+                .then((result) => {
+                    assert.deepEqual(result, ['README.md']);
+                });
+        });
+
+        it('returns changed files for a pull request event payload', () => {
+            githubMock.pullRequests.getFiles.yieldsAsync(null, testPrFiles);
+            type = 'pr';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                webhookPayload: testPayloadOpen
+            })
+                .then((result) => {
+                    assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
+                });
+        });
+
+        it('returns empty array for an event payload that is not type repo or pr', () => {
+            type = 'banana';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                webhookPayload: testPayloadOpen
+            })
+                .then((result) => {
+                    assert.deepEqual(result, []);
+                });
+        });
+
+        it('rejects when failing to communicate with github', () => {
+            const testError = new Error('someGithubCommError');
+
+            type = 'pr';
+            githubMock.pullRequests.getFiles.yieldsAsync(testError);
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                webhookPayload: testPayloadOpen
+            }).then(() => {
+                assert.fail('This should not fail the test');
+            }, (err) => {
+                assert.deepEqual(err, testError);
+
+                assert.calledWith(githubMock.pullRequests.getFiles, {
+                    owner: 'baxterthehacker',
+                    repo: 'public-repo',
+                    number: 1
+                });
+            });
         });
     });
 
