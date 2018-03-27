@@ -647,29 +647,29 @@ class GithubScm extends Scm {
      * @param  {String}   config.token           Service token to authenticate with Github
      * @return {Promise}
      */
-    _getChangedFiles({ type, webhookPayload, token }) {
+    _getChangedFiles({ type, payload, token }) {
         if (type === 'pr') {
             return this.breaker.runCommand({
                 action: 'getFiles',
                 scopeType: 'pullRequests',
                 token,
                 params: {
-                    owner: hoek.reach(webhookPayload, 'repository.owner.login'),
-                    repo: hoek.reach(webhookPayload, 'repository.name'),
-                    number: hoek.reach(webhookPayload, 'number')
+                    owner: hoek.reach(payload, 'repository.owner.login'),
+                    repo: hoek.reach(payload, 'repository.name'),
+                    number: hoek.reach(payload, 'number')
                 }
             }).then((data) => {
                 const fileNames = [];
 
                 data.forEach((file) => {
-                    fileNames.push(file.fileName);
+                    fileNames.push(file.filename);
                 });
 
                 return fileNames;
             });
         }
         if (type === 'repo') {
-            return hoek.reach(webhookPayload, 'head_commit.modified');
+            return hoek.reach(payload, 'head_commit.modified');
         }
 
         return [];

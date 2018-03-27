@@ -43,8 +43,8 @@
     "github": "^8.1.1",
     "hoek": "^5.0.3",
     "joi": "^13.0.0",
-    "screwdriver-data-schema": "^18.0.0",
-    "screwdriver-scm-base": "^3.0.0"
+    "screwdriver-data-schema": "^18.13.0",
+    "screwdriver-scm-base": "^4.0.1"
   },
   "release": {
     "debug": false,
