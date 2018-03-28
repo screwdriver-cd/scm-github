@@ -638,6 +638,44 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get the changed files from a Git event
+     * @method _getChangedFiles
+     * @param  {Object}   config                 Configuration object
+     * @param  {String}   config.type            Can be 'pr' or 'repo'
+     * @param  {Object}   config.webhookPayload  The webhook payload received from the
+     *                                           SCM service.
+     * @param  {String}   config.token           Service token to authenticate with Github
+     * @return {Promise}
+     */
+    _getChangedFiles({ type, payload, token }) {
+        if (type === 'pr') {
+            return this.breaker.runCommand({
+                action: 'getFiles',
+                scopeType: 'pullRequests',
+                token,
+                params: {
+                    owner: hoek.reach(payload, 'repository.owner.login'),
+                    repo: hoek.reach(payload, 'repository.name'),
+                    number: hoek.reach(payload, 'number')
+                }
+            }).then((data) => {
+                const fileNames = [];
+
+                data.forEach((file) => {
+                    fileNames.push(file.filename);
+                });
+
+                return fileNames;
+            });
+        }
+        if (type === 'repo') {
+            return hoek.reach(payload, 'head_commit.modified');
+        }
+
+        return [];
+    }
+
+    /**
      * Given a SCM webhook payload & its associated headers, aggregate the
      * necessary data to execute a Screwdriver job with.
      * @method _parseHook

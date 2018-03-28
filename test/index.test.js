@@ -14,6 +14,7 @@ const testPayloadPing = require('./data/github.ping.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
+const testPrFiles = require('./data/github.pull_request.files.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -40,7 +41,8 @@ describe('index', function () {
             authenticate: sinon.stub(),
             pullRequests: {
                 getAll: sinon.stub(),
-                get: sinon.stub()
+                get: sinon.stub(),
+                getFiles: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
@@ -775,6 +777,74 @@ jobs:
                     assert.deepEqual(error, err);
                     assert.strictEqual(scm.breaker.getTotalRequests(), 2);
                 });
+        });
+    });
+
+    describe('getChangedFiles', () => {
+        let type;
+        const token = 'tokenforgetchangedfiles';
+
+        it('returns changed files for a push event payload', () => {
+            type = 'repo';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                payload: testPayloadPush
+            })
+                .then((result) => {
+                    assert.deepEqual(result, ['README.md']);
+                });
+        });
+
+        it('returns changed files for a pull request event payload', () => {
+            githubMock.pullRequests.getFiles.yieldsAsync(null, testPrFiles);
+            type = 'pr';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                payload: testPayloadOpen
+            })
+                .then((result) => {
+                    assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
+                });
+        });
+
+        it('returns empty array for an event payload that is not type repo or pr', () => {
+            type = 'ping';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                payload: testPayloadOpen
+            })
+                .then((result) => {
+                    assert.deepEqual(result, []);
+                });
+        });
+
+        it('rejects when failing to communicate with github', () => {
+            const testError = new Error('someGithubCommError');
+
+            type = 'pr';
+            githubMock.pullRequests.getFiles.yieldsAsync(testError);
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                payload: testPayloadOpen
+            }).then(() => {
+                assert.fail('This should not fail the test');
+            }, (err) => {
+                assert.deepEqual(err, testError);
+
+                assert.calledWith(githubMock.pullRequests.getFiles, {
+                    owner: 'baxterthehacker',
+                    repo: 'public-repo',
+                    number: 1
+                });
+            });
         });
     });
 
@@ -1631,7 +1701,7 @@ jobs:
             };
         });
 
-        it('returns a true for a pull request event payload', () => {
+        it('returns true for a pull request event payload', () => {
             testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
             return scm.canHandleWebhook(testHeaders, testPayloadOpen)
@@ -1640,7 +1710,7 @@ jobs:
                 });
         });
 
-        it('returns a true for a pull request being closed', () => {
+        it('returns true for a pull request being closed', () => {
             testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
 
             return scm.canHandleWebhook(testHeaders, testPayloadClose)
@@ -1649,7 +1719,7 @@ jobs:
                 });
         });
 
-        it('returns a true for a pull request being synchronized', () => {
+        it('returns true for a pull request being synchronized', () => {
             testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
 
             return scm.canHandleWebhook(testHeaders, testPayloadSync)
@@ -1658,7 +1728,7 @@ jobs:
                 });
         });
 
-        it('returns a true for a push event payload', () => {
+        it('returns true for a push event payload', () => {
             testHeaders['x-github-event'] = 'push';
 
             return scm.canHandleWebhook(testHeaders, testPayloadPush)
@@ -1667,7 +1737,7 @@ jobs:
                 });
         });
 
-        it('returns a false when signature is not valid', () => {
+        it('returns false when signature is not valid', () => {
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
             return scm.canHandleWebhook(testHeaders, testPayloadPing)
@@ -1676,7 +1746,7 @@ jobs:
                 });
         });
 
-        it('returns a false when different github payload', () => {
+        it('returns false when different github payload', () => {
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
                 oauthClientSecret: 'hijklmno',
