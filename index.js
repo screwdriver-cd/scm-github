@@ -291,7 +291,7 @@ class GithubScm extends Scm {
             + `"git clone --recursive --quiet --progress --branch ${config.branch} `
             + '$SCM_URL $SD_SOURCE_DIR"');
         // Reset to SHA
-        command.push(`${gitWrapper} "git reset --hard ${checkoutRef}"`);
+        command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
         command.push(`echo Reset to ${checkoutRef}`);
         // Set config
         command.push('echo Setting user name and user email');
