@@ -26,8 +26,8 @@ describe('index', function () {
 
     let GithubScm;
     let scm;
-    let octokitMock;
-    let octokitMockClass;
+    let githubMock;
+    let githubMockClass;
 
     before(() => {
         mockery.enable({
@@ -37,7 +37,7 @@ describe('index', function () {
     });
 
     beforeEach(() => {
-        octokitMock = {
+        githubMock = {
             authenticate: sinon.stub(),
             pullRequests: {
                 getAll: sinon.stub(),
@@ -59,9 +59,9 @@ describe('index', function () {
                 getForUser: sinon.stub()
             }
         };
-        octokitMockClass = sinon.stub().returns(octokitMock);
+        githubMockClass = sinon.stub().returns(githubMock);
 
-        mockery.registerMock('@octokit/rest', octokitMockClass);
+        mockery.registerMock('github', githubMockClass);
 
         // eslint-disable-next-line global-require
         GithubScm = require('../');
@@ -110,7 +110,7 @@ describe('index', function () {
                 oauthClientSecret: 'hijklmno',
                 secret: 'somesecret'
             });
-            assert.calledWith(octokitMockClass, {});
+            assert.calledWith(githubMockClass, {});
         });
 
         it('can configure for GHE', () => {
@@ -120,7 +120,7 @@ describe('index', function () {
                 oauthClientSecret: 'hijklmno',
                 secret: 'somesecret'
             });
-            assert.calledWith(octokitMockClass, {
+            assert.calledWith(githubMockClass, {
                 host: 'github.screwdriver.cd',
                 protocol: 'https',
                 pathPrefix: '/api/v3'
@@ -182,8 +182,8 @@ describe('index', function () {
         };
 
         it('promises to get the commit sha without prNum', () => {
-            octokitMock.repos.getBranch.yieldsAsync(null, branch);
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getBranch.yieldsAsync(null, branch);
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
 
@@ -191,16 +191,16 @@ describe('index', function () {
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
 
-                    assert.calledWith(octokitMock.repos.getBranch, {
+                    assert.calledWith(githubMock.repos.getBranch, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         host: 'github.com',
                         branch: 'master'
                     });
-                    assert.calledWith(octokitMock.repos.getById, {
+                    assert.calledWith(githubMock.repos.getById, {
                         id: '920414'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -209,10 +209,10 @@ describe('index', function () {
 
         it('promises to get the commit sha with prNum', () => {
             config.prNum = 1;
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
-            octokitMock.pullRequests.get.yieldsAsync(null,
+            githubMock.pullRequests.get.yieldsAsync(null,
                 { number: config.prNum, head: { sha: branch.commit.sha } }
             );
 
@@ -220,12 +220,12 @@ describe('index', function () {
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
 
-                    assert.calledWith(octokitMock.pullRequests.get, {
+                    assert.calledWith(githubMock.pullRequests.get, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         number: config.prNum
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -236,7 +236,7 @@ describe('index', function () {
         it('fails when unable to get a repo by ID', () => {
             const error = new Error('githubBreaking');
 
-            octokitMock.repos.getById.yieldsAsync(error);
+            githubMock.repos.getById.yieldsAsync(error);
 
             return scm.getCommitSha(config)
                 .then(() => {
@@ -245,11 +245,11 @@ describe('index', function () {
                 .catch((err) => {
                     assert.deepEqual(err, error);
 
-                    assert.calledWith(octokitMock.repos.getById, {
+                    assert.calledWith(githubMock.repos.getById, {
                         id: '920414'
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -259,28 +259,28 @@ describe('index', function () {
         it('fails when unable to get the branch info from a repo', () => {
             const error = new Error('githubBreaking');
 
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
-            octokitMock.repos.getBranch.yieldsAsync(error);
+            githubMock.repos.getBranch.yieldsAsync(error);
 
             return scm.getCommitSha(config).then(() => {
                 assert.fail('This should not fail the test');
             }).catch((err) => {
                 assert.deepEqual(err, error);
 
-                assert.calledWith(octokitMock.repos.getBranch, {
+                assert.calledWith(githubMock.repos.getBranch, {
                     owner: 'screwdriver-cd',
                     repo: 'models',
                     host: 'github.com',
                     branch: 'master'
                 });
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '920414'
                 });
 
-                assert.calledWith(octokitMock.authenticate, {
+                assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: config.token
                 });
@@ -303,28 +303,28 @@ describe('index', function () {
         };
 
         beforeEach(() => {
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
         });
 
         it('promises to get permissions', () => {
-            octokitMock.repos.get.yieldsAsync(null, repo);
+            githubMock.repos.get.yieldsAsync(null, repo);
 
             return scm.getPermissions(config)
                 .then((data) => {
                     assert.deepEqual(data, repo.permissions);
 
-                    assert.calledWith(octokitMock.repos.getById, {
+                    assert.calledWith(githubMock.repos.getById, {
                         id: '359478'
                     });
 
-                    assert.calledWith(octokitMock.repos.get, {
+                    assert.calledWith(githubMock.repos.get, {
                         owner: 'screwdriver-cd',
                         repo: 'models'
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -334,7 +334,7 @@ describe('index', function () {
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
-            octokitMock.repos.get.yieldsAsync(err);
+            githubMock.repos.get.yieldsAsync(err);
 
             return scm.getPermissions(config)
                 .then(() => {
@@ -343,11 +343,11 @@ describe('index', function () {
                 .catch((error) => {
                     assert.deepEqual(error, err);
 
-                    assert.calledWith(octokitMock.repos.getById, {
+                    assert.calledWith(githubMock.repos.getById, {
                         id: '359478'
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -363,7 +363,7 @@ describe('index', function () {
                 full_name: 'screwdriver-cd/models'
             };
 
-            octokitMock.repos.getById.yieldsAsync(null, testResponse);
+            githubMock.repos.getById.yieldsAsync(null, testResponse);
 
             return scm.lookupScmUri({
                 scmUri,
@@ -376,10 +376,10 @@ describe('index', function () {
                     owner: 'screwdriver-cd'
                 });
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '23498'
                 });
-                assert.calledWith(octokitMock.authenticate, {
+                assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: 'sometoken'
                 });
@@ -389,7 +389,7 @@ describe('index', function () {
         it('rejects when github command fails', () => {
             const testError = new Error('githubError');
 
-            octokitMock.repos.getById.yieldsAsync(testError);
+            githubMock.repos.getById.yieldsAsync(testError);
 
             return scm.lookupScmUri({
                 scmUri,
@@ -399,10 +399,10 @@ describe('index', function () {
             }, (error) => {
                 assert.deepEqual(error, testError);
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '23498'
                 });
-                assert.calledWith(octokitMock.authenticate, {
+                assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: 'sometoken'
                 });
@@ -432,10 +432,10 @@ describe('index', function () {
                 pipelineId: 675
             };
 
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
-            octokitMock.repos.createStatus.yieldsAsync(null, data);
+            githubMock.repos.createStatus.yieldsAsync(null, data);
         });
 
         it('promises to update commit status on success', () =>
@@ -443,10 +443,10 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(octokitMock.repos.getById, {
+                    assert.calledWith(githubMock.repos.getById, {
                         id: '14052'
                     });
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -455,7 +455,7 @@ describe('index', function () {
                         context: 'Screwdriver/675/main',
                         target_url: 'https://foo.bar'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -469,7 +469,7 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -478,7 +478,7 @@ describe('index', function () {
                         context: 'Screwdriver/675/PR:test',
                         target_url: 'https://foo.bar'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -490,7 +490,7 @@ describe('index', function () {
 
             return scm.updateCommitStatus(config)
                 .then(() => {
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -509,7 +509,7 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -518,7 +518,7 @@ describe('index', function () {
                         context: 'Screwdriver/675/main',
                         target_url: 'https://foo.bar'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -541,7 +541,7 @@ describe('index', function () {
             const err = new Error(errMsg);
 
             err.code = 422;
-            octokitMock.repos.createStatus.yieldsAsync(err);
+            githubMock.repos.createStatus.yieldsAsync(err);
 
             config.buildStatus = 'FAILURE';
 
@@ -549,7 +549,7 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, undefined);
 
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -558,7 +558,7 @@ describe('index', function () {
                         context: 'Screwdriver/675/main',
                         target_url: 'https://foo.bar'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -571,7 +571,7 @@ describe('index', function () {
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
-            octokitMock.repos.createStatus.yieldsAsync(err);
+            githubMock.repos.createStatus.yieldsAsync(err);
 
             return scm.updateCommitStatus(config)
                 .then(() => {
@@ -580,7 +580,7 @@ describe('index', function () {
                 .catch((error) => {
                     assert.deepEqual(error, err);
 
-                    assert.calledWith(octokitMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -589,7 +589,7 @@ describe('index', function () {
                         context: 'Screwdriver/675/main',
                         target_url: 'https://foo.bar'
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -609,10 +609,10 @@ describe('index', function () {
                 jobName: 'main'
             };
 
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
-            octokitMock.repos.createStatus.yieldsAsync(null, {});
+            githubMock.repos.createStatus.yieldsAsync(null, {});
 
             return scm.updateCommitStatus(config)
                 .then(() => {
@@ -678,25 +678,25 @@ jobs:
         };
 
         beforeEach(() => {
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'screwdriver-cd/models'
             });
         });
 
         it('promises to get content when a ref is passed', () => {
-            octokitMock.repos.getContent.yieldsAsync(null, returnData);
+            githubMock.repos.getContent.yieldsAsync(null, returnData);
 
             return scm.getFile(config)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(octokitMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
                         ref: config.ref
                     });
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -704,20 +704,20 @@ jobs:
         });
 
         it('promises to get content when a ref is not passed', () => {
-            octokitMock.repos.getContent.yieldsAsync(null, returnData);
+            githubMock.repos.getContent.yieldsAsync(null, returnData);
 
             return scm.getFile(configNoRef)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(octokitMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: configNoRef.path,
                         ref: 'master'
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -727,7 +727,7 @@ jobs:
         it('returns error when path is not a file', () => {
             const expectedErrorMessage = 'Path (screwdriver.yaml) does not point to file';
 
-            octokitMock.repos.getContent.yieldsAsync(null, returnInvalidData);
+            githubMock.repos.getContent.yieldsAsync(null, returnInvalidData);
 
             return scm.getFile(config)
                 .then(() => {
@@ -735,14 +735,14 @@ jobs:
                 }, (err) => {
                     assert.strictEqual(err.message, expectedErrorMessage);
 
-                    assert.calledWith(octokitMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
                         ref: config.ref
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -754,21 +754,21 @@ jobs:
 
             err.code = 404;
 
-            octokitMock.repos.getContent.yieldsAsync(err);
+            githubMock.repos.getContent.yieldsAsync(err);
 
             return scm.getFile(config)
                 .then(() => {
                     assert.fail('This should not fail the test');
                 })
                 .catch((error) => {
-                    assert.calledWith(octokitMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
                         ref: config.ref
                     });
 
-                    assert.calledWith(octokitMock.authenticate, {
+                    assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
@@ -797,7 +797,7 @@ jobs:
         });
 
         it('returns changed files for a pull request event payload', () => {
-            octokitMock.pullRequests.getFiles.yieldsAsync(null, testPrFiles);
+            githubMock.pullRequests.getFiles.yieldsAsync(null, testPrFiles);
             type = 'pr';
 
             return scm.getChangedFiles({
@@ -827,7 +827,7 @@ jobs:
             const testError = new Error('someGithubCommError');
 
             type = 'pr';
-            octokitMock.pullRequests.getFiles.yieldsAsync(testError);
+            githubMock.pullRequests.getFiles.yieldsAsync(testError);
 
             return scm.getChangedFiles({
                 type,
@@ -838,7 +838,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(octokitMock.pullRequests.getFiles, {
+                assert.calledWith(githubMock.pullRequests.getFiles, {
                     owner: 'baxterthehacker',
                     repo: 'public-repo',
                     number: 1
@@ -982,7 +982,7 @@ jobs:
         });
 
         it('parses a complete ssh url', () => {
-            octokitMock.repos.get.yieldsAsync(null, repoData);
+            githubMock.repos.get.yieldsAsync(null, repoData);
 
             return scm.parseUrl({
                 checkoutUrl,
@@ -990,8 +990,8 @@ jobs:
             }).then((result) => {
                 assert.strictEqual(result, 'github.com:8675309:boat');
 
-                assert.calledWith(octokitMock.repos.get, sinon.match(repoInfo));
-                assert.calledWith(octokitMock.repos.get, sinon.match({
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({
                     branch: 'boat'
                 }));
             });
@@ -1000,7 +1000,7 @@ jobs:
         it('parses a ssh url, defaulting the branch to master', () => {
             checkoutUrl = 'git@github.com:iAm/theCaptain.git';
 
-            octokitMock.repos.get.yieldsAsync(null, repoData);
+            githubMock.repos.get.yieldsAsync(null, repoData);
 
             return scm.parseUrl({
                 checkoutUrl,
@@ -1008,8 +1008,8 @@ jobs:
             }).then((result) => {
                 assert.strictEqual(result, 'github.com:8675309:master');
 
-                assert.calledWith(octokitMock.repos.get, sinon.match(repoInfo));
-                assert.calledWith(octokitMock.repos.get, sinon.match({
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({
                     branch: 'master'
                 }));
             });
@@ -1034,7 +1034,7 @@ jobs:
 
             notFoundError.code = 404;
 
-            octokitMock.repos.get.yieldsAsync(notFoundError);
+            githubMock.repos.get.yieldsAsync(notFoundError);
 
             return scm.parseUrl({
                 checkoutUrl,
@@ -1049,7 +1049,7 @@ jobs:
         it('rejects when failing to communicate with github', () => {
             const expectedError = new Error('errorCommunicatingWithGithub');
 
-            octokitMock.repos.get.yieldsAsync(expectedError);
+            githubMock.repos.get.yieldsAsync(expectedError);
 
             return scm.parseUrl({
                 checkoutUrl,
@@ -1059,8 +1059,8 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, expectedError);
 
-                assert.calledWith(octokitMock.repos.get, sinon.match(repoInfo));
-                assert.calledWith(octokitMock.repos.get, sinon.match({
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({
                     branch: 'boat'
                 }));
             });
@@ -1086,7 +1086,7 @@ jobs:
         const username = 'notmrkent';
 
         it('decorates a github user', () => {
-            octokitMock.users.getForUser.yieldsAsync(null, {
+            githubMock.users.getForUser.yieldsAsync(null, {
                 login: username,
                 id: 2042,
                 avatar_url: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1105,14 +1105,14 @@ jobs:
                     username
                 });
 
-                assert.calledWith(octokitMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getForUser, {
                     username
                 });
             });
         });
 
         it('defaults to username when display name does not exist', () => {
-            octokitMock.users.getForUser.yieldsAsync(null, {
+            githubMock.users.getForUser.yieldsAsync(null, {
                 login: username,
                 id: 2042,
                 avatar_url: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1131,7 +1131,7 @@ jobs:
                     username
                 });
 
-                assert.calledWith(octokitMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getForUser, {
                     username
                 });
             });
@@ -1140,7 +1140,7 @@ jobs:
         it('rejects when failing to communicate with github', () => {
             const testError = new Error('someGithubCommError');
 
-            octokitMock.users.getForUser.yieldsAsync(testError);
+            githubMock.users.getForUser.yieldsAsync(testError);
 
             return scm.decorateAuthor({
                 token: 'randomtoken',
@@ -1150,7 +1150,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(octokitMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getForUser, {
                     username
                 });
             });
@@ -1166,7 +1166,7 @@ jobs:
         const username = 'notbrucewayne';
 
         beforeEach(() => {
-            octokitMock.users.getForUser.yieldsAsync(null, {
+            githubMock.users.getForUser.yieldsAsync(null, {
                 login: username,
                 id: 1234567,
                 avatar_url: 'https://avatars.githubusercontent.com/u/1234567?v=3',
@@ -1174,13 +1174,13 @@ jobs:
                 name: 'Batman Wayne'
             });
 
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: `${repoOwner}/${repoName}`
             });
         });
 
         it('decorates a commit', () => {
-            octokitMock.repos.getCommit.yieldsAsync(null, {
+            githubMock.repos.getCommit.yieldsAsync(null, {
                 commit: {
                     message: 'some commit message that is here'
                 },
@@ -1206,29 +1206,29 @@ jobs:
                     url: 'https://link.to/commitDiff'
                 });
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: scmId
                 });
-                assert.calledWith(octokitMock.repos.getCommit, {
+                assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
                     sha
                 });
-                assert.calledWith(octokitMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getForUser, {
                     username
                 });
             });
         });
 
         it('defaults author data to empty if author is missing', () => {
-            octokitMock.repos.getCommit.yieldsAsync(null, {
+            githubMock.repos.getCommit.yieldsAsync(null, {
                 commit: {
                     message: 'some commit message that is here'
                 },
                 author: null,
                 html_url: 'https://link.to/commitDiff'
             });
-            octokitMock.users.getForUser.yieldsAsync();
+            githubMock.users.getForUser.yieldsAsync();
 
             return scm.decorateCommit({
                 scmUri,
@@ -1246,22 +1246,22 @@ jobs:
                     url: 'https://link.to/commitDiff'
                 });
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: scmId
                 });
-                assert.calledWith(octokitMock.repos.getCommit, {
+                assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
                     sha
                 });
-                assert.callCount(octokitMock.users.getForUser, 0);
+                assert.callCount(githubMock.users.getForUser, 0);
             });
         });
 
         it('rejects when failing to communicate with github', () => {
             const testError = new Error('theErrIexpect');
 
-            octokitMock.repos.getCommit.yieldsAsync(testError);
+            githubMock.repos.getCommit.yieldsAsync(testError);
 
             return scm.decorateCommit({
                 scmUri,
@@ -1272,7 +1272,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(octokitMock.repos.getCommit, {
+                assert.calledWith(githubMock.repos.getCommit, {
                     owner: 'banana',
                     repo: 'peel',
                     sha
@@ -1285,7 +1285,7 @@ jobs:
         it('decorates a scm uri', () => {
             const scmUri = 'github.com:102498:boat';
 
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'iAm/theCaptain'
             });
 
@@ -1299,7 +1299,7 @@ jobs:
                     url: 'https://github.com/iAm/theCaptain/tree/boat'
                 });
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '102498'
                 });
             });
@@ -1309,7 +1309,7 @@ jobs:
             const scmUri = 'github.com:102498:boat';
             const testError = new Error('decorateUrlError');
 
-            octokitMock.repos.getById.yieldsAsync(testError);
+            githubMock.repos.getById.yieldsAsync(testError);
 
             return scm.decorateUrl({
                 scmUri,
@@ -1319,7 +1319,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '102498'
                 });
             });
@@ -1418,27 +1418,27 @@ jobs:
         };
 
         beforeEach(() => {
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'dolores/violentdelights'
             });
-            octokitMock.repos.getHooks.yieldsAsync(null, [{
+            githubMock.repos.getHooks.yieldsAsync(null, [{
                 config: { url: 'https://somewhere.in/the/interwebs' },
                 id: 783150
             }]);
         });
 
         it('add a hook', () => {
-            octokitMock.repos.getHooks.yieldsAsync(null, []);
-            octokitMock.repos.createHook.yieldsAsync(null);
+            githubMock.repos.getHooks.yieldsAsync(null, []);
+            githubMock.repos.createHook.yieldsAsync(null);
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(octokitMock.authenticate, sinon.match({
+                assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
                 }));
-                assert.calledWith(octokitMock.repos.getById, {
+                assert.calledWith(githubMock.repos.getById, {
                     id: '1263'
                 });
-                assert.calledWith(octokitMock.repos.createHook, {
+                assert.calledWith(githubMock.repos.createHook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -1454,16 +1454,16 @@ jobs:
         });
 
         it('updates a pre-existing hook', () => {
-            octokitMock.repos.editHook.yieldsAsync(null);
+            githubMock.repos.editHook.yieldsAsync(null);
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(octokitMock.repos.getHooks, {
+                assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 1,
                     per_page: 30
                 });
-                assert.calledWith(octokitMock.repos.editHook, {
+                assert.calledWith(githubMock.repos.editHook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -1486,17 +1486,17 @@ jobs:
                 invalidHooks.push({});
             }
 
-            octokitMock.repos.getHooks.onCall(0).yieldsAsync(null, invalidHooks);
-            octokitMock.repos.editHook.yieldsAsync(null);
+            githubMock.repos.getHooks.onCall(0).yieldsAsync(null, invalidHooks);
+            githubMock.repos.editHook.yieldsAsync(null);
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(octokitMock.repos.getHooks, {
+                assert.calledWith(githubMock.repos.getHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 2,
                     per_page: 30
                 });
-                assert.calledWith(octokitMock.repos.editHook, {
+                assert.calledWith(githubMock.repos.editHook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -1515,7 +1515,7 @@ jobs:
         it('throws an error when failing to getHooks', () => {
             const testError = new Error('getHooksError');
 
-            octokitMock.repos.getHooks.yieldsAsync(testError);
+            githubMock.repos.getHooks.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -1525,8 +1525,8 @@ jobs:
         it('throws an error when failing to createHook', () => {
             const testError = new Error('createHookError');
 
-            octokitMock.repos.getHooks.yieldsAsync(null, []);
-            octokitMock.repos.createHook.yieldsAsync(testError);
+            githubMock.repos.getHooks.yieldsAsync(null, []);
+            githubMock.repos.createHook.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -1536,7 +1536,7 @@ jobs:
         it('throws an error when failing to editHook', () => {
             const testError = new Error('editHookError');
 
-            octokitMock.repos.editHook.yieldsAsync(testError);
+            githubMock.repos.editHook.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -1552,13 +1552,13 @@ jobs:
         };
 
         beforeEach(() => {
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'repoOwner/repoName'
             });
         });
 
         it('returns a list of opened pull requests', () => {
-            octokitMock.pullRequests.getAll.yieldsAsync(null, [
+            githubMock.pullRequests.getAll.yieldsAsync(null, [
                 { number: 1 },
                 { number: 2 }
             ]);
@@ -1575,8 +1575,8 @@ jobs:
                     }
                 ]);
 
-                assert.calledWith(octokitMock.repos.getById, { id: '111' });
-                assert.calledWith(octokitMock.pullRequests.getAll, {
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.getAll, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     state: 'open'
@@ -1587,7 +1587,7 @@ jobs:
         it('rejects when failing to lookup the SCM URI information', () => {
             const testError = new Error('testError');
 
-            octokitMock.repos.getById.yieldsAsync(testError);
+            githubMock.repos.getById.yieldsAsync(testError);
 
             return scm._getOpenedPRs(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1598,7 +1598,7 @@ jobs:
         it('rejects when failing to fetch opened pull requests', () => {
             const testError = new Error('testError');
 
-            octokitMock.pullRequests.getAll.yieldsAsync(testError);
+            githubMock.pullRequests.getAll.yieldsAsync(testError);
 
             return scm._getOpenedPRs(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1617,13 +1617,13 @@ jobs:
         const sha = 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f';
 
         beforeEach(() => {
-            octokitMock.repos.getById.yieldsAsync(null, {
+            githubMock.repos.getById.yieldsAsync(null, {
                 full_name: 'repoOwner/repoName'
             });
         });
 
         it('returns a pull request with the given prNum', () => {
-            octokitMock.pullRequests.get.yieldsAsync(null,
+            githubMock.pullRequests.get.yieldsAsync(null,
                 { number: 1, head: { sha } }
             );
 
@@ -1636,8 +1636,8 @@ jobs:
                     }
                 );
 
-                assert.calledWith(octokitMock.repos.getById, { id: '111' });
-                assert.calledWith(octokitMock.pullRequests.get, {
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     number: 1
@@ -1648,7 +1648,7 @@ jobs:
         it('rejects when failing to lookup the SCM URI information', () => {
             const testError = new Error('testError');
 
-            octokitMock.repos.getById.yieldsAsync(testError);
+            githubMock.repos.getById.yieldsAsync(testError);
 
             return scm._getPrInfo(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1659,7 +1659,7 @@ jobs:
         it('rejects when failing to get the pull request', () => {
             const testError = new Error('testError');
 
-            octokitMock.pullRequests.get.yieldsAsync(testError);
+            githubMock.pullRequests.get.yieldsAsync(testError);
 
             return scm._getPrInfo(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);

@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses');
-const Octokit = require('@octokit/rest');
+const Github = require('github');
 const hoek = require('hoek');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
@@ -66,16 +66,16 @@ class GithubScm extends Scm {
     * @param  {String}      options.token        Github token used for authentication of requests
     * @param  {Object}      options.params       Parameters to run with
     * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
-    * @return {Promise}                          Resolves to the value returned by octokit
+    * @param  {Function}    callback             Callback function from github API
     */
     _githubCommand(options) {
-        this.octokit.authenticate({
+        this.github.authenticate({
             type: 'oauth',
             token: options.token
         });
         const scopeType = options.scopeType || 'repos';
 
-        return this.octokit[scopeType][options.action](options.params);
+        this.github[scopeType][options.action](options.params, callback);
     }
 
     /**
@@ -111,12 +111,14 @@ class GithubScm extends Scm {
             secret: joi.string().required()
         }).unknown(true), 'Invalid config for GitHub');
 
-        const octokitConfig = {};
+        const githubConfig = {};
 
         if (this.config.gheHost) {
-            octokitConfig.baseUrl = `${this.config.gheProtocol}://api.${this.config.gheHost}`;
+            githubConfig.host = this.config.gheHost;
+            githubConfig.protocol = this.config.gheProtocol;
+            githubConfig.pathPrefix = '/api/v3';
         }
-        this.octokit = new Octokit(octokitConfig);
+        this.github = new Github(githubConfig);
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
