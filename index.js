@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses');
-const Github = require('github');
+const Octokit = require('@octokit/rest');
 const hoek = require('hoek');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
@@ -69,13 +69,13 @@ class GithubScm extends Scm {
     * @param  {Function}    callback             Callback function from github API
     */
     _githubCommand(options, callback) {
-        this.github.authenticate({
+        this.octokit.authenticate({
             type: 'oauth',
             token: options.token
         });
         const scopeType = options.scopeType || 'repos';
 
-        this.github[scopeType][options.action](options.params, callback);
+        this.octokit[scopeType][options.action](options.params, callback);
     }
 
     /**
@@ -118,7 +118,7 @@ class GithubScm extends Scm {
             githubConfig.protocol = this.config.gheProtocol;
             githubConfig.pathPrefix = '/api/v3';
         }
-        this.github = new Github(githubConfig);
+        this.octokit = new Octokit(githubConfig);
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {

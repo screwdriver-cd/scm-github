@@ -27,6 +27,7 @@
     "Min Zhang <minzhang@andrew.cmu.edu>",
     "Noah Katzman <nbkatzman@gmail.com>",
     "Peter Peterson <jedipetey@gmail.com>",
+    "Philip Scott <pscott@zeptohost.com>",
     "St. John Johnson <st.john.johnson@gmail.com",
     "Tiffany Kyi <tiffanykyi@gmail.com>"
   ],
@@ -40,7 +41,7 @@
   },
   "dependencies": {
     "circuit-fuses": "^2.0.3",
-    "github": "^8.1.1",
+    "@octokit/rest": "^15.2.6",
     "hoek": "^5.0.3",
     "joi": "^13.0.0",
     "screwdriver-data-schema": "^18.13.0",
