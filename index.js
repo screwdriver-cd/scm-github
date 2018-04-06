@@ -34,11 +34,11 @@ const DESCRIPTION_MAP = {
 };
 
 /**
-* Get repo information
-* @method getInfo
-* @param  {String}  scmUrl      scmUrl of the repo
-* @return {Object}              An object with the user, repo, and branch
-*/
+ * Get repo information
+ * @method getInfo
+ * @param  {String}  scmUrl      scmUrl of the repo
+ * @return {Object}              An object with the user, repo, and branch
+ */
 function getInfo(scmUrl) {
     const matched = (schema.config.regex.CHECKOUT_URL).exec(scmUrl);
 
@@ -59,15 +59,15 @@ function getInfo(scmUrl) {
 
 class GithubScm extends Scm {
     /**
-    * Github command to run
-    * @method _githubCommand
-    * @param  {Object}      options              An object that tells what command & params to run
-    * @param  {String}      options.action       Github method. For example: get
-    * @param  {String}      options.token        Github token used for authentication of requests
-    * @param  {Object}      options.params       Parameters to run with
-    * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
-    * @param  {Function}    callback             Callback function from github API
-    */
+     * Github command to run
+     * @method _githubCommand
+     * @param  {Object}      options              An object that tells what command & params to run
+     * @param  {String}      options.action       Github method. For example: get
+     * @param  {String}      options.token        Github token used for authentication of requests
+     * @param  {Object}      options.params       Parameters to run with
+     * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
+     * @param  {Function}    callback             Callback function from github API
+     */
     _githubCommand(options, callback) {
         this.github.authenticate({
             type: 'oauth',
@@ -79,21 +79,21 @@ class GithubScm extends Scm {
     }
 
     /**
-    * Constructor
-    * @method constructor
-    * @param  {Object}  config                      Configuration config
-    * @param  {Boolean} [config.privateRepo=false]  Request 'repo' scope, which allows read/write access for public & private repos
-    * @param  {String}  [config.gheHost=null]       If using GitHub Enterprise, the host/port of the deployed instance
-    * @param  {String}  [config.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
-    * @param  {String}  [config.username=sd-buildbot]           GitHub username for checkout
-    * @param  {String}  [config.email=dev-null@screwdriver.cd]  GitHub user email for checkout
-    * @param  {Boolean} [config.https=false]        Is the Screwdriver API running over HTTPS
-    * @param  {String}  config.oauthClientId        OAuth Client ID provided by GitHub application
-    * @param  {String}  config.oauthClientSecret    OAuth Client Secret provided by GitHub application
-    * @param  {Object}  [config.fusebox={}]         Circuit Breaker configuration
-    * @param  {String}  config.secret               Secret to validate the signature of webhook events
-    * @return {GithubScm}
-    */
+     * Constructor
+     * @method constructor
+     * @param  {Object}  config                      Configuration object
+     * @param  {Boolean} [config.privateRepo=false]  Request 'repo' scope, which allows read/write access for public & private repos
+     * @param  {String}  [config.gheHost=null]       If using GitHub Enterprise, the host/port of the deployed instance
+     * @param  {String}  [config.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
+     * @param  {String}  [config.username=sd-buildbot]           GitHub username for checkout
+     * @param  {String}  [config.email=dev-null@screwdriver.cd]  GitHub user email for checkout
+     * @param  {Boolean} [config.https=false]        Is the Screwdriver API running over HTTPS
+     * @param  {String}  config.oauthClientId        OAuth Client ID provided by GitHub application
+     * @param  {String}  config.oauthClientSecret    OAuth Client Secret provided by GitHub application
+     * @param  {Object}  [config.fusebox={}]         Circuit Breaker configuration
+     * @param  {String}  config.secret               Secret to validate the signature of webhook events
+     * @return {GithubScm}
+     */
     constructor(config = {}) {
         super();
 
@@ -287,8 +287,8 @@ class GithubScm extends Scm {
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
         command.push(`${gitWrapper} `
-            + `"git clone --recursive --quiet --progress --branch ${config.branch} `
-            + '$SCM_URL $SD_SOURCE_DIR"');
+                + `"git clone --recursive --quiet --progress --branch ${config.branch} `
+                + '$SCM_URL $SD_SOURCE_DIR"');
         // Reset to SHA
         command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
         command.push(`echo Reset to ${checkoutRef}`);
@@ -354,13 +354,13 @@ class GithubScm extends Scm {
     }
 
     /**
-    * Get a owners permissions on a repository
-    * @async _getPermissions
-    * @param  {Object}   config            Configuration
-    * @param  {String}   config.scmUri     The scmUri to get permissions on
-    * @param  {String}   config.token      The token used to authenticate to the SCM
-    * @return {Promise}                    Resolves to the repository permissions
-    */
+     * Get a owners permissions on a repository
+     * @async _getPermissions
+     * @param  {Object}   config            Configuration
+     * @param  {String}   config.scmUri     The scmUri to get permissions on
+     * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @return {Promise}                    Resolves to the repository permissions
+     */
     async _getPermissions(config) {
         const scmInfo = await this.lookupScmUri({
             scmUri: config.scmUri,
