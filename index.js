@@ -140,13 +140,13 @@ class GithubScm extends Scm {
     async lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
-        const data = await this.breaker.runCommand({
+        const repo = await this.breaker.runCommand({
             action: 'getById',
             token: config.token,
             params: { id: scmId }
         });
 
-        const [repoOwner, repoName] = data.full_name.split('/');
+        const [repoOwner, repoName] = repo.full_name.split('/');
 
         return {
             branch: scmBranch,
@@ -242,7 +242,6 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const hookInfo = await this._findWebhook({
             scmInfo,
             url: config.webhookUrl,
@@ -333,7 +332,6 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const pullRequests = await this.breaker.runCommand({
             action: 'getAll',
             scopeType: 'pullRequests',
@@ -345,12 +343,10 @@ class GithubScm extends Scm {
             }
         });
 
-        const openedPRs = pullRequests.map(pullRequestInfo => ({
-            name: `PR-${pullRequestInfo.number}`,
-            ref: `pull/${pullRequestInfo.number}/merge`
+        return pullRequests.map(pullRequest => ({
+            name: `PR-${pullRequest.number}`,
+            ref: `pull/${pullRequest.number}/merge`
         }));
-
-        return openedPRs;
     }
 
     /**
@@ -366,7 +362,6 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const repo = await this.breaker.runCommand({
             action: 'get',
             token: config.token,
@@ -397,7 +392,6 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const branch = await this.breaker.runCommand({
             action: 'getBranch',
             token: config.token,
@@ -430,9 +424,7 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const jobName = config.jobName.replace(/^PR-\d+/g, 'PR');
-
         const params = {
             context: `Screwdriver/${config.pipelineId}/${jobName}`,
             description: DESCRIPTION_MAP[config.buildStatus],
@@ -469,7 +461,6 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-
         const file = await this.breaker.runCommand({
             action: 'getContent',
             token: config.token,
@@ -600,7 +591,7 @@ class GithubScm extends Scm {
      * Decorate a given SCM URI with additional data to better display
      * related information. If a branch suffix is not provided, it will default
      * to the master branch
-     * @async _decorateUrl
+     * @async  _decorateUrl
      * @param  {Config}    config        Configuration object
      * @param  {String}    config.scmUri The SCM URI the commit belongs to
      * @param  {String}    config.token  Service token to authenticate with Github
@@ -622,7 +613,7 @@ class GithubScm extends Scm {
 
     /**
      * Check validity of github webhook event signature
-     * @method _checkSignature
+     * @method  _checkSignature
      * @param   {String}    secret      The secret used to sign the payload
      * @param   {String}    payload     The payload of the webhook event
      * @param   {String}    signature   The signature of the webhook event
@@ -801,9 +792,7 @@ class GithubScm extends Scm {
             };
         }
 
-        return {
-            [scmContext]: bellConfig
-        };
+        return { [scmContext]: bellConfig };
     }
 
     /**
