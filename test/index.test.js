@@ -959,7 +959,7 @@ jobs:
                     assert.fail('This should not fail the tests');
                 })
                 .catch((err) => {
-                    assert.equal(err, 'Invalid x-hub-signature');
+                    assert.equal(err.message, 'Invalid x-hub-signature');
                 });
         });
     });

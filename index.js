@@ -68,7 +68,7 @@ class GithubScm extends Scm {
     * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
     * @param  {Function}    callback             Callback function from github API
     */
-    _githubCommand(options) {
+    _githubCommand(options, callback) {
         this.github.authenticate({
             type: 'oauth',
             token: options.token
