@@ -135,7 +135,7 @@ class GithubScm extends Scm {
      * @param  {Object}     config
      * @param  {Object}     config.scmUri  The SCM URI to look up relevant info
      * @param  {Object}     config.token   Service token to authenticate with Github
-     * @return {Promise}                   Resolves to an object containin repository-related information
+     * @return {Promise}                   Resolves to an object containing repository-related information
      */
     async lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
@@ -162,8 +162,8 @@ class GithubScm extends Scm {
      * @param  {Object}     config
      * @param  {Object}     config.scmInfo      Data about repo
      * @param  {String}     config.token        Admin token for repo
-     * @param  {Number}     config.page         pagination: page number to search next
-     * @param  {String}     config.url          url for webhook notifications
+     * @param  {Number}     config.page         Pagination: page number to search next
+     * @param  {String}     config.url          Url for webhook notifications
      * @return {Promise}                        Resolves to a list of hooks
      */
     async _findWebhook(config) {
@@ -258,7 +258,7 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get checkout the source code from a repository
+     * Get the command to check out source code from a repository
      * @async  getCheckoutCommand
      * @param  {Object}    config
      * @param  {String}    config.branch        Pipeline branch
