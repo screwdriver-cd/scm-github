@@ -131,7 +131,7 @@ class GithubScm extends Scm {
 
     /**
      * Look up a repo by SCM URI
-     * @async lookupScmUri
+     * @async  lookupScmUri
      * @param  {Object}     config
      * @param  {Object}     config.scmUri  The SCM URI to look up relevant info
      * @param  {Object}     config.token   Service token to authenticate with Github
@@ -198,7 +198,7 @@ class GithubScm extends Scm {
      * @param  {Object}     [config.hookInfo]   Information about a existing webhook
      * @param  {Object}     config.scmInfo      Information about the repo
      * @param  {String}     config.token        Admin token for repo
-     * @param  {String}     config.url          Payload destination url
+     * @param  {String}     config.url          Payload destination url for webhook notifications
      * @return {Promise}                        Resolves when complete
      */
     _createWebhook(config) {
@@ -351,7 +351,7 @@ class GithubScm extends Scm {
 
     /**
      * Get a owners permissions on a repository
-     * @async _getPermissions
+     * @async  _getPermissions
      * @param  {Object}   config            Configuration
      * @param  {String}   config.scmUri     The scmUri to get permissions on
      * @param  {String}   config.token      The token used to authenticate to the SCM
@@ -448,7 +448,7 @@ class GithubScm extends Scm {
 
     /**
      * Fetch content of a file from github
-     * @async getFile
+     * @async  getFile
      * @param  {Object}   config              Configuration
      * @param  {String}   config.scmUri       The scmUri to get permissions on
      * @param  {String}   config.path         The file in the repo to fetch
