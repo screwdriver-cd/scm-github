@@ -793,7 +793,11 @@ jobs:
                 payload: testPayloadPush
             })
                 .then((result) => {
-                    assert.deepEqual(result, ['README.md']);
+                    assert.deepEqual(result, [
+                        'README.md',
+                        'package.json',
+                        'screwdriver.yaml'
+                    ]);
                 });
         });
 
@@ -867,7 +871,7 @@ jobs:
             };
 
             testHeaders = {
-                'x-hub-signature': 'sha1=a72eab99ad7f36f582f224df8d735091b06f1802',
+                'x-hub-signature': 'sha1=28b327e936e52b6ffb6014d3e1d7372a74d82992',
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
@@ -1695,7 +1699,7 @@ jobs:
 
         beforeEach(() => {
             testHeaders = {
-                'x-hub-signature': 'sha1=a72eab99ad7f36f582f224df8d735091b06f1802',
+                'x-hub-signature': 'sha1=28b327e936e52b6ffb6014d3e1d7372a74d82992',
                 'x-github-event': 'pull_request',
                 'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
             };
