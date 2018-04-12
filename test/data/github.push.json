@@ -26,13 +26,14 @@
         "username": "baxterthehacker"
       },
       "added": [
-
+        "README.md"
       ],
       "removed": [
-
+        "screwdriver.yaml"
       ],
       "modified": [
-        "README.md"
+        "README.md",
+        "package.json"
       ]
     }
   ],
@@ -54,13 +55,14 @@
       "username": "baxterthehacker"
     },
     "added": [
-
+      "README.md"
     ],
     "removed": [
-
+      "screwdriver.yaml"
     ],
     "modified": [
-      "README.md"
+      "README.md",
+      "package.json"
     ]
   },
   "repository": {
