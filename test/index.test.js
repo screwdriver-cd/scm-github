@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert;
+const { assert } = require('chai');
 const mockery = require('mockery');
 const sinon = require('sinon');
 
@@ -63,9 +63,8 @@ describe('index', function () {
 
         mockery.registerMock('github', githubMockClass);
 
-        /* eslint-disable global-require */
-        GithubScm = require('../index');
-        /* eslint-enable global-require */
+        // eslint-disable-next-line global-require
+        GithubScm = require('../');
 
         scm = new GithubScm({
             fusebox: {
@@ -964,7 +963,7 @@ jobs:
                     assert.fail('This should not fail the tests');
                 })
                 .catch((err) => {
-                    assert.equal(err, 'Invalid x-hub-signature');
+                    assert.equal(err.message, 'Invalid x-hub-signature');
                 });
         });
     });
@@ -1745,6 +1744,15 @@ jobs:
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
             return scm.canHandleWebhook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.strictEqual(result, false);
+                });
+        });
+
+        it('returns false when the github event is not valid', () => {
+            testHeaders['x-github-event'] = 'REEEEEEEE';
+
+            return scm.canHandleWebhook(testHeaders, testPayloadPush)
                 .then((result) => {
                     assert.strictEqual(result, false);
                 });

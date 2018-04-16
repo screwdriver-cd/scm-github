@@ -1,5 +1,5 @@
 shared:
-    image: node:6
+    image: node:8
 
 jobs:
     main:
@@ -10,7 +10,7 @@ jobs:
 
     publish:
         requires: [main]
-        template: screwdriver-cd/semantic-release 
+        template: screwdriver-cd/semantic-release
         secrets:
             # Publishing to NPM
             - NPM_TOKEN
