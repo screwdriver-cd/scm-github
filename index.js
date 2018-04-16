@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses');
-const Github = require('github');
+const Github = require('@octokit/rest');
 const hoek = require('hoek');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
