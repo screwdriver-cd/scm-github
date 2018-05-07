@@ -857,7 +857,8 @@ class GithubScm extends Scm {
         return {
             name: `PR-${pullRequestInfo.number}`,
             ref: `pull/${pullRequestInfo.number}/merge`,
-            sha: pullRequestInfo.head.sha
+            sha: pullRequestInfo.head.sha,
+            url: pullRequestInfo.html_url
         };
     }
 

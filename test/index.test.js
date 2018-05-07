@@ -1628,7 +1628,9 @@ jobs:
 
         it('returns a pull request with the given prNum', () => {
             githubMock.pullRequests.get.yieldsAsync(null,
-                { number: 1, head: { sha } }
+                { html_url: "https://github.com/'repoOwner/repoName'/pull/1",
+                    number: 1,
+                    head: { sha } }
             );
 
             return scm._getPrInfo(config).then((data) => {
@@ -1636,7 +1638,8 @@ jobs:
                     {
                         name: 'PR-1',
                         ref: 'pull/1/merge',
-                        sha
+                        sha,
+                        url: "https://github.com/'repoOwner/repoName'/pull/1"
                     }
                 );
 
