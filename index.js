@@ -588,35 +588,6 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Decorate the commit based on the repository
-     * @async  _decoratePR
-     * @param  {Object}        config        Configuration object
-     * @param  {Object}        config.scmUri SCM URI the commit belongs to
-     * @param  {Object}        config.token  Service token to authenticate with Github
-     * @return {Promise}                     Resolves to decorated commit object
-     */
-    async _decoratePR(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        });
-        const pr = await this.breaker.runCommand({
-            action: 'get',
-            scopeType: 'pullRequests',
-            token: config.token,
-            params: {
-                owner: scmInfo.owner,
-                repo: scmInfo.repo,
-                number: config.number
-            }
-        });
-
-        return {
-            url: pr.html_url
-        };
-    }
-
-    /**
      * Decorate a given SCM URI with additional data to better display
      * related information. If a branch suffix is not provided, it will default
      * to the master branch
