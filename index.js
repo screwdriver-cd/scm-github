@@ -267,6 +267,8 @@ class GithubScm extends Scm {
      * @param  {String}    config.repo          Scm repo name
      * @param  {String}    config.sha           Commit sha
      * @param  {String}    [config.prRef]       PR reference (can be a PR branch or reference)
+     * @param  {String}    [config.scmContext]  The scm context name
+     * @param  {String}    [config.manifest]    Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
      * @return {Promise}                        Resolves to object containing name and checkout commands
      */
     async _getCheckoutCommand(config) {
@@ -278,26 +280,70 @@ class GithubScm extends Scm {
             "else echo 'sd-step exec core/git'; fi)";
         const command = [];
 
-        // Git clone
-        command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+        // Export environment variables
+        command.push('echo Exporting environment variables');
         command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
             `then export SCM_URL=${sshCheckoutUrl}; ` +
             'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
             `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
             `else export SCM_URL=https://${checkoutUrl}; fi`);
-        command.push(`${gitWrapper} `
-                + `"git clone --recursive --quiet --progress --branch ${config.branch} `
-                + '$SCM_URL $SD_SOURCE_DIR"');
-        // Reset to SHA
-        command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
-        command.push(`echo Reset to ${checkoutRef}`);
-        // Set config
-        command.push('echo Setting user name and user email');
-        command.push(`${gitWrapper} "git config user.name ${this.config.username}"`);
-        command.push(`${gitWrapper} "git config user.email ${this.config.email}"`);
         command.push('export GIT_URL=$SCM_URL.git');
         // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
         command.push('export GIT_MERGE_AUTOEDIT=no');
+
+        // Set config
+        command.push('echo Setting user name and user email');
+        command.push(`${gitWrapper} "git config --global user.name ${this.config.username}"`);
+        command.push(`${gitWrapper} "git config --global user.email ${this.config.email}"`);
+
+        if (config.manifest) {
+            const curlWrapper = '$(if curl --version > /dev/null 2>&1; ' +
+                "then echo 'eval'; " +
+                "else echo 'sd-step exec core/curl'; fi)";
+            const wgetWrapper = '$(if wget --version > /dev/null 2>&1; ' +
+                "then echo 'eval'; " +
+                "else echo 'sd-step exec core/wget'; fi)";
+            const grepWrapper = '$(if grep --version > /dev/null 2>&1; ' +
+                "then echo 'eval'; " +
+                "else echo 'sd-step exec core/grep'; fi)";
+
+            const repoDownloadUrl = 'https://storage.googleapis.com/git-repo-downloads/repo';
+            const sdRepoReleasesUrl = 'https://github.com/screwdriver-cd/sd-repo/releases/latest';
+
+            command.push('echo Checking out code using the repo manifest defined in '
+                + `${config.manifest}`);
+
+            // Get the repo binary
+            command.push(`${curlWrapper} "curl -s ${repoDownloadUrl} > /usr/local/bin/repo"`);
+            command.push('chmod a+x /usr/local/bin/repo');
+
+            // // Get the sd-repo binary and execute it
+            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl}" | `
+                + `${grepWrapper} "grep -E -o `
+                + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64" '
+                + `| ${wgetWrapper} "wget --base=http://github.com/ -q -i - -O `
+                + '/usr/local/bin/sd-repo"');
+            command.push('chmod a+x /usr/local/bin/sd-repo');
+            command.push(`sd-repo -manifestUrl=${config.manifest} `
+                + `-sourceRepo=${config.org}/${config.repo}`);
+
+            // sourcePath is the file created by `sd-repo` which contains the relative path to the source repository
+            const sourcePath = 'sourcePath';
+
+            // Export $SD_SOURCE_DIR to source repo path and cd into it
+            command.push(`if [ $(cat ${sourcePath}) != "." ]; `
+                + `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`);
+            command.push('cd $SD_SOURCE_DIR');
+        } else {
+            // Git clone
+            command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+            command.push(`${gitWrapper} `
+                    + `"git clone --recursive --quiet --progress --branch ${config.branch} `
+                    + '$SCM_URL $SD_SOURCE_DIR"');
+            // Reset to SHA
+            command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
+            command.push(`echo Reset to ${checkoutRef}`);
+        }
 
         // For pull requests
         if (config.prRef) {
