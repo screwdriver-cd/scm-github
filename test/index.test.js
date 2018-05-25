@@ -54,7 +54,8 @@ describe('index', function () {
                 getById: sinon.stub(),
                 getCommit: sinon.stub(),
                 getContent: sinon.stub(),
-                getHooks: sinon.stub()
+                getHooks: sinon.stub(),
+                getBranches: sinon.stub()
             },
             users: {
                 getForUser: sinon.stub()
@@ -1786,6 +1787,64 @@ jobs:
                 .then((result) => {
                     assert.strictEqual(result, false);
                 });
+        });
+    });
+
+    describe('getBranchList', () => {
+        const branchListConfig = {
+            scmUri: 'github.com:1289:branchName',
+            token: 'fakeToken'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'dolores/violentdelights'
+            });
+            githubMock.repos.getBranches.yieldsAsync(null, [{
+                name: 'master'
+            }]);
+        });
+
+        it('get branches', () => {
+            scm.getBranchList(branchListConfig).then(() => {
+                assert.calledWith(githubMock.authenticate, sinon.match({
+                    token: 'fakeToken'
+                }));
+                assert.calledWith(githubMock.repos.getBranches, {
+                    owner: 'dolores',
+                    repo: 'violentdelights',
+                    page: 1,
+                    per_page: 100
+                });
+            });
+        });
+
+        it('get a lot of branches', (done) => {
+            const fakeBranches = [];
+
+            for (let i = 0; i < 300; i += 1) {
+                fakeBranches.push({
+                    name: `master${i}`
+                });
+            }
+            githubMock.repos.getBranches.onCall(0).yieldsAsync(null, fakeBranches.slice(0, 100));
+            githubMock.repos.getBranches.onCall(1).yieldsAsync(null, fakeBranches.slice(100, 200));
+            githubMock.repos.getBranches.onCall(2).yieldsAsync(null, fakeBranches.slice(200, 300));
+            githubMock.repos.getBranches.onCall(3).yieldsAsync(null, []);
+            scm.getBranchList(branchListConfig).then((branches) => {
+                assert.equal(branches.length, 300);
+                done();
+            }).catch(done);
+        });
+
+        it('throws an error when failing to getBranches', () => {
+            const testError = new Error('getBranchesError');
+
+            githubMock.repos.getBranches.yieldsAsync(testError);
+
+            return scm.getBranchList(branchListConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
         });
     });
 });
