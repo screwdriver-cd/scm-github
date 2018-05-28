@@ -945,7 +945,15 @@ class GithubScm extends Scm {
             branches = branches.concat(nextPageBranches);
         }
 
-        return branches;
+        const branchInfos = [];
+
+        branches.forEach((branch) => {
+            branchInfos.push({
+                name: hoek.reach(branch, 'name')
+            });
+        });
+
+        return branchInfos;
     }
 
     /**
