@@ -1805,7 +1805,7 @@ jobs:
             }]);
         });
 
-        it('get branches', () => {
+        it('gets branches', (done) => {
             scm.getBranchList(branchListConfig).then(() => {
                 assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
@@ -1816,10 +1816,11 @@ jobs:
                     page: 1,
                     per_page: 100
                 });
-            });
+                done();
+            }).catch(done);
         });
 
-        it('get a lot of branches', (done) => {
+        it('gets a lot of branches', (done) => {
             const fakeBranches = [];
 
             for (let i = 0; i < 300; i += 1) {

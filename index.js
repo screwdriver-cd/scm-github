@@ -920,7 +920,7 @@ class GithubScm extends Scm {
     /**
      * Look up a branches from a repo
      * @async  _findBranches
-     * @param  {Config}     config
+     * @param  {Object}     config
      * @param  {Object}     config.scmInfo      Data about repo
      * @param  {String}     config.token        Admin token for repo
      * @param  {Number}     config.page         Pagination: page number to search next
@@ -945,15 +945,7 @@ class GithubScm extends Scm {
             branches = branches.concat(nextPageBranches);
         }
 
-        const branchInfos = [];
-
-        branches.forEach((branch) => {
-            branchInfos.push({
-                name: hoek.reach(branch, 'name')
-            });
-        });
-
-        return branchInfos;
+        return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
     }
 
     /**
