@@ -54,7 +54,8 @@ describe('index', function () {
                 getById: sinon.stub(),
                 getCommit: sinon.stub(),
                 getContent: sinon.stub(),
-                getHooks: sinon.stub()
+                getHooks: sinon.stub(),
+                getBranches: sinon.stub()
             },
             users: {
                 getForUser: sinon.stub()
@@ -1786,6 +1787,80 @@ jobs:
                 .then((result) => {
                     assert.strictEqual(result, false);
                 });
+        });
+    });
+
+    describe('getBranchList', () => {
+        const branchListConfig = {
+            scmUri: 'github.com:1289:branchName',
+            token: 'fakeToken'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, {
+                full_name: 'dolores/violentdelights'
+            });
+            githubMock.repos.getBranches.yieldsAsync(null, [{
+                name: 'master',
+                commit: {
+                    sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                    url: 'https://api.github.com/repos/octocat/Hello-World/commits/c5b97'
+                },
+                protected: true,
+                protection_url: 'https://api.github.com/protect'
+            }]);
+        });
+
+        it('gets branches', (done) => {
+            scm.getBranchList(branchListConfig).then((b) => {
+                assert.calledWith(githubMock.authenticate, sinon.match({
+                    token: 'fakeToken'
+                }));
+                assert.calledWith(githubMock.repos.getBranches, {
+                    owner: 'dolores',
+                    repo: 'violentdelights',
+                    page: 1,
+                    per_page: 100
+                });
+                assert.deepEqual(b, [{ name: 'master' }]);
+                done();
+            }).catch(done);
+        });
+
+        it('gets a lot of branches', (done) => {
+            const fakeBranches = [];
+
+            for (let i = 0; i < 300; i += 1) {
+                const bInfo = {
+                    name: `master${i}`,
+                    commit: {
+                        sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                        url: 'https://api.github.com/repos/octocat/Hello-World/commits/c5b97'
+                    },
+                    protected: true,
+                    protection_url: 'https://api.github.com/protect'
+                };
+
+                fakeBranches.push(bInfo);
+            }
+            githubMock.repos.getBranches.onCall(0).yieldsAsync(null, fakeBranches.slice(0, 100));
+            githubMock.repos.getBranches.onCall(1).yieldsAsync(null, fakeBranches.slice(100, 200));
+            githubMock.repos.getBranches.onCall(2).yieldsAsync(null, fakeBranches.slice(200, 300));
+            githubMock.repos.getBranches.onCall(3).yieldsAsync(null, []);
+            scm.getBranchList(branchListConfig).then((branches) => {
+                assert.equal(branches.length, 300);
+                done();
+            }).catch(done);
+        });
+
+        it('throws an error when failing to getBranches', () => {
+            const testError = new Error('getBranchesError');
+
+            githubMock.repos.getBranches.yieldsAsync(testError);
+
+            return scm.getBranchList(branchListConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
         });
     });
 });

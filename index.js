@@ -20,6 +20,7 @@ const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
 const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
+const BRANCH_PAGE_SIZE = 100;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -914,6 +915,58 @@ class GithubScm extends Scm {
         } catch (err) {
             return false;
         }
+    }
+
+    /**
+     * Look up a branches from a repo
+     * @async  _findBranches
+     * @param  {Object}     config
+     * @param  {Object}     config.scmInfo      Data about repo
+     * @param  {String}     config.token        Admin token for repo
+     * @param  {Number}     config.page         Pagination: page number to search next
+     * @return {Promise}                        Resolves to a list of branches
+     */
+    async _findBranches(config) {
+        let branches = await this.breaker.runCommand({
+            action: 'getBranches',
+            token: config.token,
+            params: {
+                owner: config.scmInfo.owner,
+                repo: config.scmInfo.repo,
+                page: config.page,
+                per_page: BRANCH_PAGE_SIZE
+            }
+        });
+
+        if (branches.length === BRANCH_PAGE_SIZE) {
+            config.page += 1;
+            const nextPageBranches = await this._findBranches(config);
+
+            branches = branches.concat(nextPageBranches);
+        }
+
+        return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
+    }
+
+    /**
+     * Get branch list from the Github repository
+     * @async  _getBranchList
+     * @param  {Object}     config
+     * @param  {String}     config.scmUri      The SCM URI to get branch list
+     * @param  {String}     config.token       Service token to authenticate with Github
+     * @return {Promise}                       Resolves when complete
+     */
+    async _getBranchList(config) {
+        const scmInfo = await this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        });
+
+        return this._findBranches({
+            scmInfo,
+            page: 1,
+            token: config.token
+        });
     }
 }
 
