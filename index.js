@@ -312,6 +312,8 @@ class GithubScm extends Scm {
 
             const repoDownloadUrl = 'https://storage.googleapis.com/git-repo-downloads/repo';
             const sdRepoReleasesUrl = 'https://github.com/screwdriver-cd/sd-repo/releases/latest';
+            const sdRepoReleasesFile = 'sd-repo-releases.html';
+            const sdRepoLatestFile = 'sd-repo-latest';
 
             command.push('echo Checking out code using the repo manifest defined in '
                 + `${config.manifest}`);
@@ -321,11 +323,13 @@ class GithubScm extends Scm {
             command.push('chmod a+x /usr/local/bin/repo');
 
             // // Get the sd-repo binary and execute it
-            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl}" | `
-                + `${grepWrapper} "grep -E -o `
-                + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64" '
-                + `| ${wgetWrapper} "wget --base=http://github.com/ -q -i - -O `
-                + '/usr/local/bin/sd-repo"');
+            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > `
+              + `${sdRepoReleasesFile}"`);
+            command.push(`${grepWrapper} "grep -E -o `
+              + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64 '
+              + `${sdRepoReleasesFile} > ${sdRepoLatestFile}"`);
+            command.push(`${wgetWrapper} "wget --base=http://github.com/ -q -i `
+              + `${sdRepoLatestFile} -O /usr/local/bin/sd-repo"`);
             command.push('chmod a+x /usr/local/bin/sd-repo');
             command.push(`sd-repo -manifestUrl=${config.manifest} `
                 + `-sourceRepo=${config.org}/${config.repo}`);
