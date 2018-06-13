@@ -262,20 +262,22 @@ class GithubScm extends Scm {
      * Get the command to check out source code from a repository
      * @async  getCheckoutCommand
      * @param  {Object}    config
-     * @param  {String}    config.branch        Pipeline branch
-     * @param  {String}    config.host          Scm host to checkout source code from
-     * @param  {String}    config.org           Scm org name
-     * @param  {String}    config.repo          Scm repo name
-     * @param  {String}    config.sha           Commit sha
-     * @param  {String}    [config.prRef]       PR reference (can be a PR branch or reference)
-     * @param  {String}    [config.scmContext]  The scm context name
-     * @param  {String}    [config.manifest]    Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
-     * @return {Promise}                        Resolves to object containing name and checkout commands
+     * @param  {String}    config.branch         Pipeline branch
+     * @param  {String}    config.host           Scm host to checkout source code from
+     * @param  {String}    config.org            Scm org name
+     * @param  {String}    config.repo           Scm repo name
+     * @param  {String}    config.sha            Commit sha
+     * @param  {String}    [config.commitBranch] Commit branch
+     * @param  {String}    [config.prRef]        PR reference (can be a PR branch or reference)
+     * @param  {String}    [config.scmContext]   The scm context name
+     * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
+     * @return {Promise}                         Resolves to object containing name and checkout commands
      */
     async _getCheckoutCommand(config) {
         const checkoutUrl = `${config.host}/${config.org}/${config.repo}`; // URL for https
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
-        const checkoutRef = config.prRef ? config.branch : config.sha; // if PR, use pipeline branch
+        const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
+        const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
         const gitWrapper = '$(if git --version > /dev/null 2>&1; ' +
             "then echo 'eval'; " +
             "else echo 'sd-step exec core/git'; fi)";
@@ -337,9 +339,9 @@ class GithubScm extends Scm {
             command.push('cd $SD_SOURCE_DIR');
         } else {
             // Git clone
-            command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+            command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
             command.push(`${gitWrapper} `
-                    + `"git clone --recursive --quiet --progress --branch ${config.branch} `
+                    + `"git clone --recursive --quiet --progress --branch ${branch} `
                     + '$SCM_URL $SD_SOURCE_DIR"');
             // Reset to SHA
             command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
@@ -351,13 +353,13 @@ class GithubScm extends Scm {
             const prRef = config.prRef.replace('merge', 'head:pr');
 
             // Fetch a pull request
-            command.push(`echo Fetching PR and merging with ${config.branch}`);
+            command.push(`echo Fetching PR and merging with ${branch}`);
             command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
             command.push(`${gitWrapper} "git merge ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
-            command.push(`export GIT_BRANCH=origin/${config.branch}`);
+            command.push(`export GIT_BRANCH=origin/${branch}`);
         }
 
         return {

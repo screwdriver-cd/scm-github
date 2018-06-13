@@ -15,6 +15,7 @@ const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
+const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 
 sinon.assert.expose(assert, {
@@ -177,6 +178,17 @@ describe('index', function () {
             return scm.getCheckoutCommand(config)
                 .then((command) => {
                     assert.deepEqual(command, testRepoCommands);
+                });
+        });
+
+        it('promises to use committed branch', () => {
+            config.commitBranch = 'commitBranch';
+            config.manifest = undefined;
+            config.prRef = undefined;
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testCommitBranchCommands);
                 });
         });
     });
