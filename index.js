@@ -299,6 +299,36 @@ class GithubScm extends Scm {
         command.push(`${gitWrapper} "git config --global user.name ${this.config.username}"`);
         command.push(`${gitWrapper} "git config --global user.email ${this.config.email}"`);
 
+        // Checkout config pipeline if this is a child pipeline
+        if (config.parentConfig) {
+            const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
+                + `${config.parentConfig.repo}`; // URL for https
+            const parentSshCheckoutUrl = `git@${config.parentConfig.host}:`
+                + `${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
+            const parentBranch = config.parentConfig.branch;
+            const externalConfigDir = '$SD_ROOT_DIR/config';
+
+            command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
+                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@'
+                    + `${parentCheckoutUrl}; ` +
+                `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`);
+
+            command.push(`export SD_CONFIG_DIR=${externalConfigDir}`);
+
+            // Git clone
+            command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
+            command.push(`${gitWrapper} `
+                  + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
+                  + '$CONFIG_URL $SD_CONFIG_DIR"');
+
+            // Reset to SHA
+            command.push(`${gitWrapper} "git -C $SD_CONFIG_DIR reset --hard `
+                + `${config.parentConfig.sha} --"`);
+            command.push(`echo Reset external config repo to ${config.parentConfig.sha}`);
+        }
+
         if (config.manifest) {
             const curlWrapper = '$(if curl --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +

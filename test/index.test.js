@@ -16,6 +16,7 @@ const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
 const testCommitBranchCommands = require('./data/commitBranchCommands.json');
+const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 
 sinon.assert.expose(assert, {
@@ -132,13 +133,17 @@ describe('index', function () {
     });
 
     describe('getCheckoutCommand', () => {
-        const config = {
-            branch: 'branchName',
-            host: 'github.com',
-            org: 'screwdriver-cd',
-            repo: 'guide',
-            sha: '12345'
-        };
+        let config;
+
+        beforeEach(() => {
+            config = {
+                branch: 'branchName',
+                host: 'github.com',
+                org: 'screwdriver-cd',
+                repo: 'guide',
+                sha: '12345'
+            };
+        });
 
         it('promises to get the checkout command for the pipeline branch', () =>
             scm.getCheckoutCommand(config)
@@ -157,6 +162,8 @@ describe('index', function () {
         });
 
         it('promises to get the checkout command with custom username and email', () => {
+            config.prRef = 'pull/3/merge';
+
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
                 oauthClientSecret: 'hijklmno',
@@ -173,7 +180,6 @@ describe('index', function () {
 
         it('promises to get the checkout command for a repo manfiest file', () => {
             config.manifest = 'git@github.com:org/repo.git/default.xml';
-            config.prRef = undefined;
 
             return scm.getCheckoutCommand(config)
                 .then((command) => {
@@ -183,12 +189,25 @@ describe('index', function () {
 
         it('promises to use committed branch', () => {
             config.commitBranch = 'commitBranch';
-            config.manifest = undefined;
-            config.prRef = undefined;
 
             return scm.getCheckoutCommand(config)
                 .then((command) => {
                     assert.deepEqual(command, testCommitBranchCommands);
+                });
+        });
+
+        it('promises to get the checkout command for a child pipeline', () => {
+            config.parentConfig = {
+                branch: 'master',
+                host: 'github.com',
+                org: 'screwdriver-cd',
+                repo: 'parent-to-guide',
+                sha: '54321'
+            };
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testChildCommands);
                 });
         });
     });
