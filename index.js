@@ -249,14 +249,13 @@ class GithubScm extends Scm {
             page: 1,
             token: config.token
         });
-        const hook = await this._createWebhook({
+
+        return this._createWebhook({
             hookInfo,
             scmInfo,
             token: config.token,
             url: config.webhookUrl
         });
-
-        return hook;
     }
 
     /**
@@ -518,17 +517,21 @@ class GithubScm extends Scm {
             target_url: config.url
         };
 
-        const status = await this.breaker.runCommand({
-            action: 'createStatus',
-            token: config.token,
-            params
-        }).catch((err) => {
+        try {
+            const status = await this.breaker.runCommand({
+                action: 'createStatus',
+                token: config.token,
+                params
+            });
+
+            return status ? status.data : undefined;
+        } catch (err) {
             if (err.code !== 422) {
                 throw err;
             }
-        });
 
-        return status ? status.data : undefined;
+            return undefined;
+        }
     }
 
     /**
