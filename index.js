@@ -445,16 +445,26 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const repo = await this.breaker.runCommand({
-            action: 'get',
-            token: config.token,
-            params: {
-                owner: scmInfo.owner,
-                repo: scmInfo.repo
-            }
-        });
 
-        return repo.data.permissions;
+        try {
+            const repo = await this.breaker.runCommand({
+                action: 'get',
+                token: config.token,
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo
+                }
+            });
+
+            return repo.data.permissions;
+        } catch (err) {
+            // Suspended user
+            if (err.code === 403) {
+                return { admin: false, push: false, pull: false };
+            }
+
+            throw err;
+        }
     }
 
     /**
