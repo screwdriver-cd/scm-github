@@ -31,6 +31,7 @@ describe('index', function () {
     let scm;
     let githubMock;
     let githubMockClass;
+    let winstonMock;
 
     before(() => {
         mockery.enable({
@@ -64,8 +65,13 @@ describe('index', function () {
             }
         };
         githubMockClass = sinon.stub().returns(githubMock);
+        winstonMock = {
+            info: sinon.stub(),
+            error: sinon.stub()
+        };
 
         mockery.registerMock('@octokit/rest', githubMockClass);
+        mockery.registerMock('winston', winstonMock);
 
         // eslint-disable-next-line global-require
         GithubScm = require('../');
@@ -416,6 +422,12 @@ describe('index', function () {
                         type: 'oauth',
                         token: config.token
                     });
+
+                    assert.calledWith(
+                        winstonMock.info,
+                        "User's account suspended for screwdriver-cd/models, " +
+                        'it will be removed from pipeline admins.'
+                    );
                 })
                 .catch(() => {
                     assert(false, 'Error should be handled if error code is 403');

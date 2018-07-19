@@ -9,6 +9,7 @@ const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
 const crypto = require('crypto');
+const winston = require('winston');
 const DEFAULT_AUTHOR = {
     avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
     name: 'n/a',
@@ -460,6 +461,10 @@ class GithubScm extends Scm {
         } catch (err) {
             // Suspended user
             if (err.code === 403) {
+                winston.info(
+                    `User's account suspended for ${scmInfo.owner}/${scmInfo.repo}, ` +
+                    'it will be removed from pipeline admins.');
+
                 return { admin: false, push: false, pull: false };
             }
 
