@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses');
-const Github = require('github');
+const Octokit = require('@octokit/rest');
 const hoek = require('hoek');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
@@ -20,6 +20,7 @@ const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
 const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
+const BRANCH_PAGE_SIZE = 100;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -114,11 +115,9 @@ class GithubScm extends Scm {
         const githubConfig = {};
 
         if (this.config.gheHost) {
-            githubConfig.host = this.config.gheHost;
-            githubConfig.protocol = this.config.gheProtocol;
-            githubConfig.pathPrefix = '/api/v3';
+            githubConfig.baseUrl = `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
         }
-        this.github = new Github(githubConfig);
+        this.github = new Octokit(githubConfig);
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
@@ -146,7 +145,7 @@ class GithubScm extends Scm {
             params: { id: scmId }
         });
 
-        const [repoOwner, repoName] = repo.full_name.split('/');
+        const [repoOwner, repoName] = repo.data.full_name.split('/');
 
         return {
             branch: scmBranch,
@@ -178,11 +177,11 @@ class GithubScm extends Scm {
             }
         });
 
-        const screwdriverHook = hooks.find(hook =>
+        const screwdriverHook = hooks.data.find(hook =>
             hoek.reach(hook, 'config.url') === config.url
         );
 
-        if (!screwdriverHook && hooks.length === WEBHOOK_PAGE_SIZE) {
+        if (!screwdriverHook && hooks.data.length === WEBHOOK_PAGE_SIZE) {
             config.page += 1;
 
             return this._findWebhook(config);
@@ -193,7 +192,7 @@ class GithubScm extends Scm {
 
     /**
      * Create or edit a webhook (edits if hookInfo exists)
-     * @method _createWebhook
+     * @async _createWebhook
      * @param  {Object}     config
      * @param  {Object}     [config.hookInfo]   Information about a existing webhook
      * @param  {Object}     config.scmInfo      Information about the repo
@@ -201,7 +200,7 @@ class GithubScm extends Scm {
      * @param  {String}     config.url          Payload destination url for webhook notifications
      * @return {Promise}                        Resolves when complete
      */
-    _createWebhook(config) {
+    async _createWebhook(config) {
         let action = 'createHook';
         const params = {
             active: true,
@@ -218,14 +217,16 @@ class GithubScm extends Scm {
 
         if (config.hookInfo) {
             action = 'editHook';
-            Object.assign(params, { id: config.hookInfo.id });
+            Object.assign(params, { hook_id: config.hookInfo.id });
         }
 
-        return this.breaker.runCommand({
+        const hooks = await this.breaker.runCommand({
             action,
             token: config.token,
             params
         });
+
+        return hooks.data;
     }
 
     /**
@@ -259,22 +260,24 @@ class GithubScm extends Scm {
 
     /**
      * Get the command to check out source code from a repository
-     * @async  getCheckoutCommand
+     * @async  _getCheckoutCommand
      * @param  {Object}    config
-     * @param  {String}    config.branch        Pipeline branch
-     * @param  {String}    config.host          Scm host to checkout source code from
-     * @param  {String}    config.org           Scm org name
-     * @param  {String}    config.repo          Scm repo name
-     * @param  {String}    config.sha           Commit sha
-     * @param  {String}    [config.prRef]       PR reference (can be a PR branch or reference)
-     * @param  {String}    [config.scmContext]  The scm context name
-     * @param  {String}    [config.manifest]    Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
-     * @return {Promise}                        Resolves to object containing name and checkout commands
+     * @param  {String}    config.branch         Pipeline branch
+     * @param  {String}    config.host           Scm host to checkout source code from
+     * @param  {String}    config.org            Scm org name
+     * @param  {String}    config.repo           Scm repo name
+     * @param  {String}    config.sha            Commit sha
+     * @param  {String}    [config.commitBranch] Commit branch
+     * @param  {String}    [config.prRef]        PR reference (can be a PR branch or reference)
+     * @param  {String}    [config.scmContext]   The scm context name
+     * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
+     * @return {Promise}                         Resolves to object containing name and checkout commands
      */
     async _getCheckoutCommand(config) {
         const checkoutUrl = `${config.host}/${config.org}/${config.repo}`; // URL for https
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
-        const checkoutRef = config.prRef ? config.branch : config.sha; // if PR, use pipeline branch
+        const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
+        const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
         const gitWrapper = '$(if git --version > /dev/null 2>&1; ' +
             "then echo 'eval'; " +
             "else echo 'sd-step exec core/git'; fi)";
@@ -296,6 +299,36 @@ class GithubScm extends Scm {
         command.push(`${gitWrapper} "git config --global user.name ${this.config.username}"`);
         command.push(`${gitWrapper} "git config --global user.email ${this.config.email}"`);
 
+        // Checkout config pipeline if this is a child pipeline
+        if (config.parentConfig) {
+            const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
+                + `${config.parentConfig.repo}`; // URL for https
+            const parentSshCheckoutUrl = `git@${config.parentConfig.host}:`
+                + `${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
+            const parentBranch = config.parentConfig.branch;
+            const externalConfigDir = '$SD_ROOT_DIR/config';
+
+            command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
+                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@'
+                    + `${parentCheckoutUrl}; ` +
+                `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`);
+
+            command.push(`export SD_CONFIG_DIR=${externalConfigDir}`);
+
+            // Git clone
+            command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
+            command.push(`${gitWrapper} `
+                  + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
+                  + '$CONFIG_URL $SD_CONFIG_DIR"');
+
+            // Reset to SHA
+            command.push(`${gitWrapper} "git -C $SD_CONFIG_DIR reset --hard `
+                + `${config.parentConfig.sha} --"`);
+            command.push(`echo Reset external config repo to ${config.parentConfig.sha}`);
+        }
+
         if (config.manifest) {
             const curlWrapper = '$(if curl --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
@@ -309,6 +342,8 @@ class GithubScm extends Scm {
 
             const repoDownloadUrl = 'https://storage.googleapis.com/git-repo-downloads/repo';
             const sdRepoReleasesUrl = 'https://github.com/screwdriver-cd/sd-repo/releases/latest';
+            const sdRepoReleasesFile = 'sd-repo-releases.html';
+            const sdRepoLatestFile = 'sd-repo-latest';
 
             command.push('echo Checking out code using the repo manifest defined in '
                 + `${config.manifest}`);
@@ -318,11 +353,13 @@ class GithubScm extends Scm {
             command.push('chmod a+x /usr/local/bin/repo');
 
             // // Get the sd-repo binary and execute it
-            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl}" | `
-                + `${grepWrapper} "grep -E -o `
-                + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64" '
-                + `| ${wgetWrapper} "wget --base=http://github.com/ -q -i - -O `
-                + '/usr/local/bin/sd-repo"');
+            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > `
+              + `${sdRepoReleasesFile}"`);
+            command.push(`${grepWrapper} "grep -E -o `
+              + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64 '
+              + `${sdRepoReleasesFile} > ${sdRepoLatestFile}"`);
+            command.push(`${wgetWrapper} "wget --base=http://github.com/ -q -i `
+              + `${sdRepoLatestFile} -O /usr/local/bin/sd-repo"`);
             command.push('chmod a+x /usr/local/bin/sd-repo');
             command.push(`sd-repo -manifestUrl=${config.manifest} `
                 + `-sourceRepo=${config.org}/${config.repo}`);
@@ -336,9 +373,9 @@ class GithubScm extends Scm {
             command.push('cd $SD_SOURCE_DIR');
         } else {
             // Git clone
-            command.push(`echo Cloning ${checkoutUrl}, on branch ${config.branch}`);
+            command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
             command.push(`${gitWrapper} `
-                    + `"git clone --recursive --quiet --progress --branch ${config.branch} `
+                    + `"git clone --recursive --quiet --progress --branch ${branch} `
                     + '$SCM_URL $SD_SOURCE_DIR"');
             // Reset to SHA
             command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
@@ -350,7 +387,7 @@ class GithubScm extends Scm {
             const prRef = config.prRef.replace('merge', 'head:pr');
 
             // Fetch a pull request
-            command.push(`echo Fetching PR and merging with ${config.branch}`);
+            command.push(`echo Fetching PR and merging with ${branch}`);
             command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
             command.push(`${gitWrapper} "git merge ${config.sha}"`);
@@ -358,7 +395,7 @@ class GithubScm extends Scm {
             command.push(`${gitWrapper} "git submodule update --recursive"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
-            command.push(`export GIT_BRANCH=origin/${config.branch}`);
+            command.push(`export GIT_BRANCH=origin/${branch}`);
         }
 
         return {
@@ -391,19 +428,19 @@ class GithubScm extends Scm {
             }
         });
 
-        return pullRequests.map(pullRequest => ({
+        return pullRequests.data.map(pullRequest => ({
             name: `PR-${pullRequest.number}`,
             ref: `pull/${pullRequest.number}/merge`
         }));
     }
 
     /**
-     * Get a owners permissions on a repository
+     * Get an owner's permissions on a repository
      * @async  _getPermissions
-     * @param  {Object}   config            Configuration
+     * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get permissions on
      * @param  {String}   config.token      The token used to authenticate to the SCM
-     * @return {Promise}                    Resolves to the repository permissions
+     * @return {Promise}                    Resolves to the owner's repository permissions
      */
     async _getPermissions(config) {
         const scmInfo = await this.lookupScmUri({
@@ -414,18 +451,18 @@ class GithubScm extends Scm {
             action: 'get',
             token: config.token,
             params: {
-                repo: scmInfo.repo,
-                owner: scmInfo.owner
+                owner: scmInfo.owner,
+                repo: scmInfo.repo
             }
         });
 
-        return repo.permissions;
+        return repo.data.permissions;
     }
 
     /**
      * Get a commit sha for a specific repo#branch or pull request
-     * @async  getCommitSha
-     * @param  {Object}   config            Configuration
+     * @async  _getCommitSha
+     * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get commit sha of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  [config.prNum]    The PR number used to fetch the PR
@@ -445,19 +482,18 @@ class GithubScm extends Scm {
             token: config.token,
             params: {
                 branch: scmInfo.branch,
-                host: scmInfo.host,
-                repo: scmInfo.repo,
-                owner: scmInfo.owner
+                owner: scmInfo.owner,
+                repo: scmInfo.repo
             }
         });
 
-        return branch.commit.sha;
+        return branch.data.commit.sha;
     }
 
     /**
      * Update the commit status for a given repo and sha
-     * @async  updateCommitStatus
-     * @param  {Object}   config              Configuration
+     * @async  _updateCommitStatus
+     * @param  {Object}   config
      * @param  {String}   config.scmUri       The scmUri to get permissions on
      * @param  {String}   config.sha          The sha to apply the status to
      * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
@@ -483,21 +519,27 @@ class GithubScm extends Scm {
             target_url: config.url
         };
 
-        return this.breaker.runCommand({
-            action: 'createStatus',
-            token: config.token,
-            params
-        }).catch((err) => {
+        try {
+            const status = await this.breaker.runCommand({
+                action: 'createStatus',
+                token: config.token,
+                params
+            });
+
+            return status ? status.data : undefined;
+        } catch (err) {
             if (err.code !== 422) {
                 throw err;
             }
-        });
+
+            return undefined;
+        }
     }
 
     /**
      * Fetch content of a file from github
-     * @async  getFile
-     * @param  {Object}   config              Configuration
+     * @async  _getFile
+     * @param  {Object}   config
      * @param  {String}   config.scmUri       The scmUri to get permissions on
      * @param  {String}   config.path         The file in the repo to fetch
      * @param  {String}   config.token        The token used to authenticate to the SCM
@@ -520,11 +562,11 @@ class GithubScm extends Scm {
             }
         });
 
-        if (file.type !== 'file') {
+        if (file.data.type !== 'file') {
             throw new Error(`Path (${config.path}) does not point to file`);
         }
 
-        return new Buffer(file.content, file.encoding).toString();
+        return new Buffer(file.data.content, file.data.encoding).toString();
     }
 
     /**
@@ -547,6 +589,7 @@ class GithubScm extends Scm {
      * @async  _getRepoId
      * @param  {Object}   scmInfo               The result of getScmInfo
      * @param  {String}   token                 The token used to authenticate to the SCM
+     * @param  {Object}   config
      * @param  {String}   config.checkoutUrl    The checkoutUrl to parse
      * @return {Promise}                        Resolves to the id of the repo
      */
@@ -558,7 +601,7 @@ class GithubScm extends Scm {
                 params: scmInfo
             });
 
-            return repo.id;
+            return repo.data.id;
         } catch (err) {
             if (err.code === 404) {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
@@ -571,7 +614,7 @@ class GithubScm extends Scm {
     /**
      * Decorate the author based on the Github service
      * @async  _decorateAuthor
-     * @param  {Object}        config          Configuration object
+     * @param  {Object}        config
      * @param  {Object}        config.token    Service token to authenticate with Github
      * @param  {Object}        config.username Username to query more information for
      * @return {Promise}                       Resolves to decorated user object
@@ -583,20 +626,20 @@ class GithubScm extends Scm {
             token: config.token,
             params: { username: config.username }
         });
-        const name = user.name ? user.name : user.login;
+        const name = user.data.name || user.data.login;
 
         return {
-            avatar: user.avatar_url,
+            avatar: user.data.avatar_url,
             name,
-            username: user.login,
-            url: user.html_url
+            username: user.data.login,
+            url: user.data.html_url
         };
     }
 
     /**
      * Decorate the commit based on the repository
      * @async  _decorateCommit
-     * @param  {Object}        config        Configuration object
+     * @param  {Object}        config
      * @param  {Object}        config.scmUri SCM URI the commit belongs to
      * @param  {Object}        config.sha    SHA to decorate data with
      * @param  {Object}        config.token  Service token to authenticate with Github
@@ -617,21 +660,19 @@ class GithubScm extends Scm {
             }
         });
 
-        let author;
+        let author = DEFAULT_AUTHOR;
 
-        if (!commit.author) {
-            author = DEFAULT_AUTHOR;
-        } else {
+        if (commit.data.author) {
             author = await this.decorateAuthor({
                 token: config.token,
-                username: commit.author.login
+                username: commit.data.author.login
             });
         }
 
         return {
             author,
-            message: commit.commit.message,
-            url: commit.html_url
+            message: commit.data.commit.message,
+            url: commit.data.html_url
         };
     }
 
@@ -640,7 +681,7 @@ class GithubScm extends Scm {
      * related information. If a branch suffix is not provided, it will default
      * to the master branch
      * @async  _decorateUrl
-     * @param  {Config}    config        Configuration object
+     * @param  {Config}    config
      * @param  {String}    config.scmUri The SCM URI the commit belongs to
      * @param  {String}    config.token  Service token to authenticate with Github
      * @return {Promise}                 Resolves to decorated url object
@@ -660,7 +701,7 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Check validity of github webhook event signature
+     * Check validity of Github webhook event signature
      * @method  _checkSignature
      * @param   {String}    secret      The secret used to sign the payload
      * @param   {String}    payload     The payload of the webhook event
@@ -681,9 +722,9 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get the changed files from a Git event
+     * Get the changed files from a Github event
      * @async  _getChangedFiles
-     * @param  {Object}   config           Configuration object
+     * @param  {Object}   config
      * @param  {String}   config.type      Can be 'pr' or 'repo'
      * @param  {Object}   config.payload   The webhook payload received from the SCM service.
      * @param  {String}   config.token     Service token to authenticate with Github
@@ -702,7 +743,7 @@ class GithubScm extends Scm {
                 }
             });
 
-            return files.map(file => file.filename);
+            return files.data.map(file => file.filename);
         }
 
         if (type === 'repo') {
@@ -797,7 +838,7 @@ class GithubScm extends Scm {
      * 'token' is required, since it is necessary to lookup the SCM ID by
      * communicating with said SCM service.
      * @async  _parseUrl
-     * @param  {Object}     config              Config object
+     * @param  {Object}     config
      * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
      * @param  {String}     config.token        The token used to authenticate to the SCM service
      * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName'
@@ -851,7 +892,7 @@ class GithubScm extends Scm {
     /**
      * Resolve a pull request object based on the config
      * @async  getPrRef
-     * @param  {Object}   config            Configuration
+     * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
@@ -867,24 +908,24 @@ class GithubScm extends Scm {
             scopeType: 'pullRequests',
             token: config.token,
             params: {
+                number: config.prNum,
                 owner: scmInfo.owner,
-                repo: scmInfo.repo,
-                number: config.prNum
+                repo: scmInfo.repo
             }
         });
 
         return {
-            name: `PR-${pullRequestInfo.number}`,
-            ref: `pull/${pullRequestInfo.number}/merge`,
-            sha: pullRequestInfo.head.sha,
-            url: pullRequestInfo.html_url
+            name: `PR-${pullRequestInfo.data.number}`,
+            ref: `pull/${pullRequestInfo.data.number}/merge`,
+            sha: pullRequestInfo.data.head.sha,
+            url: pullRequestInfo.data.html_url
         };
     }
 
     /**
      * Get an array of scm context (e.g. github:github.com)
      * @method getScmContexts
-     * @return {Array}
+     * @return {Array}          Array of scm contexts
      */
     _getScmContexts() {
         const contextName = this.config.gheHost
@@ -895,7 +936,7 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Determine if a scm module can handle the received webhook
+     * Determine if an scm module can handle the received webhook
      * @async  canHandleWebhook
      * @param  {Object}    headers    The request headers associated with the webhook payload
      * @param  {Object}    payload    The webhook payload received from the SCM service
@@ -916,6 +957,60 @@ class GithubScm extends Scm {
         } catch (err) {
             return false;
         }
+    }
+
+    /**
+     * Look up a branches from a repo
+     * @async  _findBranches
+     * @param  {Object}     config
+     * @param  {Object}     config.scmInfo      Data about repo
+     * @param  {String}     config.token        Admin token for repo
+     * @param  {Number}     config.page         Pagination: page number to search next
+     * @return {Promise}                        Resolves to a list of branches
+     */
+    async _findBranches(config) {
+        let branches = await this.breaker.runCommand({
+            action: 'getBranches',
+            token: config.token,
+            params: {
+                owner: config.scmInfo.owner,
+                repo: config.scmInfo.repo,
+                page: config.page,
+                per_page: BRANCH_PAGE_SIZE
+            }
+        });
+
+        branches = branches.data;
+
+        if (branches.length === BRANCH_PAGE_SIZE) {
+            config.page += 1;
+            const nextPageBranches = await this._findBranches(config);
+
+            branches = branches.concat(nextPageBranches);
+        }
+
+        return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
+    }
+
+    /**
+     * Get branch list from the Github repository
+     * @async  _getBranchList
+     * @param  {Object}     config
+     * @param  {String}     config.scmUri      The SCM URI to get branch list
+     * @param  {String}     config.token       Service token to authenticate with Github
+     * @return {Promise}                       Resolves when complete
+     */
+    async _getBranchList(config) {
+        const scmInfo = await this.lookupScmUri({
+            scmUri: config.scmUri,
+            token: config.token
+        });
+
+        return this._findBranches({
+            scmInfo,
+            page: 1,
+            token: config.token
+        });
     }
 }
 
