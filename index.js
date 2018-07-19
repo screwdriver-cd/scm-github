@@ -391,7 +391,8 @@ class GithubScm extends Scm {
             command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
             command.push(`${gitWrapper} "git merge ${config.sha}"`);
-            // Update submodule
+            // Init & Update submodule
+            command.push(`${gitWrapper} "git submodule init"`);
             command.push(`${gitWrapper} "git submodule update --recursive"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
