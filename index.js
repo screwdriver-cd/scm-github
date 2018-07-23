@@ -484,7 +484,7 @@ class GithubScm extends Scm {
             return repo.data.permissions;
         } catch (err) {
             // Suspended user
-            if (err.code === 403) {
+            if (err.code === 404) {
                 winston.info(
                     `User's account suspended for ${scmInfo.owner}/${scmInfo.repo}, ` +
                     'it will be removed from pipeline admins.');
