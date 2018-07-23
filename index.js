@@ -466,12 +466,14 @@ class GithubScm extends Scm {
      * @return {Promise}                    Resolves to the owner's repository permissions
      */
     async _getPermissions(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        });
+        let scmInfo;
 
         try {
+            scmInfo = await this.lookupScmUri({
+                scmUri: config.scmUri,
+                token: config.token
+            });
+
             const repo = await this.breaker.runCommand({
                 action: 'get',
                 token: config.token,
