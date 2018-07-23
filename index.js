@@ -140,20 +140,25 @@ class GithubScm extends Scm {
     async lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
-        const repo = await this.breaker.runCommand({
-            action: 'getById',
-            token: config.token,
-            params: { id: scmId }
-        });
+        try {
+            const repo = await this.breaker.runCommand({
+                action: 'getById',
+                token: config.token,
+                params: { id: scmId }
+            });
 
-        const [repoOwner, repoName] = repo.data.full_name.split('/');
+            const [repoOwner, repoName] = repo.data.full_name.split('/');
 
-        return {
-            branch: scmBranch,
-            host: scmHost,
-            repo: repoName,
-            owner: repoOwner
-        };
+            return {
+                branch: scmBranch,
+                host: scmHost,
+                repo: repoName,
+                owner: repoOwner
+            };
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -167,28 +172,33 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves to a list of hooks
      */
     async _findWebhook(config) {
-        const hooks = await this.breaker.runCommand({
-            action: 'getHooks',
-            token: config.token,
-            params: {
-                owner: config.scmInfo.owner,
-                repo: config.scmInfo.repo,
-                page: config.page,
-                per_page: WEBHOOK_PAGE_SIZE
+        try {
+            const hooks = await this.breaker.runCommand({
+                action: 'getHooks',
+                token: config.token,
+                params: {
+                    owner: config.scmInfo.owner,
+                    repo: config.scmInfo.repo,
+                    page: config.page,
+                    per_page: WEBHOOK_PAGE_SIZE
+                }
+            });
+
+            const screwdriverHook = hooks.data.find(hook =>
+                hoek.reach(hook, 'config.url') === config.url
+            );
+
+            if (!screwdriverHook && hooks.data.length === WEBHOOK_PAGE_SIZE) {
+                config.page += 1;
+
+                return this._findWebhook(config);
             }
-        });
 
-        const screwdriverHook = hooks.data.find(hook =>
-            hoek.reach(hook, 'config.url') === config.url
-        );
-
-        if (!screwdriverHook && hooks.data.length === WEBHOOK_PAGE_SIZE) {
-            config.page += 1;
-
-            return this._findWebhook(config);
+            return screwdriverHook;
+        } catch (err) {
+            winston.error(err);
+            throw err;
         }
-
-        return screwdriverHook;
     }
 
     /**
@@ -221,13 +231,18 @@ class GithubScm extends Scm {
             Object.assign(params, { hook_id: config.hookInfo.id });
         }
 
-        const hooks = await this.breaker.runCommand({
-            action,
-            token: config.token,
-            params
-        });
+        try {
+            const hooks = await this.breaker.runCommand({
+                action,
+                token: config.token,
+                params
+            });
 
-        return hooks.data;
+            return hooks.data;
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -419,21 +434,27 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const pullRequests = await this.breaker.runCommand({
-            action: 'getAll',
-            scopeType: 'pullRequests',
-            token: config.token,
-            params: {
-                owner: scmInfo.owner,
-                repo: scmInfo.repo,
-                state: 'open'
-            }
-        });
 
-        return pullRequests.data.map(pullRequest => ({
-            name: `PR-${pullRequest.number}`,
-            ref: `pull/${pullRequest.number}/merge`
-        }));
+        try {
+            const pullRequests = await this.breaker.runCommand({
+                action: 'getAll',
+                scopeType: 'pullRequests',
+                token: config.token,
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    state: 'open'
+                }
+            });
+
+            return pullRequests.data.map(pullRequest => ({
+                name: `PR-${pullRequest.number}`,
+                ref: `pull/${pullRequest.number}/merge`
+            }));
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -471,6 +492,7 @@ class GithubScm extends Scm {
                 return { admin: false, push: false, pull: false };
             }
 
+            winston.error(err);
             throw err;
         }
     }
@@ -493,17 +515,23 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const branch = await this.breaker.runCommand({
-            action: 'getBranch',
-            token: config.token,
-            params: {
-                branch: scmInfo.branch,
-                owner: scmInfo.owner,
-                repo: scmInfo.repo
-            }
-        });
 
-        return branch.data.commit.sha;
+        try {
+            const branch = await this.breaker.runCommand({
+                action: 'getBranch',
+                token: config.token,
+                params: {
+                    branch: scmInfo.branch,
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo
+                }
+            });
+
+            return branch.data.commit.sha;
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -545,6 +573,7 @@ class GithubScm extends Scm {
             return status ? status.data : undefined;
         } catch (err) {
             if (err.code !== 422) {
+                winston.error(err);
                 throw err;
             }
 
@@ -567,22 +596,28 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const file = await this.breaker.runCommand({
-            action: 'getContent',
-            token: config.token,
-            params: {
-                owner: scmInfo.owner,
-                repo: scmInfo.repo,
-                path: config.path,
-                ref: config.ref || scmInfo.branch
+
+        try {
+            const file = await this.breaker.runCommand({
+                action: 'getContent',
+                token: config.token,
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    path: config.path,
+                    ref: config.ref || scmInfo.branch
+                }
+            });
+
+            if (file.data.type !== 'file') {
+                throw new Error(`Path (${config.path}) does not point to file`);
             }
-        });
 
-        if (file.data.type !== 'file') {
-            throw new Error(`Path (${config.path}) does not point to file`);
+            return new Buffer(file.data.content, file.data.encoding).toString();
+        } catch (err) {
+            winston.error(err);
+            throw err;
         }
-
-        return new Buffer(file.data.content, file.data.encoding).toString();
     }
 
     /**
@@ -623,6 +658,7 @@ class GithubScm extends Scm {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
             }
 
+            winston.error(err);
             throw new Error(err);
         }
     }
@@ -636,20 +672,25 @@ class GithubScm extends Scm {
      * @return {Promise}                       Resolves to decorated user object
      */
     async _decorateAuthor(config) {
-        const user = await this.breaker.runCommand({
-            action: 'getForUser',
-            scopeType: 'users',
-            token: config.token,
-            params: { username: config.username }
-        });
-        const name = user.data.name || user.data.login;
+        try {
+            const user = await this.breaker.runCommand({
+                action: 'getForUser',
+                scopeType: 'users',
+                token: config.token,
+                params: { username: config.username }
+            });
+            const name = user.data.name || user.data.login;
 
-        return {
-            avatar: user.data.avatar_url,
-            name,
-            username: user.data.login,
-            url: user.data.html_url
-        };
+            return {
+                avatar: user.data.avatar_url,
+                name,
+                username: user.data.login,
+                url: user.data.html_url
+            };
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -666,30 +707,36 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const commit = await this.breaker.runCommand({
-            action: 'getCommit',
-            token: config.token,
-            params: {
-                owner: scmInfo.owner,
-                repo: scmInfo.repo,
-                sha: config.sha
-            }
-        });
 
-        let author = DEFAULT_AUTHOR;
-
-        if (commit.data.author) {
-            author = await this.decorateAuthor({
+        try {
+            const commit = await this.breaker.runCommand({
+                action: 'getCommit',
                 token: config.token,
-                username: commit.data.author.login
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    sha: config.sha
+                }
             });
-        }
 
-        return {
-            author,
-            message: commit.data.commit.message,
-            url: commit.data.html_url
-        };
+            let author = DEFAULT_AUTHOR;
+
+            if (commit.data.author) {
+                author = await this.decorateAuthor({
+                    token: config.token,
+                    username: commit.data.author.login
+                });
+            }
+
+            return {
+                author,
+                message: commit.data.commit.message,
+                url: commit.data.html_url
+            };
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -748,18 +795,23 @@ class GithubScm extends Scm {
      */
     async _getChangedFiles({ type, payload, token }) {
         if (type === 'pr') {
-            const files = await this.breaker.runCommand({
-                action: 'getFiles',
-                scopeType: 'pullRequests',
-                token,
-                params: {
-                    owner: hoek.reach(payload, 'repository.owner.login'),
-                    repo: hoek.reach(payload, 'repository.name'),
-                    number: hoek.reach(payload, 'number')
-                }
-            });
+            try {
+                const files = await this.breaker.runCommand({
+                    action: 'getFiles',
+                    scopeType: 'pullRequests',
+                    token,
+                    params: {
+                        owner: hoek.reach(payload, 'repository.owner.login'),
+                        repo: hoek.reach(payload, 'repository.name'),
+                        number: hoek.reach(payload, 'number')
+                    }
+                });
 
-            return files.data.map(file => file.filename);
+                return files.data.map(file => file.filename);
+            } catch (err) {
+                winston.error(err);
+                throw err;
+            }
         }
 
         if (type === 'repo') {
@@ -919,23 +971,29 @@ class GithubScm extends Scm {
             scmUri: config.scmUri,
             token: config.token
         });
-        const pullRequestInfo = await this.breaker.runCommand({
-            action: 'get',
-            scopeType: 'pullRequests',
-            token: config.token,
-            params: {
-                number: config.prNum,
-                owner: scmInfo.owner,
-                repo: scmInfo.repo
-            }
-        });
 
-        return {
-            name: `PR-${pullRequestInfo.data.number}`,
-            ref: `pull/${pullRequestInfo.data.number}/merge`,
-            sha: pullRequestInfo.data.head.sha,
-            url: pullRequestInfo.data.html_url
-        };
+        try {
+            const pullRequestInfo = await this.breaker.runCommand({
+                action: 'get',
+                scopeType: 'pullRequests',
+                token: config.token,
+                params: {
+                    number: config.prNum,
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo
+                }
+            });
+
+            return {
+                name: `PR-${pullRequestInfo.data.number}`,
+                ref: `pull/${pullRequestInfo.data.number}/merge`,
+                sha: pullRequestInfo.data.head.sha,
+                url: pullRequestInfo.data.html_url
+            };
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
     }
 
     /**
@@ -985,27 +1043,32 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves to a list of branches
      */
     async _findBranches(config) {
-        let branches = await this.breaker.runCommand({
-            action: 'getBranches',
-            token: config.token,
-            params: {
-                owner: config.scmInfo.owner,
-                repo: config.scmInfo.repo,
-                page: config.page,
-                per_page: BRANCH_PAGE_SIZE
+        try {
+            let branches = await this.breaker.runCommand({
+                action: 'getBranches',
+                token: config.token,
+                params: {
+                    owner: config.scmInfo.owner,
+                    repo: config.scmInfo.repo,
+                    page: config.page,
+                    per_page: BRANCH_PAGE_SIZE
+                }
+            });
+
+            branches = branches.data;
+
+            if (branches.length === BRANCH_PAGE_SIZE) {
+                config.page += 1;
+                const nextPageBranches = await this._findBranches(config);
+
+                branches = branches.concat(nextPageBranches);
             }
-        });
 
-        branches = branches.data;
-
-        if (branches.length === BRANCH_PAGE_SIZE) {
-            config.page += 1;
-            const nextPageBranches = await this._findBranches(config);
-
-            branches = branches.concat(nextPageBranches);
+            return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
+        } catch (err) {
+            winston.error(err);
+            throw err;
         }
-
-        return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
     }
 
     /**
