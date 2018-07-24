@@ -399,10 +399,10 @@ describe('index', function () {
                 });
         });
 
-        it('catches and discards Github errors when it has a 403 error code', () => {
+        it('catches and discards Github errors when it has a 404 error code', () => {
             const err = new Error('Sorry. Your account was suspended.');
 
-            err.code = 403;
+            err.code = 404;
             githubMock.repos.get.yieldsAsync(err);
 
             return scm.getPermissions(config)
@@ -430,7 +430,7 @@ describe('index', function () {
                     );
                 })
                 .catch(() => {
-                    assert(false, 'Error should be handled if error code is 403');
+                    assert(false, 'Error should be handled if error code is 404');
                 });
         });
     });
