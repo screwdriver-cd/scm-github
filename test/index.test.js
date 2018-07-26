@@ -402,7 +402,8 @@ describe('index', function () {
         it('catches and discards Github errors when it has a suspended user error message', () => {
             const err = new Error('Sorry. Your account was suspended.');
 
-            githubMock.repos.get.yieldsAsync(err);
+            // in the lookupScmUri()
+            githubMock.repos.getById.yieldsAsync(err);
 
             return scm.getPermissions(config)
                 .then((result) => {
@@ -412,19 +413,16 @@ describe('index', function () {
                         id: '359478'
                     });
 
-                    assert.calledWith(githubMock.repos.get, {
-                        owner: 'screwdriver-cd',
-                        repo: 'models'
-                    });
-
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
                     });
 
+                    assert.notCalled(githubMock.repos.get);
+
                     assert.calledWith(
                         winstonMock.info,
-                        "User's account suspended for screwdriver-cd/models, " +
+                        "User's account suspended for github.com:359478:master, " +
                         'it will be removed from pipeline admins.'
                     );
                 })

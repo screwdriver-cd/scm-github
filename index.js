@@ -488,7 +488,7 @@ class GithubScm extends Scm {
             // Suspended user
             if (err.message.match(/suspend/i)) {
                 winston.info(
-                    `User's account suspended for ${scmInfo.owner}/${scmInfo.repo}, ` +
+                    `User's account suspended for ${config.scmUri}, ` +
                     'it will be removed from pipeline admins.');
 
                 return { admin: false, push: false, pull: false };
