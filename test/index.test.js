@@ -779,6 +779,36 @@ jobs:
                 });
         });
 
+        it('promises to get content without lookupScmUri when a ref is passed', () => {
+            const configWithScmInfo = Object.assign({}, config);
+
+            githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
+            configWithScmInfo.scmInfo = {
+                owner: 'screwdriver-cd',
+                repo: 'models',
+                branch: 'branch',
+                host: 'host'
+            };
+
+            return scm.getFile(configWithScmInfo)
+                .then((data) => {
+                    assert.deepEqual(data, expectedYaml);
+
+                    assert.calledWith(githubMock.repos.getContent, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        path: config.path,
+                        ref: config.ref
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+
+                    assert.notCalled(githubMock.repos.getById);
+                });
+        });
+
         it('promises to get content when a ref is not passed', () => {
             githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
 
@@ -1385,6 +1415,30 @@ jobs:
             });
         });
 
+        it('decorates a scm uri with scmInfo', () => {
+            const scmUri = 'github.com:102498:boat';
+            const scmInfo = {
+                branch: 'boat',
+                host: 'github.com',
+                owner: 'iAm',
+                repo: 'theCaptain'
+            };
+
+            return scm.decorateUrl({
+                scmUri,
+                scmInfo,
+                token: 'mytokenfortesting'
+            }).then((data) => {
+                assert.deepEqual(data, {
+                    branch: 'boat',
+                    name: 'iAm/theCaptain',
+                    url: 'https://github.com/iAm/theCaptain/tree/boat'
+                });
+
+                assert.notCalled(githubMock.repos.getById);
+            });
+        });
+
         it('rejects when github lookup fails', () => {
             const scmUri = 'github.com:102498:boat';
             const testError = new Error('decorateUrlError');
@@ -1720,6 +1774,42 @@ jobs:
                 );
 
                 assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.pullRequests.get, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    number: 1
+                });
+            });
+        });
+
+        it('returns a pull request with the given prNum and scmInfo', () => {
+            const configWithScmInfo = Object.assign({}, config);
+
+            githubMock.pullRequests.get.yieldsAsync(null,
+                { data: { html_url: 'https://github.com/repoOwner/repoName/pull/1',
+                    number: 1,
+                    head: { sha } } }
+            );
+
+            configWithScmInfo.scmInfo = {
+                branch: 'branch',
+                host: 'github.com',
+                owner: 'repoOwner',
+                repo: 'repoName'
+            };
+
+            return scm._getPrInfo(configWithScmInfo).then((data) => {
+                assert.deepEqual(data,
+                    {
+                        name: 'PR-1',
+                        ref: 'pull/1/merge',
+                        sha,
+                        url: 'https://github.com/repoOwner/repoName/pull/1'
+                    }
+                );
+
+                assert.notCalled(githubMock.repos.getById);
+
                 assert.calledWith(githubMock.pullRequests.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',

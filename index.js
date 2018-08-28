@@ -594,10 +594,16 @@ class GithubScm extends Scm {
      * @return {Promise}                      Resolves to string containing contents of file
      */
     async _getFile(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        });
+        let scmInfo = {};
+
+        if (!config.scmInfo) {
+            scmInfo = await this.lookupScmUri({
+                scmUri: config.scmUri,
+                token: config.token
+            });
+        } else {
+            scmInfo = config.scmInfo;
+        }
 
         try {
             const file = await this.breaker.runCommand({
@@ -752,10 +758,17 @@ class GithubScm extends Scm {
      * @return {Promise}                 Resolves to decorated url object
      */
     async _decorateUrl(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        });
+        let scmInfo = {};
+
+        if (!config.scmInfo) {
+            scmInfo = await this.lookupScmUri({
+                scmUri: config.scmUri,
+                token: config.token
+            });
+        } else {
+            scmInfo = config.scmInfo;
+        }
+
         const baseUrl = `${scmInfo.host}/${scmInfo.owner}/${scmInfo.repo}`;
 
         return {
@@ -969,10 +982,16 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     async _getPrInfo(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
-        });
+        let scmInfo = {};
+
+        if (!config.scmInfo) {
+            scmInfo = await this.lookupScmUri({
+                scmUri: config.scmUri,
+                token: config.token
+            });
+        } else {
+            scmInfo = config.scmInfo;
+        }
 
         try {
             const pullRequestInfo = await this.breaker.runCommand({
