@@ -140,25 +140,33 @@ class GithubScm extends Scm {
     async lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
 
-        try {
-            const repo = await this.breaker.runCommand({
-                action: 'getById',
-                token: config.token,
-                params: { id: scmId }
-            });
+        let repoFullName;
 
-            const [repoOwner, repoName] = repo.data.full_name.split('/');
+        if (config.scmRepo) {
+            repoFullName = config.scmRepo.name;
+        } else {
+            try {
+                const repo = await this.breaker.runCommand({
+                    action: 'getById',
+                    token: config.token,
+                    params: { id: scmId }
+                });
 
-            return {
-                branch: scmBranch,
-                host: scmHost,
-                repo: repoName,
-                owner: repoOwner
-            };
-        } catch (err) {
-            winston.error(err);
-            throw err;
+                repoFullName = repo.data.full_name;
+            } catch (err) {
+                winston.error(err);
+                throw err;
+            }
         }
+
+        const [repoOwner, repoName] = repoFullName.split('/');
+
+        return {
+            branch: scmBranch,
+            host: scmHost,
+            repo: repoName,
+            owner: repoOwner
+        };
     }
 
     /**
@@ -466,13 +474,17 @@ class GithubScm extends Scm {
      * @return {Promise}                    Resolves to the owner's repository permissions
      */
     async _getPermissions(config) {
-        let scmInfo;
+        const lookupConfig = {
+            scmUri: config.scmUri,
+            token: config.token
+        };
+
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
+        }
 
         try {
-            scmInfo = await this.lookupScmUri({
-                scmUri: config.scmUri,
-                token: config.token
-            });
+            const scmInfo = await this.lookupScmUri(lookupConfig);
 
             const repo = await this.breaker.runCommand({
                 action: 'get',
@@ -513,10 +525,16 @@ class GithubScm extends Scm {
             return this._getPrInfo(config).then(pr => pr.sha);
         }
 
-        const scmInfo = await this.lookupScmUri({
+        const lookupConfig = {
             scmUri: config.scmUri,
             token: config.token
-        });
+        };
+
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
+        }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         try {
             const branch = await this.breaker.runCommand({
@@ -594,16 +612,16 @@ class GithubScm extends Scm {
      * @return {Promise}                      Resolves to string containing contents of file
      */
     async _getFile(config) {
-        let scmInfo = {};
+        const lookupConfig = {
+            scmUri: config.scmUri,
+            token: config.token
+        };
 
-        if (!config.scmInfo) {
-            scmInfo = await this.lookupScmUri({
-                scmUri: config.scmUri,
-                token: config.token
-            });
-        } else {
-            scmInfo = config.scmInfo;
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
         }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         try {
             const file = await this.breaker.runCommand({
@@ -758,16 +776,16 @@ class GithubScm extends Scm {
      * @return {Promise}                 Resolves to decorated url object
      */
     async _decorateUrl(config) {
-        let scmInfo = {};
+        const lookupConfig = {
+            scmUri: config.scmUri,
+            token: config.token
+        };
 
-        if (!config.scmInfo) {
-            scmInfo = await this.lookupScmUri({
-                scmUri: config.scmUri,
-                token: config.token
-            });
-        } else {
-            scmInfo = config.scmInfo;
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
         }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         const baseUrl = `${scmInfo.host}/${scmInfo.owner}/${scmInfo.repo}`;
 
@@ -982,16 +1000,16 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     async _getPrInfo(config) {
-        let scmInfo = {};
+        const lookupConfig = {
+            scmUri: config.scmUri,
+            token: config.token
+        };
 
-        if (!config.scmInfo) {
-            scmInfo = await this.lookupScmUri({
-                scmUri: config.scmUri,
-                token: config.token
-            });
-        } else {
-            scmInfo = config.scmInfo;
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
         }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         try {
             const pullRequestInfo = await this.breaker.runCommand({

@@ -376,6 +376,35 @@ describe('index', function () {
                 });
         });
 
+        it('promises to get permissions without querying github when scmRepo is passed', () => {
+            const configWithScmRepo = Object.assign({}, config);
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/screwdriver-cd/models/tree/branch',
+                name: 'screwdriver-cd/models'
+            };
+
+            githubMock.repos.get.yieldsAsync(null, { data: repo });
+
+            return scm.getPermissions(configWithScmRepo)
+                .then((data) => {
+                    assert.deepEqual(data, repo.permissions);
+
+                    assert.notCalled(githubMock.repos.getById);
+
+                    assert.calledWith(githubMock.repos.get, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models'
+                    });
+
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                });
+        });
+
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
@@ -779,18 +808,18 @@ jobs:
                 });
         });
 
-        it('promises to get content without lookupScmUri when a ref is passed', () => {
-            const configWithScmInfo = Object.assign({}, config);
+        it('promises to get content without querying github' +
+            'when a ref and scmRepo is passed', () => {
+            const configWithScmRepo = Object.assign({}, config);
 
             githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
-            configWithScmInfo.scmInfo = {
-                owner: 'screwdriver-cd',
-                repo: 'models',
+            configWithScmRepo.scmRepo = {
                 branch: 'branch',
-                host: 'host'
+                url: 'https://github.com/screwdriver-cd/models/tree/branch',
+                name: 'screwdriver-cd/models'
             };
 
-            return scm.getFile(configWithScmInfo)
+            return scm.getFile(configWithScmRepo)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
@@ -1415,18 +1444,17 @@ jobs:
             });
         });
 
-        it('decorates a scm uri with scmInfo', () => {
+        it('decorates a scm uri without querying github when scmRepo is passed', () => {
             const scmUri = 'github.com:102498:boat';
-            const scmInfo = {
+            const scmRepo = {
                 branch: 'boat',
-                host: 'github.com',
-                owner: 'iAm',
-                repo: 'theCaptain'
+                url: 'https://github.com/iAm/theCaptain/tree/boat',
+                name: 'iAm/theCaptain'
             };
 
             return scm.decorateUrl({
                 scmUri,
-                scmInfo,
+                scmRepo,
                 token: 'mytokenfortesting'
             }).then((data) => {
                 assert.deepEqual(data, {
@@ -1782,8 +1810,8 @@ jobs:
             });
         });
 
-        it('returns a pull request with the given prNum and scmInfo', () => {
-            const configWithScmInfo = Object.assign({}, config);
+        it('returns a pull request with the given prNum and scmRepo', () => {
+            const configWithScmRepo = Object.assign({}, config);
 
             githubMock.pullRequests.get.yieldsAsync(null,
                 { data: { html_url: 'https://github.com/repoOwner/repoName/pull/1',
@@ -1791,14 +1819,13 @@ jobs:
                     head: { sha } } }
             );
 
-            configWithScmInfo.scmInfo = {
+            configWithScmRepo.scmRepo = {
                 branch: 'branch',
-                host: 'github.com',
-                owner: 'repoOwner',
-                repo: 'repoName'
+                url: 'https://github.com/repoOwner/repoName/tree/branch',
+                name: 'repoOwner/repoName'
             };
 
-            return scm._getPrInfo(configWithScmInfo).then((data) => {
+            return scm._getPrInfo(configWithScmRepo).then((data) => {
                 assert.deepEqual(data,
                     {
                         name: 'PR-1',
