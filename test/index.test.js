@@ -61,7 +61,8 @@ describe('index', function () {
                 getBranches: sinon.stub()
             },
             users: {
-                getForUser: sinon.stub()
+                getForUser: sinon.stub(),
+                getOrgMembership: sinon.stub()
             }
         };
         githubMockClass = sinon.stub().returns(githubMock);
@@ -457,6 +458,67 @@ describe('index', function () {
                 })
                 .catch(() => {
                     assert(false, 'Error should be handled if error message has "suspend" string');
+                });
+        });
+    });
+
+    describe('getOrgPermissions', () => {
+        const permission = {
+            role: 'admin',
+            state: 'active'
+        };
+        const result = {
+            admin: true,
+            member: false
+        };
+        const config = {
+            organization: 'screwdriver-cd',
+            username: 'foo',
+            token: 'somerandomtoken'
+        };
+
+        beforeEach(() => {
+            githubMock.users.getOrgMembership.yieldsAsync(null, { data: permission });
+        });
+
+        it('promises to get organization permissions', () => {
+            githubMock.users.getOrgMembership.yieldsAsync(null, { data: permission });
+
+            return scm.getOrgPermissions(config)
+                .then((data) => {
+                    assert.deepEqual(data, result);
+
+                    assert.calledWith(githubMock.users.getOrgMembership, {
+                        org: config.organization
+                    });
+
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                });
+        });
+
+        it('returns an error when github command fails', () => {
+            const err = new Error('githubError');
+
+            githubMock.users.getOrgMembership.yieldsAsync(err);
+
+            return scm.getOrgPermissions(config)
+                .then(() => {
+                    assert.fail('This should not fail the test');
+                })
+                .catch((error) => {
+                    assert.deepEqual(error, err);
+
+                    assert.calledWith(githubMock.users.getOrgMembership, {
+                        org: config.organization
+                    });
+
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
                 });
         });
     });

@@ -515,6 +515,47 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get a users permissions on an organization
+     * @method getOrgPermissions
+     * @param  {Object}   config                  Configuration
+     * @param  {String}   config.organization     The organization to get permissions on
+     * @param  {String}   config.username         The user to check against
+     * @param  {String}   config.token            The token used to authenticate to the SCM
+     * @param  {String}   [config.scmContext]     The scm context name
+     * @return {Promise}
+     */
+    async _getOrgPermissions(config) {
+        const result = {
+            admin: false,
+            member: false
+        };
+
+        try {
+            const permission = await this.breaker.runCommand({
+                action: 'getOrgMembership',
+                scopeType: 'users',
+                token: config.token,
+                params: {
+                    org: config.organization
+                }
+            });
+            const role = permission.data.role;
+            const state = permission.data.state;
+
+            if (state !== 'active') {
+                return result;
+            }
+
+            result[role] = true;
+
+            return result;
+        } catch (err) {
+            winston.error(err);
+            throw err;
+        }
+    }
+
+    /**
      * Get a commit sha for a specific repo#branch or pull request
      * @async  _getCommitSha
      * @param  {Object}   config
