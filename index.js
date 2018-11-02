@@ -343,9 +343,13 @@ class GithubScm extends Scm {
 
             // Git clone
             command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
-            command.push(`${gitWrapper} `
+            command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
+                  + `then ${gitWrapper} `
                   + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
-                  + '$CONFIG_URL $SD_CONFIG_DIR"');
+                  + '$CONFIG_URL $SD_CONFIG_DIR"; '
+                  + `else ${gitWrapper} `
+                  + `"git clone --depth=50 --recursive --quiet --progress --branch ${parentBranch} `
+                  + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
             // Reset to SHA
             command.push(`${gitWrapper} "git -C $SD_CONFIG_DIR reset --hard `
@@ -398,9 +402,13 @@ class GithubScm extends Scm {
         } else {
             // Git clone
             command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
-            command.push(`${gitWrapper} `
-                    + `"git clone --recursive --quiet --progress --branch ${branch} `
-                    + '$SCM_URL $SD_SOURCE_DIR"');
+            command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
+                  + `then ${gitWrapper} `
+                  + `"git clone --recursive --quiet --progress --branch ${branch} `
+                  + '$SCM_URL $SD_SOURCE_DIR"; '
+                  + `else ${gitWrapper} `
+                  + `"git clone --depth=50 --recursive --quiet --progress --branch ${branch} `
+                  + '$SCM_URL $SD_SOURCE_DIR"; fi');
             // Reset to SHA
             command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
