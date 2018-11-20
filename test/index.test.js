@@ -8,6 +8,7 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
+const testPayloadPushBadHead = require('./data/github.push.badHead.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
 const testPayloadPing = require('./data/github.ping.json');
@@ -1045,6 +1046,19 @@ jobs:
                     number: 1
                 });
             });
+        });
+
+        it('returns empty array for an event payload which does not have changed files', () => {
+            type = 'repo';
+
+            return scm.getChangedFiles({
+                type,
+                token,
+                payload: testPayloadPushBadHead
+            })
+                .then((result) => {
+                    assert.deepEqual(result, []);
+                });
         });
     });
 
