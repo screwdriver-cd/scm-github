@@ -900,9 +900,10 @@ class GithubScm extends Scm {
         }
 
         if (type === 'repo') {
-            const added = hoek.reach(payload, 'head_commit.added');
-            const modified = hoek.reach(payload, 'head_commit.modified');
-            const removed = hoek.reach(payload, 'head_commit.removed');
+            const options = { default: [] };
+            const added = hoek.reach(payload, 'head_commit.added', options);
+            const modified = hoek.reach(payload, 'head_commit.modified', options);
+            const removed = hoek.reach(payload, 'head_commit.removed', options);
 
             // Adding the arrays together and pruning duplicates
             return [...new Set([...added, ...modified, ...removed])];
