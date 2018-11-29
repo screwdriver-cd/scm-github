@@ -154,7 +154,7 @@ class GithubScm extends Scm {
 
                 repoFullName = repo.data.full_name;
             } catch (err) {
-                winston.error(err);
+                winston.error('Failed to lookupScmUri: ', err);
                 throw err;
             }
         }
@@ -204,7 +204,7 @@ class GithubScm extends Scm {
 
             return screwdriverHook;
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to findWebhook: ', err);
             throw err;
         }
     }
@@ -248,7 +248,7 @@ class GithubScm extends Scm {
 
             return hooks.data;
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to createWebhook: ', err);
             throw err;
         }
     }
@@ -471,7 +471,7 @@ class GithubScm extends Scm {
                 ref: `pull/${pullRequest.number}/merge`
             }));
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to getOpenedPRs: ', err);
             throw err;
         }
     }
@@ -517,7 +517,7 @@ class GithubScm extends Scm {
                 return { admin: false, push: false, pull: false };
             }
 
-            winston.error(err);
+            winston.error('Failed to getPermissions: ', err);
             throw err;
         }
     }
@@ -558,7 +558,7 @@ class GithubScm extends Scm {
 
             return result;
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to getOrgPermissions: ', err);
             throw err;
         }
     }
@@ -601,7 +601,7 @@ class GithubScm extends Scm {
 
             return branch.data.commit.sha;
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to getCommitSha: ', err);
             throw err;
         }
     }
@@ -645,7 +645,7 @@ class GithubScm extends Scm {
             return status ? status.data : undefined;
         } catch (err) {
             if (err.code !== 422) {
-                winston.error(err);
+                winston.error('Failed to updateCommitStatus: ', err);
                 throw err;
             }
 
@@ -693,7 +693,7 @@ class GithubScm extends Scm {
 
             return new Buffer(file.data.content, file.data.encoding).toString();
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to getFile: ', err);
             throw err;
         }
     }
@@ -736,7 +736,7 @@ class GithubScm extends Scm {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
             }
 
-            winston.error(err);
+            winston.error('Failed to getRepoId: ', err);
             throw new Error(err);
         }
     }
@@ -766,7 +766,7 @@ class GithubScm extends Scm {
                 url: user.data.html_url
             };
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to decorateAuthor: ', err);
             throw err;
         }
     }
@@ -812,7 +812,7 @@ class GithubScm extends Scm {
                 url: commit.data.html_url
             };
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to decorateCommit: ', err);
             throw err;
         }
     }
@@ -894,7 +894,7 @@ class GithubScm extends Scm {
 
                 return files.data.map(file => file.filename);
             } catch (err) {
-                winston.error(err);
+                winston.error('Failed to getChangedFiles: ', err);
                 throw err;
             }
         }
@@ -1083,7 +1083,7 @@ class GithubScm extends Scm {
                 url: pullRequestInfo.data.html_url
             };
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to getPrInfo: ', err);
             throw err;
         }
     }
@@ -1158,7 +1158,7 @@ class GithubScm extends Scm {
 
             return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
         } catch (err) {
-            winston.error(err);
+            winston.error('Failed to findBranches: ', err);
             throw err;
         }
     }
