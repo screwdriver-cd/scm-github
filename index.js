@@ -302,10 +302,11 @@ class GithubScm extends Scm {
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
         const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
-        const gitWrapper = '$(if git --version > /dev/null 2>&1; ' +
-            "then echo 'eval'; " +
-            "else echo 'sd-step exec core/git'; fi)";
         const command = [];
+
+        command.push("export SD_GIT_WRAPPER=$(if [ `uname` = 'Darwin' ]; " +
+            "then echo 'eval'; " +
+            "else echo 'sd-step exec core/git'; fi)");
 
         // Export environment variables
         command.push('echo Exporting environment variables');
@@ -320,8 +321,8 @@ class GithubScm extends Scm {
 
         // Set config
         command.push('echo Setting user name and user email');
-        command.push(`${gitWrapper} "git config --global user.name ${this.config.username}"`);
-        command.push(`${gitWrapper} "git config --global user.email ${this.config.email}"`);
+        command.push(`$SD_GIT_WRAPPER "git config --global user.name ${this.config.username}"`);
+        command.push(`$SD_GIT_WRAPPER "git config --global user.email ${this.config.email}"`);
 
         // Checkout config pipeline if this is a child pipeline
         if (config.parentConfig) {
@@ -344,15 +345,15 @@ class GithubScm extends Scm {
             // Git clone
             command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
             command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
-                  + `then ${gitWrapper} `
+                  + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; '
-                  + `else ${gitWrapper} `
+                  + 'else $SD_GIT_WRAPPER '
                   + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
                   + `--branch ${parentBranch} $CONFIG_URL $SD_CONFIG_DIR"; fi`);
 
             // Reset to SHA
-            command.push(`${gitWrapper} "git -C $SD_CONFIG_DIR reset --hard `
+            command.push('$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard '
                 + `${config.parentConfig.sha} --"`);
             command.push(`echo Reset external config repo to ${config.parentConfig.sha}`);
         }
@@ -403,14 +404,14 @@ class GithubScm extends Scm {
             // Git clone
             command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
             command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
-                  + `then ${gitWrapper} `
+                  + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${branch} `
                   + '$SCM_URL $SD_SOURCE_DIR"; '
-                  + `else ${gitWrapper} `
+                  + 'else $SD_GIT_WRAPPER '
                   + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
                   + `--branch ${branch} $SCM_URL $SD_SOURCE_DIR"; fi`);
             // Reset to SHA
-            command.push(`${gitWrapper} "git reset --hard ${checkoutRef} --"`);
+            command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
         }
 
@@ -420,9 +421,9 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
-            command.push(`${gitWrapper} "git fetch origin ${prRef}"`);
+            command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
             // Merge a pull request with pipeline branch
-            command.push(`${gitWrapper} "git merge ${config.sha}"`);
+            command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${branch}`);
@@ -430,8 +431,8 @@ class GithubScm extends Scm {
 
         if (!config.manifest) {
             // Init & Update submodule only when sd-repo is not used
-            command.push(`${gitWrapper} "git submodule init"`);
-            command.push(`${gitWrapper} "git submodule update --recursive"`);
+            command.push('$SD_GIT_WRAPPER "git submodule init"');
+            command.push('$SD_GIT_WRAPPER "git submodule update --recursive"');
         }
 
         return {
@@ -797,13 +798,15 @@ class GithubScm extends Scm {
                 }
             });
 
-            let author = DEFAULT_AUTHOR;
+            let author = Object.assign({}, DEFAULT_AUTHOR);
 
-            if (commit.data.author) {
+            if (commit.data.author && commit.data.author.login) {
                 author = await this.decorateAuthor({
                     token: config.token,
                     username: commit.data.author.login
                 });
+            } else if (commit.data.commit && commit.data.commit.author) {
+                author.name = commit.data.commit.author.name;
             }
 
             return {
