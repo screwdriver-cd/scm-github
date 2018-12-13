@@ -304,9 +304,9 @@ class GithubScm extends Scm {
         const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
         const command = [];
 
-        command.push("export SD_GIT_WRAPPER=$(if [ `uname` = 'Darwin' ]; " +
+        command.push("export SD_GIT_WRAPPER=\"$(if [ `uname` = 'Darwin' ]; " +
             "then echo 'eval'; " +
-            "else echo 'sd-step exec core/git'; fi)");
+            "else echo 'sd-step exec core/git'; fi)\"");
 
         // Export environment variables
         command.push('echo Exporting environment variables');
