@@ -1083,7 +1083,8 @@ class GithubScm extends Scm {
                 name: `PR-${pullRequestInfo.data.number}`,
                 ref: `pull/${pullRequestInfo.data.number}/merge`,
                 sha: pullRequestInfo.data.head.sha,
-                url: pullRequestInfo.data.html_url
+                url: pullRequestInfo.data.html_url,
+                username: pullRequestInfo.data.user.login
             };
         } catch (err) {
             winston.error('Failed to getPrInfo: ', err);

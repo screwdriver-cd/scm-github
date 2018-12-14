@@ -40,7 +40,7 @@
     "sinon": "^1.17.5"
   },
   "dependencies": {
-    "@octokit/rest": "^15.9.4",
+    "@octokit/rest": "^15.18.1",
     "circuit-fuses": "^2.0.3",
     "hoek": "^5.0.4",
     "joi": "^13.7.0",
