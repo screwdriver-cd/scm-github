@@ -19,6 +19,7 @@ const testRepoCommands = require('./data/repoCommands.json');
 const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
+const testPrGet = require('./data/github.pull_request.get.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -222,7 +223,7 @@ describe('index', function () {
         const scmUri = 'github.com:920414:master';
         const branch = {
             commit: {
-                sha: '1234567'
+                sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e'
             }
         };
         const config = {
@@ -260,14 +261,11 @@ describe('index', function () {
             githubMock.repos.getById.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
-            githubMock.pullRequests.get.yieldsAsync(null,
-                { data: { number: config.prNum, head: { sha: branch.commit.sha } } }
-            );
+            githubMock.pullRequests.get.yieldsAsync(null, { data: testPrGet });
 
             return scm.getCommitSha(config)
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
-
                     assert.calledWith(githubMock.pullRequests.get, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
@@ -1852,7 +1850,7 @@ jobs:
             token: 'token',
             prNum: 1
         };
-        const sha = 'ccc49349d3cffbd12ea9e3d41521480b4aa5de5f';
+        const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
 
         beforeEach(() => {
             githubMock.repos.getById.yieldsAsync(null, { data: {
@@ -1862,9 +1860,7 @@ jobs:
 
         it('returns a pull request with the given prNum', () => {
             githubMock.pullRequests.get.yieldsAsync(null,
-                { data: { html_url: 'https://github.com/repoOwner/repoName/pull/1',
-                    number: 1,
-                    head: { sha } } }
+                { data: testPrGet }
             );
 
             return scm._getPrInfo(config).then((data) => {
@@ -1873,10 +1869,10 @@ jobs:
                         name: 'PR-1',
                         ref: 'pull/1/merge',
                         sha,
-                        url: 'https://github.com/repoOwner/repoName/pull/1'
+                        url: 'https://github.com/octocat/Hello-World/pull/1',
+                        username: 'octocat'
                     }
                 );
-
                 assert.calledWith(githubMock.repos.getById, { id: '111' });
                 assert.calledWith(githubMock.pullRequests.get, {
                     owner: 'repoOwner',
@@ -1890,11 +1886,8 @@ jobs:
             const configWithScmRepo = Object.assign({}, config);
 
             githubMock.pullRequests.get.yieldsAsync(null,
-                { data: { html_url: 'https://github.com/repoOwner/repoName/pull/1',
-                    number: 1,
-                    head: { sha } } }
+                { data: testPrGet }
             );
-
             configWithScmRepo.scmRepo = {
                 branch: 'branch',
                 url: 'https://github.com/repoOwner/repoName/tree/branch',
@@ -1907,12 +1900,11 @@ jobs:
                         name: 'PR-1',
                         ref: 'pull/1/merge',
                         sha,
-                        url: 'https://github.com/repoOwner/repoName/pull/1'
+                        url: 'https://github.com/octocat/Hello-World/pull/1',
+                        username: 'octocat'
                     }
                 );
-
                 assert.notCalled(githubMock.repos.getById);
-
                 assert.calledWith(githubMock.pullRequests.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
