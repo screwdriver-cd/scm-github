@@ -20,6 +20,7 @@ const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
+const testPrCreateComment = require('./data/github.pull_request.createComment.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -45,6 +46,9 @@ describe('index', function () {
     beforeEach(() => {
         githubMock = {
             authenticate: sinon.stub(),
+            issues: {
+                createComment: sinon.stub()
+            },
             pullRequests: {
                 getAll: sinon.stub(),
                 get: sinon.stub(),
@@ -1930,6 +1934,68 @@ jobs:
             githubMock.pullRequests.get.yieldsAsync(testError);
 
             return scm._getPrInfo(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+    });
+
+    describe('_addPrComment', () => {
+        const scmUri = 'github.com:111:branchName';
+        const comment = 'this was a great PR';
+        const config = {
+            scmUri,
+            token: 'token',
+            prNum: 1,
+            comment
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getById.yieldsAsync(null, { data: {
+                full_name: 'repoOwner/repoName'
+            } });
+        });
+
+        it('returns some metadata about the comment', () => {
+            githubMock.issues.createComment.yieldsAsync(null,
+                { data: testPrCreateComment }
+            );
+
+            return scm._addPrComment(config).then((data) => {
+                assert.deepEqual(data,
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    }
+                );
+                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.issues.createComment, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    number: 1,
+                    body: comment
+                });
+            });
+        });
+
+        it('rejects when failing to lookup the SCM URI information', () => {
+            const testError = new Error('testError');
+
+            githubMock.repos.getById.yieldsAsync(testError);
+
+            return scm._addPrComment(config).then(assert.fail, (err) => {
+                assert.instanceOf(err, Error);
+                assert.strictEqual(testError.message, err.message);
+            });
+        });
+
+        it('rejects when failing to get the pull request', () => {
+            const testError = new Error('testError');
+
+            githubMock.issues.createComment.yieldsAsync(testError);
+
+            return scm._addPrComment(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
                 assert.strictEqual(testError.message, err.message);
             });

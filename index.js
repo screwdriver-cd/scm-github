@@ -1093,6 +1093,47 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Add a PR comment
+     * @param  {Object}     config
+     * @param  {String}     config.comment     The PR comment
+     * @param  {Integer}    config.prNum       The PR number
+     * @param  {String}     config.scmUri      The SCM URI
+     * @param  {String}     config.token       Service token to authenticate with Github
+     * @return {Promise}                       Resolves when complete
+     */
+    async _addPrComment(config) {
+        const lookupConfig = {
+            scmUri: config.scmUri,
+            token: config.token
+        };
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
+
+        try {
+            const pullRequestComment = await this.breaker.runCommand({
+                action: 'createComment',
+                scopeType: 'issues',
+                token: config.token,
+                params: {
+                    body: config.comment,
+                    number: config.prNum,
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo
+                }
+            });
+
+            return {
+                commentId: `${pullRequestComment.data.id}`,
+                createTime: `${pullRequestComment.data.created_at}`,
+                username: pullRequestComment.data.user.login
+            };
+        } catch (err) {
+            winston.error('Failed to addPRComment: ', err);
+            throw err;
+        }
+    }
+
+    /**
      * Get an array of scm context (e.g. github:github.com)
      * @method getScmContexts
      * @return {Array}          Array of scm contexts
