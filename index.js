@@ -1101,22 +1101,20 @@ class GithubScm extends Scm {
      * @param  {String}     config.token       Service token to authenticate with Github
      * @return {Promise}                       Resolves when complete
      */
-    async _addPrComment(config) {
-        const lookupConfig = {
-            scmUri: config.scmUri,
-            token: config.token
-        };
-
-        const scmInfo = await this.lookupScmUri(lookupConfig);
+    async _addPrComment({ comment, prNum, scmUri, token }) {
+        const scmInfo = await this.lookupScmUri({
+            scmUri,
+            token
+        });
 
         try {
             const pullRequestComment = await this.breaker.runCommand({
                 action: 'createComment',
                 scopeType: 'issues',
-                token: config.token,
+                token,
                 params: {
-                    body: config.comment,
-                    number: config.prNum,
+                    body: comment,
+                    number: prNum,
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
