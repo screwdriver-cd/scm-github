@@ -1127,7 +1127,8 @@ class GithubScm extends Scm {
             };
         } catch (err) {
             winston.error('Failed to addPRComment: ', err);
-            throw err;
+
+            return null;
         }
     }
 
