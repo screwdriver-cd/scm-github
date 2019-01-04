@@ -1990,14 +1990,16 @@ jobs:
             });
         });
 
-        it('rejects when failing to get the pull request', () => {
+        it('returns null when failing to add the pull request comment', () => {
             const testError = new Error('testError');
 
             githubMock.issues.createComment.yieldsAsync(testError);
 
-            return scm._addPrComment(config).then(assert.fail, (err) => {
-                assert.instanceOf(err, Error);
-                assert.strictEqual(testError.message, err.message);
+            return scm._addPrComment(config).then((data) => {
+                assert.isNull(data);
+            }).catch((err) => {
+                assert.deepEqual(err, testError);
+                assert.calledWith(githubMock.issues.createComment, config);
             });
         });
     });
