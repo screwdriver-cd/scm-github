@@ -106,6 +106,7 @@ class GithubScm extends Scm {
             gheHost: joi.string().optional().description('GitHub Enterpise host'),
             username: joi.string().optional().default('sd-buildbot'),
             email: joi.string().optional().default('dev-null@screwdriver.cd'),
+            token: joi.string().optional().description('Token for PR comments'),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -1111,7 +1112,7 @@ class GithubScm extends Scm {
             const pullRequestComment = await this.breaker.runCommand({
                 action: 'createComment',
                 scopeType: 'issues',
-                token,
+                token: this.config.token, // need to use a token with public_repo permissions
                 params: {
                     body: comment,
                     number: prNum,
