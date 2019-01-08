@@ -91,7 +91,8 @@ describe('index', function () {
             },
             oauthClientId: 'abcdefg',
             oauthClientSecret: 'hijklmno',
-            secret: 'somesecret'
+            secret: 'somesecret',
+            commentUserToken: 'sometoken'
         });
     });
 
