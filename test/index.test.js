@@ -1798,20 +1798,40 @@ jobs:
         });
 
         it('returns a list of opened pull requests', () => {
-            githubMock.pullRequests.getAll.yieldsAsync(null, { data: [
-                { number: 1 },
-                { number: 2 }
-            ] });
+            githubMock.pullRequests.getAll.yieldsAsync(null, {
+                data: [{
+                    number: 1,
+                    title: 'Test 1',
+                    user: {
+                        login: 'collab1'
+                    },
+                    created_at: '2018-10-09T21:35:31Z'
+                },
+                {
+                    number: 2,
+                    title: 'Test 2',
+                    user: {
+                        login: 'collab2'
+                    },
+                    created_at: '2018-10-10T21:35:31Z'
+                }]
+            });
 
             return scm._getOpenedPRs(config).then((data) => {
                 assert.deepEqual(data, [
                     {
                         name: 'PR-1',
-                        ref: 'pull/1/merge'
+                        ref: 'pull/1/merge',
+                        title: 'Test 1',
+                        username: 'collab1',
+                        createTime: '2018-10-09T21:35:31Z'
                     },
                     {
                         name: 'PR-2',
-                        ref: 'pull/2/merge'
+                        ref: 'pull/2/merge',
+                        title: 'Test 2',
+                        username: 'collab2',
+                        createTime: '2018-10-10T21:35:31Z'
                     }
                 ]);
 
@@ -1874,7 +1894,9 @@ jobs:
                         ref: 'pull/1/merge',
                         sha,
                         url: 'https://github.com/octocat/Hello-World/pull/1',
-                        username: 'octocat'
+                        username: 'octocat',
+                        title: 'new-feature',
+                        createTime: '2011-01-26T19:01:12Z'
                     }
                 );
                 assert.calledWith(githubMock.repos.getById, { id: '111' });
@@ -1905,7 +1927,9 @@ jobs:
                         ref: 'pull/1/merge',
                         sha,
                         url: 'https://github.com/octocat/Hello-World/pull/1',
-                        username: 'octocat'
+                        username: 'octocat',
+                        title: 'new-feature',
+                        createTime: '2011-01-26T19:01:12Z'
                     }
                 );
                 assert.notCalled(githubMock.repos.getById);

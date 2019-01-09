@@ -469,7 +469,10 @@ class GithubScm extends Scm {
 
             return pullRequests.data.map(pullRequest => ({
                 name: `PR-${pullRequest.number}`,
-                ref: `pull/${pullRequest.number}/merge`
+                ref: `pull/${pullRequest.number}/merge`,
+                username: pullRequest.user.login,
+                title: pullRequest.title,
+                createTime: pullRequest.created_at
             }));
         } catch (err) {
             winston.error('Failed to getOpenedPRs: ', err);
@@ -1084,7 +1087,9 @@ class GithubScm extends Scm {
                 ref: `pull/${pullRequestInfo.data.number}/merge`,
                 sha: pullRequestInfo.data.head.sha,
                 url: pullRequestInfo.data.html_url,
-                username: pullRequestInfo.data.user.login
+                username: pullRequestInfo.data.user.login,
+                title: pullRequestInfo.data.title,
+                createTime: pullRequestInfo.data.created_at
             };
         } catch (err) {
             winston.error('Failed to getPrInfo: ', err);
