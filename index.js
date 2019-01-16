@@ -1171,6 +1171,8 @@ class GithubScm extends Scm {
 
             return result.checkoutUrl.startsWith(checkoutSshHost);
         } catch (err) {
+            winston.error('Failed to run canHandleWebhook', err);
+
             return false;
         }
     }
