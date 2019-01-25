@@ -1804,17 +1804,21 @@ jobs:
                     number: 1,
                     title: 'Test 1',
                     user: {
-                        login: 'collab1'
+                        login: 'collab1',
+                        html_url: '/collab1'
                     },
-                    created_at: '2018-10-09T21:35:31Z'
+                    created_at: '2018-10-09T21:35:31Z',
+                    html_url: '/pull/1'
                 },
                 {
                     number: 2,
                     title: 'Test 2',
                     user: {
-                        login: 'collab2'
+                        login: 'collab2',
+                        html_url: '/collab2'
                     },
-                    created_at: '2018-10-10T21:35:31Z'
+                    created_at: '2018-10-10T21:35:31Z',
+                    html_url: '/pull/2'
                 }]
             });
 
@@ -1825,14 +1829,18 @@ jobs:
                         ref: 'pull/1/merge',
                         title: 'Test 1',
                         username: 'collab1',
-                        createTime: '2018-10-09T21:35:31Z'
+                        createTime: '2018-10-09T21:35:31Z',
+                        userProfile: '/collab1',
+                        url: '/pull/1'
                     },
                     {
                         name: 'PR-2',
                         ref: 'pull/2/merge',
                         title: 'Test 2',
                         username: 'collab2',
-                        createTime: '2018-10-10T21:35:31Z'
+                        createTime: '2018-10-10T21:35:31Z',
+                        userProfile: '/collab2',
+                        url: '/pull/2'
                     }
                 ]);
 
@@ -1897,7 +1905,8 @@ jobs:
                         url: 'https://github.com/octocat/Hello-World/pull/1',
                         username: 'octocat',
                         title: 'new-feature',
-                        createTime: '2011-01-26T19:01:12Z'
+                        createTime: '2011-01-26T19:01:12Z',
+                        userProfile: 'https://github.com/octocat'
                     }
                 );
                 assert.calledWith(githubMock.repos.getById, { id: '111' });
@@ -1930,7 +1939,8 @@ jobs:
                         url: 'https://github.com/octocat/Hello-World/pull/1',
                         username: 'octocat',
                         title: 'new-feature',
-                        createTime: '2011-01-26T19:01:12Z'
+                        createTime: '2011-01-26T19:01:12Z',
+                        userProfile: 'https://github.com/octocat'
                     }
                 );
                 assert.notCalled(githubMock.repos.getById);
