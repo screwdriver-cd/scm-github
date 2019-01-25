@@ -624,28 +624,32 @@ class GithubScm extends Scm {
      * @param  {String}   config.jobName      Optional name of the job that finished
      * @param  {String}   config.url          Target url
      * @param  {Number}   config.pipelineId   Pipeline Id
+     * @param  {String}   config.context      Status context
+     * @param  {String}   config.description  Status description
      * @return {Promise}                      Resolves when operation completed
      */
-    async _updateCommitStatus(config) {
+    async _updateCommitStatus({ scmUri, sha, buildStatus, token, jobName, url,
+        pipelineId, context, description }) {
         const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
+            scmUri,
+            token
         });
-        const jobName = config.jobName.replace(/^PR-\d+/g, 'PR');
+        const statusTitle = context ? `Screwdriver/${pipelineId}/${context}` :
+            `Screwdriver/${pipelineId}/${jobName.replace(/^PR-\d+/g, 'PR')}`; // (e.g. Screwdriver/12/PR:main)
         const params = {
-            context: `Screwdriver/${config.pipelineId}/${jobName}`,
-            description: DESCRIPTION_MAP[config.buildStatus],
+            context: statusTitle,
+            description: description || DESCRIPTION_MAP[buildStatus],
             repo: scmInfo.repo,
-            sha: config.sha,
-            state: STATE_MAP[config.buildStatus] || 'failure',
+            sha,
+            state: STATE_MAP[buildStatus] || 'failure',
             owner: scmInfo.owner,
-            target_url: config.url
+            target_url: url
         };
 
         try {
             const status = await this.breaker.runCommand({
                 action: 'createStatus',
-                token: config.token,
+                token,
                 params
             });
 
