@@ -634,6 +634,33 @@ describe('index', function () {
                 })
         );
 
+        it('promises to update commit status on success with custom context', () => {
+            config.context = 'findbugs';
+            config.description = '923 issues found. Previous count: 914 issues.';
+
+            return scm.updateCommitStatus(config)
+                .then((result) => {
+                    assert.deepEqual(result, data);
+
+                    assert.calledWith(githubMock.repos.getById, {
+                        id: '14052'
+                    });
+                    assert.calledWith(githubMock.repos.createStatus, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'success',
+                        description: '923 issues found. Previous count: 914 issues.',
+                        context: 'Screwdriver/675/findbugs',
+                        target_url: 'https://foo.bar'
+                    });
+                    assert.calledWith(githubMock.authenticate, {
+                        type: 'oauth',
+                        token: config.token
+                    });
+                });
+        });
+
         it('sets context for PR when jobName passed in', () => {
             config.jobName = 'PR-15:test';
 
