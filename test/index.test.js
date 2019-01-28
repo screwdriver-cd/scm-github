@@ -1102,6 +1102,7 @@ jobs:
                 checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
                 prNum: 1,
                 prRef: 'pull/1/merge',
+                prTitle: 'Update the README with new information',
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                 prSource: 'branch',
                 type: 'pr',

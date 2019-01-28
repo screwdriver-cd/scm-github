@@ -953,6 +953,7 @@ class GithubScm extends Scm {
         case 'pull_request': {
             let action = hoek.reach(webhookPayload, 'action');
             const prNum = hoek.reach(webhookPayload, 'pull_request.number');
+            const prTitle = hoek.reach(webhookPayload, 'pull_request.title');
             const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
             const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
             const prSource = baseSource === headSource ? 'branch' : 'fork';
@@ -973,6 +974,7 @@ class GithubScm extends Scm {
                 branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
                 checkoutUrl,
                 prNum,
+                prTitle,
                 prRef: `pull/${prNum}/merge`,
                 prSource,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
