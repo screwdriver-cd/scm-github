@@ -349,9 +349,12 @@ class GithubScm extends Scm {
                   + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; '
-                  + 'else $SD_GIT_WRAPPER '
-                  + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
-                  + `--branch ${parentBranch} $CONFIG_URL $SD_CONFIG_DIR"; fi`);
+                  + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
+                  + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+                  + '$SD_GIT_WRAPPER '
+                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH --no-single-branch '
+                  + `--recursive --quiet --progress --branch ${parentBranch} `
+                  + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
             // Reset to SHA
             command.push('$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard '
@@ -408,9 +411,12 @@ class GithubScm extends Scm {
                   + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${branch} `
                   + '$SCM_URL $SD_SOURCE_DIR"; '
-                  + 'else $SD_GIT_WRAPPER '
-                  + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
-                  + `--branch ${branch} $SCM_URL $SD_SOURCE_DIR"; fi`);
+                  + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
+                  + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+                  + '$SD_GIT_WRAPPER '
+                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH --no-single-branch '
+                  + `--recursive --quiet --progress --branch ${branch} `
+                  + '$SCM_URL $SD_SOURCE_DIR"; fi');
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
