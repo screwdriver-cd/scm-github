@@ -325,7 +325,15 @@ class GithubScm extends Scm {
         command.push(`$SD_GIT_WRAPPER "git config --global user.name ${this.config.username}"`);
         command.push(`$SD_GIT_WRAPPER "git config --global user.email ${this.config.email}"`);
 
+        const shallowCloneCmd = 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
+        + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+        + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
+        + 'if [ $GIT_SHALLOW_CLONE_SINGLE_BRANCH = true ]; '
+        + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
+        + '$SD_GIT_WRAPPER '
+        + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH ';
         // Checkout config pipeline if this is a child pipeline
+
         if (config.parentConfig) {
             const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
                 + `${config.parentConfig.repo}`; // URL for https
@@ -345,13 +353,12 @@ class GithubScm extends Scm {
 
             // Git clone
             command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
-            command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
+            command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
-                  + '$CONFIG_URL $SD_CONFIG_DIR"; '
-                  + 'else $SD_GIT_WRAPPER '
-                  + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
-                  + `--branch ${parentBranch} $CONFIG_URL $SD_CONFIG_DIR"; fi`);
+                  + '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}`
+                  + `--recursive --quiet --progress --branch ${parentBranch} `
+                  + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
             // Reset to SHA
             command.push('$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard '
@@ -404,13 +411,12 @@ class GithubScm extends Scm {
         } else {
             // Git clone
             command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
-            command.push('if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
+            command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${branch} `
-                  + '$SCM_URL $SD_SOURCE_DIR"; '
-                  + 'else $SD_GIT_WRAPPER '
-                  + '"git clone --depth=50 --no-single-branch --recursive --quiet --progress '
-                  + `--branch ${branch} $SCM_URL $SD_SOURCE_DIR"; fi`);
+                  + '$SCM_URL $SD_SOURCE_DIR"; '}${shallowCloneCmd}`
+                  + `--recursive --quiet --progress --branch ${branch} `
+                  + '$SCM_URL $SD_SOURCE_DIR"; fi');
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
