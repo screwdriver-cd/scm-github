@@ -351,8 +351,11 @@ class GithubScm extends Scm {
                   + '$CONFIG_URL $SD_CONFIG_DIR"; '
                   + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
                   + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+                  + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
+                  + 'if [ $GIT_SHALLOW_CLONE_SINGLE_BRANCH = true ]; '
+                  + 'then export GIT_SHALLOW_CLONE_BRANCH="--single-branch"; fi; '
                   + '$SD_GIT_WRAPPER '
-                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH --no-single-branch '
+                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH '
                   + `--recursive --quiet --progress --branch ${parentBranch} `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
@@ -413,8 +416,11 @@ class GithubScm extends Scm {
                   + '$SCM_URL $SD_SOURCE_DIR"; '
                   + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
                   + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+                  + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
+                  + 'if [ $GIT_SHALLOW_CLONE_SINGLE_BRANCH = true ]; '
+                  + 'then export GIT_SHALLOW_CLONE_BRANCH="--single-branch"; fi; '
                   + '$SD_GIT_WRAPPER '
-                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH --no-single-branch '
+                  + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH '
                   + `--recursive --quiet --progress --branch ${branch} `
                   + '$SCM_URL $SD_SOURCE_DIR"; fi');
             // Reset to SHA
