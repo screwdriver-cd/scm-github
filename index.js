@@ -328,7 +328,7 @@ class GithubScm extends Scm {
         const shallowCloneCmd = 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
         + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
         + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
-        + 'if [ $GIT_SHALLOW_CLONE_SINGLE_BRANCH = true ]; '
+        + 'if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; '
         + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
         + '$SD_GIT_WRAPPER '
         + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH ';
