@@ -68,6 +68,7 @@ class GithubScm extends Scm {
      * @param  {String}      options.token        Github token used for authentication of requests
      * @param  {Object}      options.params       Parameters to run with
      * @param  {String}      [options.scopeType]  Type of request to make. Default is 'repos'
+     * @param  {String}      [options.route]      Route for octokit.request()
      * @param  {Function}    callback             Callback function from github API
      */
     _githubCommand(options, callback) {
@@ -77,7 +78,13 @@ class GithubScm extends Scm {
         });
         const scopeType = options.scopeType || 'repos';
 
-        this.github[scopeType][options.action](options.params, callback);
+        if (scopeType === 'request') {
+            // for deprecation of 'octokit.repos.getById({id})'
+            // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
+            return this.github[scopeType](options.route, options.params, callback);
+        }
+
+        return this.github[scopeType][options.action](options.params, callback);
     }
 
     /**
@@ -134,9 +141,10 @@ class GithubScm extends Scm {
      * Look up a repo by SCM URI
      * @async  lookupScmUri
      * @param  {Object}     config
-     * @param  {Object}     config.scmUri  The SCM URI to look up relevant info
-     * @param  {Object}     config.token   Service token to authenticate with Github
-     * @return {Promise}                   Resolves to an object containing repository-related information
+     * @param  {Object}     config.scmUri   The SCM URI to look up relevant info
+     * @param  {Object}     config.scmRepo  The SCM repository to look up
+     * @param  {Object}     config.token    Service token to authenticate with Github
+     * @return {Promise}                    Resolves to an object containing repository-related information
      */
     async lookupScmUri(config) {
         const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
@@ -148,7 +156,8 @@ class GithubScm extends Scm {
         } else {
             try {
                 const repo = await this.breaker.runCommand({
-                    action: 'getById',
+                    scopeType: 'request',
+                    route: 'GET /repositories/:id',
                     token: config.token,
                     params: { id: scmId }
                 });
@@ -183,7 +192,7 @@ class GithubScm extends Scm {
     async _findWebhook(config) {
         try {
             const hooks = await this.breaker.runCommand({
-                action: 'getHooks',
+                action: 'listHooks',
                 token: config.token,
                 params: {
                     owner: config.scmInfo.owner,
@@ -236,7 +245,7 @@ class GithubScm extends Scm {
         };
 
         if (config.hookInfo) {
-            action = 'editHook';
+            action = 'updateHook';
             Object.assign(params, { hook_id: config.hookInfo.id });
         }
 
@@ -464,8 +473,8 @@ class GithubScm extends Scm {
 
         try {
             const pullRequests = await this.breaker.runCommand({
-                action: 'getAll',
-                scopeType: 'pullRequests',
+                action: 'list',
+                scopeType: 'pulls',
                 token: config.token,
                 params: {
                     owner: scmInfo.owner,
@@ -493,9 +502,10 @@ class GithubScm extends Scm {
      * Get an owner's permissions on a repository
      * @async  _getPermissions
      * @param  {Object}   config
-     * @param  {String}   config.scmUri     The scmUri to get permissions on
-     * @param  {String}   config.token      The token used to authenticate to the SCM
-     * @return {Promise}                    Resolves to the owner's repository permissions
+     * @param  {String}   config.scmUri      The scmUri to get permissions on
+     * @param  {Object}   config.scmRepo     The SCM repo to look up
+     * @param  {String}   config.token       The token used to authenticate to the SCM
+     * @return {Promise}                     Resolves to the owner's repository permissions
      */
     async _getPermissions(config) {
         const lookupConfig = {
@@ -553,8 +563,8 @@ class GithubScm extends Scm {
 
         try {
             const permission = await this.breaker.runCommand({
-                action: 'getOrgMembership',
-                scopeType: 'users',
+                action: 'getMembershipForAuthenticatedUser',
+                scopeType: 'orgs',
                 token: config.token,
                 params: {
                     org: config.organization
@@ -694,7 +704,7 @@ class GithubScm extends Scm {
 
         try {
             const file = await this.breaker.runCommand({
-                action: 'getContent',
+                action: 'getContents',
                 token: config.token,
                 params: {
                     owner: scmInfo.owner,
@@ -769,7 +779,7 @@ class GithubScm extends Scm {
     async _decorateAuthor(config) {
         try {
             const user = await this.breaker.runCommand({
-                action: 'getForUser',
+                action: 'getByUsername',
                 scopeType: 'users',
                 token: config.token,
                 params: { username: config.username }
@@ -901,8 +911,8 @@ class GithubScm extends Scm {
         if (type === 'pr') {
             try {
                 const files = await this.breaker.runCommand({
-                    action: 'getFiles',
-                    scopeType: 'pullRequests',
+                    action: 'listFiles',
+                    scopeType: 'pulls',
                     token,
                     params: {
                         owner: hoek.reach(payload, 'repository.owner.login'),
@@ -1088,7 +1098,7 @@ class GithubScm extends Scm {
         try {
             const pullRequestInfo = await this.breaker.runCommand({
                 action: 'get',
-                scopeType: 'pullRequests',
+                scopeType: 'pulls',
                 token: config.token,
                 params: {
                     number: config.prNum,
@@ -1204,7 +1214,7 @@ class GithubScm extends Scm {
     async _findBranches(config) {
         try {
             let branches = await this.breaker.runCommand({
-                action: 'getBranches',
+                action: 'listBranches',
                 token: config.token,
                 params: {
                     owner: config.scmInfo.owner,

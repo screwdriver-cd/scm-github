@@ -49,27 +49,29 @@ describe('index', function () {
             issues: {
                 createComment: sinon.stub()
             },
-            pullRequests: {
-                getAll: sinon.stub(),
+            pulls: {
+                list: sinon.stub(),
                 get: sinon.stub(),
-                getFiles: sinon.stub()
+                listFiles: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
                 createStatus: sinon.stub(),
-                editHook: sinon.stub(),
+                updateHook: sinon.stub(),
                 get: sinon.stub(),
                 getBranch: sinon.stub(),
-                getById: sinon.stub(),
                 getCommit: sinon.stub(),
-                getContent: sinon.stub(),
-                getHooks: sinon.stub(),
-                getBranches: sinon.stub()
+                getContents: sinon.stub(),
+                listHooks: sinon.stub(),
+                listBranches: sinon.stub()
             },
             users: {
-                getForUser: sinon.stub(),
-                getOrgMembership: sinon.stub()
-            }
+                getByUsername: sinon.stub()
+            },
+            orgs: {
+                getMembershipForAuthenticatedUser: sinon.stub()
+            },
+            request: sinon.stub()
         };
         githubMockClass = sinon.stub().returns(githubMock);
         winstonMock = {
@@ -238,7 +240,7 @@ describe('index', function () {
 
         it('promises to get the commit sha without prNum', () => {
             githubMock.repos.getBranch.yieldsAsync(null, { data: branch });
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
 
@@ -251,9 +253,9 @@ describe('index', function () {
                         repo: 'models',
                         branch: 'master'
                     });
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '920414'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '920414' }
+                    );
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
                         token: config.token
@@ -263,15 +265,15 @@ describe('index', function () {
 
         it('promises to get the commit sha with prNum', () => {
             config.prNum = 1;
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
-            githubMock.pullRequests.get.yieldsAsync(null, { data: testPrGet });
+            githubMock.pulls.get.yieldsAsync(null, { data: testPrGet });
 
             return scm.getCommitSha(config)
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
-                    assert.calledWith(githubMock.pullRequests.get, {
+                    assert.calledWith(githubMock.pulls.get, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         number: config.prNum
@@ -287,7 +289,7 @@ describe('index', function () {
         it('fails when unable to get a repo by ID', () => {
             const error = new Error('githubBreaking');
 
-            githubMock.repos.getById.yieldsAsync(error);
+            githubMock.request.yieldsAsync(error);
 
             return scm.getCommitSha(config)
                 .then(() => {
@@ -296,9 +298,9 @@ describe('index', function () {
                 .catch((err) => {
                     assert.deepEqual(err, error);
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '920414'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '920414' }
+                    );
 
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -310,7 +312,7 @@ describe('index', function () {
         it('fails when unable to get the branch info from a repo', () => {
             const error = new Error('githubBreaking');
 
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
             githubMock.repos.getBranch.yieldsAsync(error);
@@ -326,9 +328,9 @@ describe('index', function () {
                     branch: 'master'
                 });
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '920414'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '920414' }
+                );
 
                 assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
@@ -353,7 +355,7 @@ describe('index', function () {
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
         });
@@ -365,9 +367,9 @@ describe('index', function () {
                 .then((data) => {
                     assert.deepEqual(data, repo.permissions);
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '359478'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '359478' }
+                    );
 
                     assert.calledWith(githubMock.repos.get, {
                         owner: 'screwdriver-cd',
@@ -396,7 +398,7 @@ describe('index', function () {
                 .then((data) => {
                     assert.deepEqual(data, repo.permissions);
 
-                    assert.notCalled(githubMock.repos.getById);
+                    assert.notCalled(githubMock.request);
 
                     assert.calledWith(githubMock.repos.get, {
                         owner: 'screwdriver-cd',
@@ -422,9 +424,9 @@ describe('index', function () {
                 .catch((error) => {
                     assert.deepEqual(error, err);
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '359478'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '359478' }
+                    );
 
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -437,15 +439,15 @@ describe('index', function () {
             const err = new Error('Sorry. Your account was suspended.');
 
             // in the lookupScmUri()
-            githubMock.repos.getById.yieldsAsync(err);
+            githubMock.request.yieldsAsync(err);
 
             return scm.getPermissions(config)
                 .then((result) => {
                     assert.deepEqual(result, { admin: false, push: false, pull: false });
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '359478'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '359478' }
+                    );
 
                     assert.calledWith(githubMock.authenticate, {
                         type: 'oauth',
@@ -482,17 +484,21 @@ describe('index', function () {
         };
 
         beforeEach(() => {
-            githubMock.users.getOrgMembership.yieldsAsync(null, { data: permission });
+            githubMock.orgs.getMembershipForAuthenticatedUser.yieldsAsync(
+                null, { data: permission }
+            );
         });
 
         it('promises to get organization permissions', () => {
-            githubMock.users.getOrgMembership.yieldsAsync(null, { data: permission });
+            githubMock.orgs.getMembershipForAuthenticatedUser.yieldsAsync(
+                null, { data: permission }
+            );
 
             return scm.getOrgPermissions(config)
                 .then((data) => {
                     assert.deepEqual(data, result);
 
-                    assert.calledWith(githubMock.users.getOrgMembership, {
+                    assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });
 
@@ -506,7 +512,7 @@ describe('index', function () {
         it('returns an error when github command fails', () => {
             const err = new Error('githubError');
 
-            githubMock.users.getOrgMembership.yieldsAsync(err);
+            githubMock.orgs.getMembershipForAuthenticatedUser.yieldsAsync(err);
 
             return scm.getOrgPermissions(config)
                 .then(() => {
@@ -515,7 +521,7 @@ describe('index', function () {
                 .catch((error) => {
                     assert.deepEqual(error, err);
 
-                    assert.calledWith(githubMock.users.getOrgMembership, {
+                    assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });
 
@@ -535,7 +541,7 @@ describe('index', function () {
                 full_name: 'screwdriver-cd/models'
             };
 
-            githubMock.repos.getById.yieldsAsync(null, { data: testResponse });
+            githubMock.request.yieldsAsync(null, { data: testResponse });
 
             return scm.lookupScmUri({
                 scmUri,
@@ -548,9 +554,9 @@ describe('index', function () {
                     owner: 'screwdriver-cd'
                 });
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '23498'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '23498' }
+                );
                 assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: 'sometoken'
@@ -561,7 +567,7 @@ describe('index', function () {
         it('rejects when github command fails', () => {
             const testError = new Error('githubError');
 
-            githubMock.repos.getById.yieldsAsync(testError);
+            githubMock.request.yieldsAsync(testError);
 
             return scm.lookupScmUri({
                 scmUri,
@@ -571,9 +577,9 @@ describe('index', function () {
             }, (error) => {
                 assert.deepEqual(error, testError);
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '23498'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '23498' }
+                );
                 assert.calledWith(githubMock.authenticate, {
                     type: 'oauth',
                     token: 'sometoken'
@@ -604,7 +610,7 @@ describe('index', function () {
                 pipelineId: 675
             };
 
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
             githubMock.repos.createStatus.yieldsAsync(null, { data });
@@ -615,9 +621,9 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '14052'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '14052' }
+                    );
                     assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
@@ -642,9 +648,9 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(githubMock.repos.getById, {
-                        id: '14052'
-                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '14052' }
+                    );
                     assert.calledWith(githubMock.repos.createStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
@@ -807,7 +813,7 @@ describe('index', function () {
                 jobName: 'main'
             };
 
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
             githubMock.repos.createStatus.yieldsAsync(null, { data: {} });
@@ -876,19 +882,19 @@ jobs:
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'screwdriver-cd/models'
             } });
         });
 
         it('promises to get content when a ref is passed', () => {
-            githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
+            githubMock.repos.getContents.yieldsAsync(null, { data: returnData });
 
             return scm.getFile(config)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(githubMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -905,7 +911,7 @@ jobs:
             'when a ref and scmRepo is passed', () => {
             const configWithScmRepo = Object.assign({}, config);
 
-            githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
+            githubMock.repos.getContents.yieldsAsync(null, { data: returnData });
             configWithScmRepo.scmRepo = {
                 branch: 'branch',
                 url: 'https://github.com/screwdriver-cd/models/tree/branch',
@@ -916,7 +922,7 @@ jobs:
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(githubMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -927,18 +933,18 @@ jobs:
                         token: config.token
                     });
 
-                    assert.notCalled(githubMock.repos.getById);
+                    assert.notCalled(githubMock.request);
                 });
         });
 
         it('promises to get content when a ref is not passed', () => {
-            githubMock.repos.getContent.yieldsAsync(null, { data: returnData });
+            githubMock.repos.getContents.yieldsAsync(null, { data: returnData });
 
             return scm.getFile(configNoRef)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(githubMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: configNoRef.path,
@@ -955,7 +961,7 @@ jobs:
         it('returns error when path is not a file', () => {
             const expectedErrorMessage = 'Path (screwdriver.yaml) does not point to file';
 
-            githubMock.repos.getContent.yieldsAsync(null, { data: returnInvalidData });
+            githubMock.repos.getContents.yieldsAsync(null, { data: returnInvalidData });
 
             return scm.getFile(config)
                 .then(() => {
@@ -963,7 +969,7 @@ jobs:
                 }, (err) => {
                     assert.strictEqual(err.message, expectedErrorMessage);
 
-                    assert.calledWith(githubMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -982,14 +988,14 @@ jobs:
 
             err.code = 404;
 
-            githubMock.repos.getContent.yieldsAsync(err);
+            githubMock.repos.getContents.yieldsAsync(err);
 
             return scm.getFile(config)
                 .then(() => {
                     assert.fail('This should not fail the test');
                 })
                 .catch((error) => {
-                    assert.calledWith(githubMock.repos.getContent, {
+                    assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -1029,7 +1035,7 @@ jobs:
         });
 
         it('returns changed files for a pull request event payload', () => {
-            githubMock.pullRequests.getFiles.yieldsAsync(null, { data: testPrFiles });
+            githubMock.pulls.listFiles.yieldsAsync(null, { data: testPrFiles });
             type = 'pr';
 
             return scm.getChangedFiles({
@@ -1059,7 +1065,7 @@ jobs:
             const testError = new Error('someGithubCommError');
 
             type = 'pr';
-            githubMock.pullRequests.getFiles.yieldsAsync(testError);
+            githubMock.pulls.listFiles.yieldsAsync(testError);
 
             return scm.getChangedFiles({
                 type,
@@ -1070,7 +1076,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(githubMock.pullRequests.getFiles, {
+                assert.calledWith(githubMock.pulls.listFiles, {
                     owner: 'baxterthehacker',
                     repo: 'public-repo',
                     number: 1
@@ -1332,7 +1338,7 @@ jobs:
         const username = 'notmrkent';
 
         it('decorates a github user', () => {
-            githubMock.users.getForUser.yieldsAsync(null, { data: {
+            githubMock.users.getByUsername.yieldsAsync(null, { data: {
                 login: username,
                 id: 2042,
                 avatar_url: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1351,14 +1357,14 @@ jobs:
                     username
                 });
 
-                assert.calledWith(githubMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getByUsername, {
                     username
                 });
             });
         });
 
         it('defaults to username when display name does not exist', () => {
-            githubMock.users.getForUser.yieldsAsync(null, { data: {
+            githubMock.users.getByUsername.yieldsAsync(null, { data: {
                 login: username,
                 id: 2042,
                 avatar_url: 'https://avatars.githubusercontent.com/u/2042?v=3',
@@ -1377,7 +1383,7 @@ jobs:
                     username
                 });
 
-                assert.calledWith(githubMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getByUsername, {
                     username
                 });
             });
@@ -1386,7 +1392,7 @@ jobs:
         it('rejects when failing to communicate with github', () => {
             const testError = new Error('someGithubCommError');
 
-            githubMock.users.getForUser.yieldsAsync(testError);
+            githubMock.users.getByUsername.yieldsAsync(testError);
 
             return scm.decorateAuthor({
                 token: 'randomtoken',
@@ -1396,7 +1402,7 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(githubMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getByUsername, {
                     username
                 });
             });
@@ -1412,7 +1418,7 @@ jobs:
         const username = 'notbrucewayne';
 
         beforeEach(() => {
-            githubMock.users.getForUser.yieldsAsync(null, { data: {
+            githubMock.users.getByUsername.yieldsAsync(null, { data: {
                 login: username,
                 id: 1234567,
                 avatar_url: 'https://avatars.githubusercontent.com/u/1234567?v=3',
@@ -1420,7 +1426,7 @@ jobs:
                 name: 'Batman Wayne'
             } });
 
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: `${repoOwner}/${repoName}`
             } });
         });
@@ -1452,15 +1458,15 @@ jobs:
                     url: 'https://link.to/commitDiff'
                 });
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: scmId
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: scmId }
+                );
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
                     sha
                 });
-                assert.calledWith(githubMock.users.getForUser, {
+                assert.calledWith(githubMock.users.getByUsername, {
                     username
                 });
             });
@@ -1474,7 +1480,7 @@ jobs:
                 author: null,
                 html_url: 'https://link.to/commitDiff'
             } });
-            githubMock.users.getForUser.yieldsAsync();
+            githubMock.users.getByUsername.yieldsAsync();
 
             return scm.decorateCommit({
                 scmUri,
@@ -1492,15 +1498,15 @@ jobs:
                     url: 'https://link.to/commitDiff'
                 });
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: scmId
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: scmId }
+                );
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
                     sha
                 });
-                assert.callCount(githubMock.users.getForUser, 0);
+                assert.callCount(githubMock.users.getByUsername, 0);
             });
         });
 
@@ -1531,7 +1537,7 @@ jobs:
         it('decorates a scm uri', () => {
             const scmUri = 'github.com:102498:boat';
 
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'iAm/theCaptain'
             } });
 
@@ -1545,9 +1551,9 @@ jobs:
                     url: 'https://github.com/iAm/theCaptain/tree/boat'
                 });
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '102498'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '102498' }
+                );
             });
         });
 
@@ -1570,7 +1576,7 @@ jobs:
                     url: 'https://github.com/iAm/theCaptain/tree/boat'
                 });
 
-                assert.notCalled(githubMock.repos.getById);
+                assert.notCalled(githubMock.request);
             });
         });
 
@@ -1578,7 +1584,7 @@ jobs:
             const scmUri = 'github.com:102498:boat';
             const testError = new Error('decorateUrlError');
 
-            githubMock.repos.getById.yieldsAsync(testError);
+            githubMock.request.yieldsAsync(testError);
 
             return scm.decorateUrl({
                 scmUri,
@@ -1588,9 +1594,9 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '102498'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '102498' }
+                );
             });
         });
     });
@@ -1687,26 +1693,26 @@ jobs:
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'dolores/violentdelights'
             } });
-            githubMock.repos.getHooks.yieldsAsync(null, { data: [{
+            githubMock.repos.listHooks.yieldsAsync(null, { data: [{
                 config: { url: 'https://somewhere.in/the/interwebs' },
                 id: 783150
             }] });
         });
 
         it('add a hook', () => {
-            githubMock.repos.getHooks.yieldsAsync(null, { data: [] });
+            githubMock.repos.listHooks.yieldsAsync(null, { data: [] });
             githubMock.repos.createHook.yieldsAsync(null, { data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
                 }));
-                assert.calledWith(githubMock.repos.getById, {
-                    id: '1263'
-                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '1263' }
+                );
                 assert.calledWith(githubMock.repos.createHook, {
                     active: true,
                     config: {
@@ -1723,16 +1729,16 @@ jobs:
         });
 
         it('updates a pre-existing hook', () => {
-            githubMock.repos.editHook.yieldsAsync(null, { data: [] });
+            githubMock.repos.updateHook.yieldsAsync(null, { data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(githubMock.repos.getHooks, {
+                assert.calledWith(githubMock.repos.listHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 1,
                     per_page: 30
                 });
-                assert.calledWith(githubMock.repos.editHook, {
+                assert.calledWith(githubMock.repos.updateHook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -1755,17 +1761,17 @@ jobs:
                 invalidHooks.push({});
             }
 
-            githubMock.repos.getHooks.onCall(0).yieldsAsync(null, { data: invalidHooks });
-            githubMock.repos.editHook.yieldsAsync(null, { data: [] });
+            githubMock.repos.listHooks.onCall(0).yieldsAsync(null, { data: invalidHooks });
+            githubMock.repos.updateHook.yieldsAsync(null, { data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(githubMock.repos.getHooks, {
+                assert.calledWith(githubMock.repos.listHooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 2,
                     per_page: 30
                 });
-                assert.calledWith(githubMock.repos.editHook, {
+                assert.calledWith(githubMock.repos.updateHook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -1781,10 +1787,10 @@ jobs:
             });
         });
 
-        it('throws an error when failing to getHooks', () => {
-            const testError = new Error('getHooksError');
+        it('throws an error when failing to listHooks', () => {
+            const testError = new Error('listHooksError');
 
-            githubMock.repos.getHooks.yieldsAsync(testError);
+            githubMock.repos.listHooks.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -1794,7 +1800,7 @@ jobs:
         it('throws an error when failing to createHook', () => {
             const testError = new Error('createHookError');
 
-            githubMock.repos.getHooks.yieldsAsync(null, { data: [] });
+            githubMock.repos.listHooks.yieldsAsync(null, { data: [] });
             githubMock.repos.createHook.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
@@ -1802,10 +1808,10 @@ jobs:
             });
         });
 
-        it('throws an error when failing to editHook', () => {
-            const testError = new Error('editHookError');
+        it('throws an error when failing to updateHook', () => {
+            const testError = new Error('updateHookError');
 
-            githubMock.repos.editHook.yieldsAsync(testError);
+            githubMock.repos.updateHook.yieldsAsync(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -1821,13 +1827,13 @@ jobs:
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'repoOwner/repoName'
             } });
         });
 
         it('returns a list of opened pull requests', () => {
-            githubMock.pullRequests.getAll.yieldsAsync(null, {
+            githubMock.pulls.list.yieldsAsync(null, {
                 data: [{
                     number: 1,
                     title: 'Test 1',
@@ -1872,8 +1878,8 @@ jobs:
                     }
                 ]);
 
-                assert.calledWith(githubMock.repos.getById, { id: '111' });
-                assert.calledWith(githubMock.pullRequests.getAll, {
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledWith(githubMock.pulls.list, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     state: 'open'
@@ -1884,7 +1890,7 @@ jobs:
         it('rejects when failing to lookup the SCM URI information', () => {
             const testError = new Error('testError');
 
-            githubMock.repos.getById.yieldsAsync(testError);
+            githubMock.request.yieldsAsync(testError);
 
             return scm._getOpenedPRs(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1895,7 +1901,7 @@ jobs:
         it('rejects when failing to fetch opened pull requests', () => {
             const testError = new Error('testError');
 
-            githubMock.pullRequests.getAll.yieldsAsync(testError);
+            githubMock.pulls.list.yieldsAsync(testError);
 
             return scm._getOpenedPRs(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1914,13 +1920,13 @@ jobs:
         const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'repoOwner/repoName'
             } });
         });
 
         it('returns a pull request with the given prNum', () => {
-            githubMock.pullRequests.get.yieldsAsync(null,
+            githubMock.pulls.get.yieldsAsync(null,
                 { data: testPrGet }
             );
 
@@ -1937,8 +1943,8 @@ jobs:
                         userProfile: 'https://github.com/octocat'
                     }
                 );
-                assert.calledWith(githubMock.repos.getById, { id: '111' });
-                assert.calledWith(githubMock.pullRequests.get, {
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledWith(githubMock.pulls.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     number: 1
@@ -1949,7 +1955,7 @@ jobs:
         it('returns a pull request with the given prNum and scmRepo', () => {
             const configWithScmRepo = Object.assign({}, config);
 
-            githubMock.pullRequests.get.yieldsAsync(null,
+            githubMock.pulls.get.yieldsAsync(null,
                 { data: testPrGet }
             );
             configWithScmRepo.scmRepo = {
@@ -1971,8 +1977,8 @@ jobs:
                         userProfile: 'https://github.com/octocat'
                     }
                 );
-                assert.notCalled(githubMock.repos.getById);
-                assert.calledWith(githubMock.pullRequests.get, {
+                assert.notCalled(githubMock.request);
+                assert.calledWith(githubMock.pulls.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     number: 1
@@ -1983,7 +1989,7 @@ jobs:
         it('rejects when failing to lookup the SCM URI information', () => {
             const testError = new Error('testError');
 
-            githubMock.repos.getById.yieldsAsync(testError);
+            githubMock.request.yieldsAsync(testError);
 
             return scm._getPrInfo(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -1994,7 +2000,7 @@ jobs:
         it('rejects when failing to get the pull request', () => {
             const testError = new Error('testError');
 
-            githubMock.pullRequests.get.yieldsAsync(testError);
+            githubMock.pulls.get.yieldsAsync(testError);
 
             return scm._getPrInfo(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -2014,7 +2020,7 @@ jobs:
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'repoOwner/repoName'
             } });
         });
@@ -2032,7 +2038,7 @@ jobs:
                         username: 'octocat'
                     }
                 );
-                assert.calledWith(githubMock.repos.getById, { id: '111' });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
                 assert.calledWith(githubMock.issues.createComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
@@ -2045,7 +2051,7 @@ jobs:
         it('rejects when failing to lookup the SCM URI information', () => {
             const testError = new Error('testError');
 
-            githubMock.repos.getById.yieldsAsync(testError);
+            githubMock.request.yieldsAsync(testError);
 
             return scm._addPrComment(config).then(assert.fail, (err) => {
                 assert.instanceOf(err, Error);
@@ -2177,10 +2183,10 @@ jobs:
         };
 
         beforeEach(() => {
-            githubMock.repos.getById.yieldsAsync(null, { data: {
+            githubMock.request.yieldsAsync(null, { data: {
                 full_name: 'dolores/violentdelights'
             } });
-            githubMock.repos.getBranches.yieldsAsync(null, { data: [{
+            githubMock.repos.listBranches.yieldsAsync(null, { data: [{
                 name: 'master',
                 commit: {
                     sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
@@ -2196,7 +2202,7 @@ jobs:
                 assert.calledWith(githubMock.authenticate, sinon.match({
                     token: 'fakeToken'
                 }));
-                assert.calledWith(githubMock.repos.getBranches, {
+                assert.calledWith(githubMock.repos.listBranches, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 1,
@@ -2224,20 +2230,20 @@ jobs:
                 fakeBranches.push(bInfo);
             }
             /* eslint-disable */
-            githubMock.repos.getBranches.onCall(0).yieldsAsync(null, { data: fakeBranches.slice(0, 100) });
-            githubMock.repos.getBranches.onCall(1).yieldsAsync(null, { data: fakeBranches.slice(100, 200) });
-            githubMock.repos.getBranches.onCall(2).yieldsAsync(null, { data: fakeBranches.slice(200, 300) });
-            githubMock.repos.getBranches.onCall(3).yieldsAsync(null, { data: [] });
+            githubMock.repos.listBranches.onCall(0).yieldsAsync(null, { data: fakeBranches.slice(0, 100) });
+            githubMock.repos.listBranches.onCall(1).yieldsAsync(null, { data: fakeBranches.slice(100, 200) });
+            githubMock.repos.listBranches.onCall(2).yieldsAsync(null, { data: fakeBranches.slice(200, 300) });
+            githubMock.repos.listBranches.onCall(3).yieldsAsync(null, { data: [] });
             scm.getBranchList(branchListConfig).then((branches) => {
                 assert.equal(branches.length, 300);
                 done();
             }).catch(done);
         });
 
-        it('throws an error when failing to getBranches', () => {
-            const testError = new Error('getBranchesError');
+        it('throws an error when failing to listBranches', () => {
+            const testError = new Error('listBranchesError');
 
-            githubMock.repos.getBranches.yieldsAsync(testError);
+            githubMock.repos.listBranches.yieldsAsync(testError);
 
             return scm.getBranchList(branchListConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);

@@ -40,9 +40,9 @@
     "sinon": "^1.17.5"
   },
   "dependencies": {
-    "@octokit/rest": "^15.18.1",
+    "@octokit/rest": "^16.16.3",
     "circuit-fuses": "^2.0.3",
-    "hoek": "^5.0.4",
+    "hoek": "^6.1.2",
     "joi": "^13.7.0",
     "screwdriver-data-schema": "^18.39.1",
     "screwdriver-scm-base": "^5.1.0",
