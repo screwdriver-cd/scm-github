@@ -72,19 +72,21 @@ class GithubScm extends Scm {
      * @param  {Function}    callback             Callback function from github API
      */
     _githubCommand(options, callback) {
-        this.github.authenticate({
-            type: 'oauth',
-            token: options.token
-        });
+        const config = Object.assign({ auth: `token ${options.token}` }, this.octokitConfig);
+        const octokit = new Octokit(config);
         const scopeType = options.scopeType || 'repos';
 
         if (scopeType === 'request') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
-            return this.github[scopeType](options.route, options.params, callback);
+            octokit[scopeType](options.route, options.params).then(function () { // Use "function" (not "arrow function") for getting "arguments"
+                callback(null, ...arguments);
+            }).catch(err => callback(err));
+        } else {
+            octokit[scopeType][options.action](options.params).then(function () {
+                callback(null, ...arguments);
+            }).catch(err => callback(err));
         }
-
-        return this.github[scopeType][options.action](options.params, callback);
     }
 
     /**
@@ -121,17 +123,17 @@ class GithubScm extends Scm {
             secret: joi.string().required()
         }).unknown(true), 'Invalid config for GitHub');
 
-        const githubConfig = {};
+        this.octokitConfig = {};
 
         if (this.config.gheHost) {
-            githubConfig.baseUrl = `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
+            this.octokitConfig.baseUrl =
+                `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
         }
-        this.github = new Octokit(githubConfig);
 
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
             // Do not retry when there is a 4XX error
-            shouldRetry: err => err && !(err.code >= 400 && err.code < 500),
+            shouldRetry: err => err && err.status && !(err.status >= 400 && err.status < 500),
             retry: this.config.fusebox.retry,
             breaker: this.config.fusebox.breaker
         });
@@ -671,7 +673,7 @@ class GithubScm extends Scm {
 
             return status ? status.data : undefined;
         } catch (err) {
-            if (err.code !== 422) {
+            if (err.status !== 422) {
                 winston.error('Failed to updateCommitStatus: ', err);
                 throw err;
             }
@@ -759,7 +761,7 @@ class GithubScm extends Scm {
 
             return repo.data.id;
         } catch (err) {
-            if (err.code === 404) {
+            if (err.status === 404) {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
             }
 
