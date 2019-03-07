@@ -8,6 +8,8 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
+const testPayloadRelease = require('./data/github.release.json');
+const testPayloadTag = require('./data/github.tag.json');
 const testPayloadPushBadHead = require('./data/github.push.badHead.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
@@ -1025,6 +1027,7 @@ jobs:
                 checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
                 prNum: 1,
                 prRef: 'pull/1/merge',
+                ref: 'pull/1/merge',
                 prTitle: 'Update the README with new information',
                 sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                 prSource: 'branch',
@@ -1055,8 +1058,58 @@ jobs:
                         username: 'baxterthehacker2',
                         lastCommitMessage: 'lastcommitmessage',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
-                        scmContext: 'github:github.com'
+                        scmContext: 'github:github.com',
+                        ref: 'refs/heads/master'
                     });
+                });
+        });
+
+        it('parses a payload for a release event payload', () => {
+            testHeaders['x-github-event'] = 'release';
+            testHeaders['x-hub-signature'] = 'sha1=bb5a13e806648dcd8910a4fdbe07f7ed943cb45a';
+
+            return scm.parseHook(testHeaders, testPayloadRelease)
+                .then((result) => {
+                    assert.deepEqual(result, {
+                        action: 'release',
+                        branch: 'master',
+                        checkoutUrl: 'git@github.com:Codertocat/Hello-World.git',
+                        type: 'repo',
+                        username: 'Codertocat',
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                        scmContext: 'github:github.com',
+                        ref: '0.0.1'
+                    });
+                });
+        });
+
+        it('parses a payload for a tag event payload', () => {
+            testHeaders['x-github-event'] = 'create';
+            testHeaders['x-hub-signature'] = 'sha1=bd5a3a851e9333d871daeaa61b03a742b700addf';
+
+            return scm.parseHook(testHeaders, testPayloadTag)
+                .then((result) => {
+                    assert.deepEqual(result, {
+                        action: 'tag',
+                        branch: 'master',
+                        checkoutUrl: 'git@github.com:Codertocat/Hello-World.git',
+                        type: 'repo',
+                        username: 'Codertocat',
+                        hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                        scmContext: 'github:github.com',
+                        ref: 'simple-tag'
+                    });
+                });
+        });
+
+        it('resolves null for a create branch event payload', () => {
+            testHeaders['x-github-event'] = 'create';
+            testHeaders['x-hub-signature'] = 'sha1=37f2e1af8e0962fa9efc3192a6a22ba08f07c2b5';
+            testPayloadTag.ref_type = 'branch';
+
+            return scm.parseHook(testHeaders, testPayloadTag)
+                .then((result) => {
+                    assert.isNull(result);
                 });
         });
 

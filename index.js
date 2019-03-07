@@ -975,6 +975,7 @@ class GithubScm extends Scm {
             const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
             const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
             const prSource = baseSource === headSource ? 'branch' : 'fork';
+            const ref = `pull/${prNum}/merge`;
 
             // Possible actions
             // "opened", "closed", "reopened", "synchronize",
@@ -993,7 +994,8 @@ class GithubScm extends Scm {
                 checkoutUrl,
                 prNum,
                 prTitle,
-                prRef: `pull/${prNum}/merge`,
+                prRef: ref,
+                ref,
                 prSource,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
@@ -1012,9 +1014,45 @@ class GithubScm extends Scm {
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId,
-                scmContext: scmContexts[0]
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'ref')
             };
+        case 'release': {
+            return {
+                action: 'release',
+                branch: hoek.reach(webhookPayload, 'release.target_commitish'),
+                checkoutUrl,
+                type: 'repo',
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId,
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'release.tag_name')
+            };
+        }
+        case 'create': {
+            const refType = hoek.reach(webhookPayload, 'ref_type');
+
+            if (refType !== 'tag') {
+                winston.info('A %s event of %s is not parsable.', type, refType);
+
+                return null;
+            }
+
+            return {
+                action: 'tag',
+                branch: hoek.reach(webhookPayload, 'master_branch'),
+                checkoutUrl,
+                type: 'repo',
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId,
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'ref')
+            };
+        }
+
         default:
+            winston.info('A %s event is not parsable.', type);
+
             return null;
         }
     }
