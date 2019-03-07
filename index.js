@@ -632,6 +632,35 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get a commit sha from a reference
+     * @async  getCommitRefSha
+     * @param  {Object}   config
+     * @param  {String}   config.token     The token used to authenticate to the SCM
+     * @param  {String}   config.owner     The owner of the target repository
+     * @param  {String}   config.repo      The target repository name
+     * @param  {String}   config.ref       The reference which we want
+     * @return {Promise}                   Resolves to the commit sha
+     */
+    async _getCommitRefSha(config) {
+        try {
+            const commit = await this.breaker.runCommand({
+                action: 'getCommitRefSha',
+                token: config.token,
+                params: {
+                    owner: config.owner,
+                    repo: config.repo,
+                    ref: config.ref
+                }
+            });
+
+            return commit.data.sha;
+        } catch (err) {
+            winston.error('Failed to getCommitRefSha: ', err);
+            throw err;
+        }
+    }
+
+    /**
      * Update the commit status for a given repo and sha
      * @async  _updateCommitStatus
      * @param  {Object}   config

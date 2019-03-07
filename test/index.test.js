@@ -62,6 +62,7 @@ describe('index', function () {
                 get: sinon.stub(),
                 getBranch: sinon.stub(),
                 getCommit: sinon.stub(),
+                getCommitRefSha: sinon.stub(),
                 getContents: sinon.stub(),
                 listHooks: sinon.stub(),
                 listBranches: sinon.stub()
@@ -340,6 +341,43 @@ describe('index', function () {
                     { id: '920414' }
                 );
             });
+        });
+    });
+
+    describe('getCommitRefSha', () => {
+        const config = {
+            token: 'somerandomtoken',
+            owner: 'screwdriver-cd',
+            repo: 'models',
+            ref: 'v0.0.1'
+        };
+        const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
+
+        it('promises to get the commit sha', () => {
+            githubMock.repos.getCommitRefSha.resolves({ data: { sha } });
+
+            return scm.getCommitRefSha(config)
+                .then((data) => {
+                    assert.deepEqual(data, sha);
+
+                    assert.calledWith(githubMock.repos.getCommitRefSha, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        ref: 'v0.0.1'
+                    });
+                });
+        });
+
+        it('throws error when failed to get the commit sha', () => {
+            const err = new Error('githubError');
+
+            githubMock.repos.getCommitRefSha.rejects(err);
+
+            return scm.getCommitRefSha(config)
+                .then(() => assert.fail('This should not fail the test'))
+                .catch((actual) => {
+                    assert.deepEqual(actual, err);
+                });
         });
     });
 
