@@ -235,7 +235,7 @@ class GithubScm extends Scm {
         let action = 'createHook';
         const params = {
             active: true,
-            events: ['push', 'pull_request'],
+            events: ['push', 'pull_request', 'create', 'release'],
             owner: config.scmInfo.owner,
             repo: config.scmInfo.repo,
             name: 'web',

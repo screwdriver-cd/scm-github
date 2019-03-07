@@ -1699,6 +1699,7 @@ jobs:
             token: 'fakeToken',
             webhookUrl: 'https://somewhere.in/the/interwebs'
         };
+        const webhookEvents = ['push', 'pull_request', 'create', 'release'];
 
         beforeEach(() => {
             githubMock.request.resolves({ data: {
@@ -1725,7 +1726,7 @@ jobs:
                         secret: 'somesecret',
                         url: 'https://somewhere.in/the/interwebs'
                     },
-                    events: ['push', 'pull_request'],
+                    events: webhookEvents,
                     name: 'web',
                     owner: 'dolores',
                     repo: 'violentdelights'
@@ -1750,7 +1751,7 @@ jobs:
                         secret: 'somesecret',
                         url: 'https://somewhere.in/the/interwebs'
                     },
-                    events: ['push', 'pull_request'],
+                    events: webhookEvents,
                     hook_id: 783150,
                     name: 'web',
                     owner: 'dolores',
@@ -1783,7 +1784,7 @@ jobs:
                         secret: 'somesecret',
                         url: 'https://somewhere.in/the/interwebs'
                     },
-                    events: ['push', 'pull_request'],
+                    events: webhookEvents,
                     hook_id: 783150,
                     name: 'web',
                     owner: 'dolores',
