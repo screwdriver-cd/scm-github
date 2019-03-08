@@ -235,7 +235,7 @@ class GithubScm extends Scm {
         let action = 'createHook';
         const params = {
             active: true,
-            events: ['push', 'pull_request'],
+            events: ['push', 'pull_request', 'create', 'release'],
             owner: config.scmInfo.owner,
             repo: config.scmInfo.repo,
             name: 'web',
@@ -632,6 +632,35 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get a commit sha from a reference
+     * @async  getCommitRefSha
+     * @param  {Object}   config
+     * @param  {String}   config.token     The token used to authenticate to the SCM
+     * @param  {String}   config.owner     The owner of the target repository
+     * @param  {String}   config.repo      The target repository name
+     * @param  {String}   config.ref       The reference which we want
+     * @return {Promise}                   Resolves to the commit sha
+     */
+    async _getCommitRefSha(config) {
+        try {
+            const commit = await this.breaker.runCommand({
+                action: 'getCommitRefSha',
+                token: config.token,
+                params: {
+                    owner: config.owner,
+                    repo: config.repo,
+                    ref: config.ref
+                }
+            });
+
+            return commit.data.sha;
+        } catch (err) {
+            winston.error('Failed to getCommitRefSha: ', err);
+            throw err;
+        }
+    }
+
+    /**
      * Update the commit status for a given repo and sha
      * @async  _updateCommitStatus
      * @param  {Object}   config
@@ -975,6 +1004,7 @@ class GithubScm extends Scm {
             const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
             const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
             const prSource = baseSource === headSource ? 'branch' : 'fork';
+            const ref = `pull/${prNum}/merge`;
 
             // Possible actions
             // "opened", "closed", "reopened", "synchronize",
@@ -993,7 +1023,8 @@ class GithubScm extends Scm {
                 checkoutUrl,
                 prNum,
                 prTitle,
-                prRef: `pull/${prNum}/merge`,
+                prRef: ref,
+                ref,
                 prSource,
                 sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
                 type: 'pr',
@@ -1012,9 +1043,46 @@ class GithubScm extends Scm {
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId,
-                scmContext: scmContexts[0]
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'ref')
             };
+        case 'release': {
+            return {
+                action: 'release',
+                branch: hoek.reach(webhookPayload, 'release.target_commitish'),
+                checkoutUrl,
+                type: 'repo',
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId,
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'release.tag_name')
+            };
+        }
+        case 'create': {
+            const refType = hoek.reach(webhookPayload, 'ref_type');
+
+            if (refType !== 'tag') {
+                winston.info('%s event of %s is not available yet in scm-github plugin',
+                    type, refType);
+
+                return null;
+            }
+
+            return {
+                action: 'tag',
+                branch: hoek.reach(webhookPayload, 'master_branch'),
+                checkoutUrl,
+                type: 'repo',
+                username: hoek.reach(webhookPayload, 'sender.login'),
+                hookId,
+                scmContext: scmContexts[0],
+                ref: hoek.reach(webhookPayload, 'ref')
+            };
+        }
+
         default:
+            winston.info('%s event is not available yet in scm-github plugin', type);
+
             return null;
         }
     }
