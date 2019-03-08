@@ -1062,7 +1062,8 @@ class GithubScm extends Scm {
             const refType = hoek.reach(webhookPayload, 'ref_type');
 
             if (refType !== 'tag') {
-                winston.info('A %s event of %s is not parsable.', type, refType);
+                winston.info('%s event of %s is not available yet in scm-github plugin',
+                    type, refType);
 
                 return null;
             }
@@ -1080,7 +1081,7 @@ class GithubScm extends Scm {
         }
 
         default:
-            winston.info('A %s event is not parsable.', type);
+            winston.info('%s event is not available yet in scm-github plugin', type);
 
             return null;
         }
