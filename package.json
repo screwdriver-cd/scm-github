@@ -44,7 +44,7 @@
     "circuit-fuses": "^2.0.3",
     "hoek": "^6.1.2",
     "joi": "^13.7.0",
-    "screwdriver-data-schema": "^18.39.1",
+    "screwdriver-data-schema": "^18.44.2",
     "screwdriver-scm-base": "^5.1.0",
     "winston": "^2.4.2"
   },

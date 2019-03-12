@@ -79,11 +79,11 @@ class GithubScm extends Scm {
         if (scopeType === 'request') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
-            octokit[scopeType](options.route, options.params).then(function () { // Use "function" (not "arrow function") for getting "arguments"
+            octokit[scopeType](options.route, options.params).then(function cb() { // Use "function" (not "arrow function") for getting "arguments"
                 callback(null, ...arguments);
             }).catch(err => callback(err));
         } else {
-            octokit[scopeType][options.action](options.params).then(function () {
+            octokit[scopeType][options.action](options.params).then(function cb() {
                 callback(null, ...arguments);
             }).catch(err => callback(err));
         }
@@ -936,20 +936,34 @@ class GithubScm extends Scm {
      * @param  {String}   config.type      Can be 'pr' or 'repo'
      * @param  {Object}   config.payload   The webhook payload received from the SCM service.
      * @param  {String}   config.token     Service token to authenticate with Github
+     * @param  {String}   [config.scmUri]  The scmUri to get PR info of
+     * @param  {Integer}  [config.prNum]   The PR number
      * @return {Promise}                   Resolves to an array of filenames of the changed files
      */
-    async _getChangedFiles({ type, payload, token }) {
+    async _getChangedFiles({ type, payload, token, scmUri, prNum }) {
         if (type === 'pr') {
+            let owner;
+            let repo;
+            let number;
+
+            if (scmUri && prNum) {
+                const scmInfo = await this.lookupScmUri({ scmUri, token });
+
+                owner = scmInfo.owner;
+                repo = scmInfo.repo;
+                number = prNum;
+            } else {
+                owner = hoek.reach(payload, 'repository.owner.login');
+                repo = hoek.reach(payload, 'repository.name');
+                number = hoek.reach(payload, 'number');
+            }
+
             try {
                 const files = await this.breaker.runCommand({
                     action: 'listFiles',
                     scopeType: 'pulls',
                     token,
-                    params: {
-                        owner: hoek.reach(payload, 'repository.owner.login'),
-                        repo: hoek.reach(payload, 'repository.name'),
-                        number: hoek.reach(payload, 'number')
-                    }
+                    params: { owner, repo, number }
                 });
 
                 return files.data.map(file => file.filename);

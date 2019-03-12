@@ -1005,6 +1005,21 @@ jobs:
                 });
         });
 
+        it('returns changed files for any given pr', () => {
+            githubMock.pulls.listFiles.resolves({ data: testPrFiles });
+            githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+
+            return scm.getChangedFiles({
+                type: 'pr',
+                token,
+                payload: null,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }).then((result) => {
+                assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
+            });
+        });
+
         it('returns empty array for an event payload that is not type repo or pr', () => {
             type = 'ping';
 
