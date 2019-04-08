@@ -76,7 +76,7 @@ class GithubScm extends Scm {
         const octokit = new Octokit(config);
         const scopeType = options.scopeType || 'repos';
 
-        if (scopeType === 'request') {
+        if (scopeType === 'request' || scopeType === 'paginate') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
             octokit[scopeType](options.route, options.params).then(function cb() { // Use "function" (not "arrow function") for getting "arguments"
@@ -960,13 +960,13 @@ class GithubScm extends Scm {
 
             try {
                 const files = await this.breaker.runCommand({
-                    action: 'listFiles',
-                    scopeType: 'pulls',
+                    scopeType: 'paginate',
+                    route: 'GET /repos/:owner/:repo/pulls/:number/files',
                     token,
                     params: { owner, repo, number }
                 });
 
-                return files.data.map(file => file.filename);
+                return files.map(file => file.filename);
             } catch (err) {
                 winston.error('Failed to getChangedFiles: ', err);
                 throw err;
