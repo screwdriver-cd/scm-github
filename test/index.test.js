@@ -52,8 +52,7 @@ describe('index', function () {
             },
             pulls: {
                 list: sinon.stub(),
-                get: sinon.stub(),
-                listFiles: sinon.stub()
+                get: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
@@ -73,7 +72,8 @@ describe('index', function () {
             orgs: {
                 getMembershipForAuthenticatedUser: sinon.stub()
             },
-            request: sinon.stub()
+            request: sinon.stub(),
+            paginate: sinon.stub()
         };
         githubMockClass = sinon.stub().returns(githubMock);
         winstonMock = {
@@ -992,7 +992,7 @@ jobs:
         });
 
         it('returns changed files for a pull request event payload', () => {
-            githubMock.pulls.listFiles.resolves({ data: testPrFiles });
+            githubMock.paginate.resolves(testPrFiles);
             type = 'pr';
 
             return scm.getChangedFiles({
@@ -1006,7 +1006,7 @@ jobs:
         });
 
         it('returns changed files for any given pr', () => {
-            githubMock.pulls.listFiles.resolves({ data: testPrFiles });
+            githubMock.paginate.resolves(testPrFiles);
             githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
 
             return scm.getChangedFiles({
@@ -1037,7 +1037,7 @@ jobs:
             const testError = new Error('someGithubCommError');
 
             type = 'pr';
-            githubMock.pulls.listFiles.rejects(testError);
+            githubMock.paginate.rejects(testError);
 
             return scm.getChangedFiles({
                 type,
@@ -1048,11 +1048,13 @@ jobs:
             }, (err) => {
                 assert.deepEqual(err, testError);
 
-                assert.calledWith(githubMock.pulls.listFiles, {
-                    owner: 'baxterthehacker',
-                    repo: 'public-repo',
-                    number: 1
-                });
+                assert.calledWith(githubMock.paginate,
+                    'GET /repos/:owner/:repo/pulls/:number/files', {
+                        owner: 'baxterthehacker',
+                        repo: 'public-repo',
+                        number: 1
+                    }
+                );
             });
         });
 
