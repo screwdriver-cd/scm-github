@@ -855,19 +855,38 @@ class GithubScm extends Scm {
                 }
             });
 
+            const authorLogin = hoek.reach(commit, 'data.author.login');
+            const authorName = hoek.reach(commit, 'data.commit.author.name');
+            const committerLogin = hoek.reach(commit, 'data.committer.login');
+            const committerName = hoek.reach(commit, 'data.commit.committer.name');
             let author = Object.assign({}, DEFAULT_AUTHOR);
+            let committer = Object.assign({}, DEFAULT_AUTHOR);
 
-            if (commit.data.author && commit.data.author.login) {
+            if (authorLogin) {
                 author = await this.decorateAuthor({
                     token: config.token,
-                    username: commit.data.author.login
+                    username: authorLogin
                 });
-            } else if (commit.data.commit && commit.data.commit.author) {
-                author.name = commit.data.commit.author.name;
+            } else if (authorName) {
+                author.name = authorName;
+            }
+
+            if (committerLogin) {
+                if (committerLogin === authorLogin) {
+                    committer = author;
+                } else {
+                    committer = await this.decorateAuthor({
+                        token: config.token,
+                        username: committerLogin
+                    });
+                }
+            } else if (committerName) {
+                committer.name = committerName;
             }
 
             return {
                 author,
+                committer,
                 message: commit.data.commit.message,
                 url: commit.data.html_url
             };
