@@ -1479,6 +1479,12 @@ jobs:
                         url: 'https://internal-ghe.mycompany.com/notbrucewayne',
                         username: 'notbrucewayne'
                     },
+                    committer: {
+                        avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+                        name: 'n/a',
+                        username: 'n/a',
+                        url: 'https://cd.screwdriver.cd/'
+                    },
                     message: 'some commit message that is here',
                     url: 'https://link.to/commitDiff'
                 });
@@ -1514,6 +1520,12 @@ jobs:
             }).then((data) => {
                 assert.deepEqual(data, {
                     author: {
+                        avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+                        name: 'n/a',
+                        url: 'https://cd.screwdriver.cd/',
+                        username: 'n/a'
+                    },
+                    committer: {
                         avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
                         name: 'n/a',
                         url: 'https://cd.screwdriver.cd/',
