@@ -18,6 +18,7 @@ const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
+const testRootDirCommands = require('./data/rootDirCommands.json');
 const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
@@ -223,6 +224,15 @@ describe('index', function () {
                 });
         });
 
+        it('promises to get the checkout command when rootDir is passed in', () => {
+            config.rootDir = 'src/app/component';
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testRootDirCommands);
+                });
+        });
+
         it('promises to use committed branch', () => {
             config.commitBranch = 'commitBranch';
 
@@ -269,7 +279,6 @@ describe('index', function () {
             return scm.getCommitSha(config)
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
-
                     assert.calledWith(githubMock.repos.getBranch, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
@@ -518,7 +527,22 @@ describe('index', function () {
             return scm.getOrgPermissions(config)
                 .then((data) => {
                     assert.deepEqual(data, result);
+                    assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
+                        org: config.organization
+                    });
+                });
+        });
 
+        it('promises to get organization permissions when state is not active', () => {
+            permission.state = 'inactive';
+            result.admin = false;
+            githubMock.orgs.getMembershipForAuthenticatedUser.resolves(
+                { data: permission }
+            );
+
+            return scm.getOrgPermissions(config)
+                .then((data) => {
+                    assert.deepEqual(data, result);
                     assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });
@@ -536,7 +560,6 @@ describe('index', function () {
                 })
                 .catch((error) => {
                     assert.deepEqual(error, err);
-
                     assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });

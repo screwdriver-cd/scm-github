@@ -307,6 +307,7 @@ class GithubScm extends Scm {
      * @param  {String}    config.sha            Commit sha
      * @param  {String}    [config.commitBranch] Commit branch
      * @param  {String}    [config.prRef]        PR reference (can be a PR branch or reference)
+     * @param  {String}    [config.rootDir]      Root directory
      * @param  {String}    [config.scmContext]   The scm context name
      * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
      * @return {Promise}                         Resolves to object containing name and checkout commands
@@ -345,8 +346,8 @@ class GithubScm extends Scm {
         + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
         + '$SD_GIT_WRAPPER '
         + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH ';
-        // Checkout config pipeline if this is a child pipeline
 
+        // Checkout config pipeline if this is a child pipeline
         if (config.parentConfig) {
             const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
                 + `${config.parentConfig.repo}`; // URL for https
@@ -402,7 +403,7 @@ class GithubScm extends Scm {
             command.push(`${curlWrapper} "curl -s ${repoDownloadUrl} > /usr/local/bin/repo"`);
             command.push('chmod a+x /usr/local/bin/repo');
 
-            // // Get the sd-repo binary and execute it
+            // Get the sd-repo binary and execute it
             command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > `
               + `${sdRepoReleasesFile}"`);
             command.push(`${grepWrapper} "grep -E -o `
@@ -433,6 +434,17 @@ class GithubScm extends Scm {
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
+
+            // cd into rootDir after cloning
+            if (config.rootDir) {
+                // sourcePath is set to rootDir, which contains the relative path to the source repository
+                const sourcePath = config.rootDir;
+
+                // Export $SD_SOURCE_DIR to source repo path and cd into it
+                command.push(`if [ $(cat ${sourcePath}) != "." ]; `
+                    + `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`);
+                command.push('cd $SD_SOURCE_DIR');
+            }
         }
 
         // For pull requests
@@ -469,17 +481,17 @@ class GithubScm extends Scm {
      * @param  {String}      config.token   The token used to authenticate with the SCM
      * @return {Promise}                    Resolves to an array of objects storing opened PR names and refs
      */
-    async _getOpenedPRs(config) {
+    async _getOpenedPRs({ scmUri, token }) {
         const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
+            scmUri,
+            token
         });
 
         try {
             const pullRequests = await this.breaker.runCommand({
                 action: 'list',
                 scopeType: 'pulls',
-                token: config.token,
+                token,
                 params: {
                     owner: scmInfo.owner,
                     repo: scmInfo.repo,
