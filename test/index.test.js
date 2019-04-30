@@ -294,7 +294,7 @@ describe('index', function () {
                     assert.calledWith(githubMock.pulls.get, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
-                        number: config.prNum
+                        pull_number: config.prNum
                     });
                     delete config.prNum;
                 });
@@ -1495,7 +1495,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    sha
+                    commit_sha: sha
                 });
                 assert.calledWith(githubMock.users.getByUsername, {
                     username
@@ -1541,7 +1541,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    sha
+                    commit_sha: sha
                 });
                 assert.callCount(githubMock.users.getByUsername, 0);
             });
@@ -1564,7 +1564,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: 'banana',
                     repo: 'peel',
-                    sha
+                    commit_sha: sha
                 });
             });
         });
@@ -1982,7 +1982,7 @@ jobs:
                 assert.calledWith(githubMock.pulls.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    number: 1
+                    pull_number: 1
                 });
             });
         });
@@ -2016,7 +2016,7 @@ jobs:
                 assert.calledWith(githubMock.pulls.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    number: 1
+                    pull_number: 1
                 });
             });
         });

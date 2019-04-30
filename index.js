@@ -851,7 +851,7 @@ class GithubScm extends Scm {
                 params: {
                     owner: scmInfo.owner,
                     repo: scmInfo.repo,
-                    sha: config.sha
+                    commit_sha: config.sha
                 }
             });
 
@@ -1204,7 +1204,7 @@ class GithubScm extends Scm {
                 scopeType: 'pulls',
                 token: config.token,
                 params: {
-                    number: config.prNum,
+                    pull_number: config.prNum,
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
