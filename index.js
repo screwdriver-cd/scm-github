@@ -5,6 +5,7 @@
 const Breaker = require('circuit-fuses');
 const Octokit = require('@octokit/rest');
 const hoek = require('hoek');
+const Path = require('path');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
@@ -39,7 +40,7 @@ const DESCRIPTION_MAP = {
  * Get repo information
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
- * @return {Object}              An object with the user, repo, and branch
+ * @return {Object}              An object with the user, repo, host, and branch
  */
 function getInfo(scmUrl) {
     const matched = (schema.config.regex.CHECKOUT_URL).exec(scmUrl);
@@ -143,24 +144,24 @@ class GithubScm extends Scm {
      * Look up a repo by SCM URI
      * @async  lookupScmUri
      * @param  {Object}     config
-     * @param  {Object}     config.scmUri   The SCM URI to look up relevant info
-     * @param  {Object}     config.scmRepo  The SCM repository to look up
-     * @param  {Object}     config.token    Service token to authenticate with Github
-     * @return {Promise}                    Resolves to an object containing repository-related information
+     * @param  {Object}     config.scmUri       The SCM URI to look up relevant info
+     * @param  {Object}     [config.scmRepo]    The SCM repository to look up
+     * @param  {Object}     config.token        Service token to authenticate with Github
+     * @return {Promise}                        Resolves to an object containing repository-related information
      */
-    async lookupScmUri(config) {
-        const [scmHost, scmId, scmBranch] = config.scmUri.split(':');
+    async lookupScmUri({ scmUri, scmRepo, token }) {
+        const [scmHost, scmId, scmBranch, rootDir] = scmUri.split(':');
 
         let repoFullName;
 
-        if (config.scmRepo) {
-            repoFullName = config.scmRepo.name;
+        if (scmRepo) {
+            repoFullName = scmRepo.name;
         } else {
             try {
                 const repo = await this.breaker.runCommand({
                     scopeType: 'request',
                     route: 'GET /repositories/:id',
-                    token: config.token,
+                    token,
                     params: { id: scmId }
                 });
 
@@ -177,7 +178,8 @@ class GithubScm extends Scm {
             branch: scmBranch,
             host: scmHost,
             repo: repoName,
-            owner: repoOwner
+            owner: repoOwner,
+            rootDir: rootDir || ''
         };
     }
 
@@ -305,6 +307,7 @@ class GithubScm extends Scm {
      * @param  {String}    config.sha            Commit sha
      * @param  {String}    [config.commitBranch] Commit branch
      * @param  {String}    [config.prRef]        PR reference (can be a PR branch or reference)
+     * @param  {String}    [config.rootDir]      Root directory
      * @param  {String}    [config.scmContext]   The scm context name
      * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
      * @return {Promise}                         Resolves to object containing name and checkout commands
@@ -343,8 +346,8 @@ class GithubScm extends Scm {
         + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
         + '$SD_GIT_WRAPPER '
         + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH ';
-        // Checkout config pipeline if this is a child pipeline
 
+        // Checkout config pipeline if this is a child pipeline
         if (config.parentConfig) {
             const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
                 + `${config.parentConfig.repo}`; // URL for https
@@ -400,7 +403,7 @@ class GithubScm extends Scm {
             command.push(`${curlWrapper} "curl -s ${repoDownloadUrl} > /usr/local/bin/repo"`);
             command.push('chmod a+x /usr/local/bin/repo');
 
-            // // Get the sd-repo binary and execute it
+            // Get the sd-repo binary and execute it
             command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > `
               + `${sdRepoReleasesFile}"`);
             command.push(`${grepWrapper} "grep -E -o `
@@ -431,6 +434,11 @@ class GithubScm extends Scm {
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
+
+            // cd into rootDir after cloning
+            if (config.rootDir) {
+                command.push(`cd ${config.rootDir}`);
+            }
         }
 
         // For pull requests
@@ -467,20 +475,20 @@ class GithubScm extends Scm {
      * @param  {String}      config.token   The token used to authenticate with the SCM
      * @return {Promise}                    Resolves to an array of objects storing opened PR names and refs
      */
-    async _getOpenedPRs(config) {
-        const scmInfo = await this.lookupScmUri({
-            scmUri: config.scmUri,
-            token: config.token
+    async _getOpenedPRs({ scmUri, token }) {
+        const { owner, repo } = await this.lookupScmUri({
+            scmUri,
+            token
         });
 
         try {
             const pullRequests = await this.breaker.runCommand({
                 action: 'list',
                 scopeType: 'pulls',
-                token: config.token,
+                token,
                 params: {
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo,
+                    owner,
+                    repo,
                     state: 'open'
                 }
             });
@@ -595,6 +603,7 @@ class GithubScm extends Scm {
      * @param  {String}   config.scmUri     The scmUri to get commit sha of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  [config.prNum]    The PR number used to fetch the PR
+     * @param  {Object}   [config.scmRepo]  The SCM repo metadata
      * @return {Promise}                    Resolves to the commit SHA
      */
     async _getCommitSha(config) {
@@ -718,35 +727,37 @@ class GithubScm extends Scm {
      * @param  {String}   config.scmUri       The scmUri to get permissions on
      * @param  {String}   config.path         The file in the repo to fetch
      * @param  {String}   config.token        The token used to authenticate to the SCM
-     * @param  {String}   config.ref          The reference to the SCM, either branch or sha
+     * @param  {String}   [config.ref]        The reference to the SCM, either branch or sha
+     * @param  {Object}   [config.scmRepo]    The SCM repository to look up
      * @return {Promise}                      Resolves to string containing contents of file
      */
-    async _getFile(config) {
+    async _getFile({ scmUri, path, token, ref, scmRepo }) {
         const lookupConfig = {
-            scmUri: config.scmUri,
-            token: config.token
+            scmUri,
+            token
         };
 
-        if (config.scmRepo) {
-            lookupConfig.scmRepo = config.scmRepo;
+        if (scmRepo) {
+            lookupConfig.scmRepo = scmRepo;
         }
 
-        const scmInfo = await this.lookupScmUri(lookupConfig);
+        const { owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
+        const fullPath = rootDir ? Path.join(rootDir, path) : path;
 
         try {
             const file = await this.breaker.runCommand({
                 action: 'getContents',
-                token: config.token,
+                token,
                 params: {
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo,
-                    path: config.path,
-                    ref: config.ref || scmInfo.branch
+                    owner,
+                    repo,
+                    path: fullPath,
+                    ref: ref || branch
                 }
             });
 
             if (file.data.type !== 'file') {
-                throw new Error(`Path (${config.path}) does not point to file`);
+                throw new Error(`Path (${fullPath}) does not point to file`);
             }
 
             return new Buffer(file.data.content, file.data.encoding).toString();
@@ -776,8 +787,7 @@ class GithubScm extends Scm {
      * @async  _getRepoId
      * @param  {Object}   scmInfo               The result of getScmInfo
      * @param  {String}   token                 The token used to authenticate to the SCM
-     * @param  {Object}   config
-     * @param  {String}   config.checkoutUrl    The checkoutUrl to parse
+     * @param  {String}   checkoutUrl           The checkoutUrl to parse
      * @return {Promise}                        Resolves to the id of the repo
      */
     async _getRepoId(scmInfo, token, checkoutUrl) {
@@ -902,28 +912,30 @@ class GithubScm extends Scm {
      * to the master branch
      * @async  _decorateUrl
      * @param  {Config}    config
-     * @param  {String}    config.scmUri The SCM URI the commit belongs to
-     * @param  {String}    config.token  Service token to authenticate with Github
-     * @return {Promise}                 Resolves to decorated url object
+     * @param  {String}    config.scmUri        The SCM URI the commit belongs to
+     * @param  {Object}    [config.scmRepo]     The SCM repository to look up
+     * @param  {String}    config.token         Service token to authenticate with Github
+     * @return {Promise}                        Resolves to decorated url object
      */
-    async _decorateUrl(config) {
+    async _decorateUrl({ scmUri, scmRepo, token }) {
         const lookupConfig = {
-            scmUri: config.scmUri,
-            token: config.token
+            scmUri,
+            token
         };
 
-        if (config.scmRepo) {
-            lookupConfig.scmRepo = config.scmRepo;
+        if (scmRepo) {
+            lookupConfig.scmRepo = scmRepo;
         }
 
-        const scmInfo = await this.lookupScmUri(lookupConfig);
+        const { host, owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
 
-        const baseUrl = `${scmInfo.host}/${scmInfo.owner}/${scmInfo.repo}`;
+        const baseUrl = `https://${host}/${owner}/${repo}/tree/${branch}`;
 
         return {
-            branch: scmInfo.branch,
-            name: `${scmInfo.owner}/${scmInfo.repo}`,
-            url: `https://${baseUrl}/tree/${scmInfo.branch}`
+            branch,
+            name: `${owner}/${repo}`,
+            url: rootDir ? Path.join(baseUrl, rootDir) : baseUrl,
+            rootDir: rootDir || ''
         };
     }
 
@@ -1121,18 +1133,20 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Parses a SCM URL into a screwdriver-representable ID
+     * Parses a SCM URL into a Screwdriver-representable ID
      *
      * 'token' is required, since it is necessary to lookup the SCM ID by
      * communicating with said SCM service.
      * @async  _parseUrl
      * @param  {Object}     config
      * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
+     * @param  {String}     [config.rootDir]    The root directory
      * @param  {String}     config.token        The token used to authenticate to the SCM service
      * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName'
      */
     async _parseUrl(config) {
-        const scmInfo = getInfo(config.checkoutUrl);
+        const { checkoutUrl, rootDir, token } = config;
+        const scmInfo = getInfo(checkoutUrl);
         const myHost = this.config.gheHost || 'github.com';
 
         if (scmInfo.host !== myHost) {
@@ -1141,9 +1155,10 @@ class GithubScm extends Scm {
             throw new Error(message);
         }
 
-        const repoId = await this._getRepoId(scmInfo, config.token, config.checkoutUrl);
+        const repoId = await this._getRepoId(scmInfo, token, checkoutUrl);
+        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch}`;
 
-        return `${scmInfo.host}:${repoId}:${scmInfo.branch}`;
+        return rootDir ? `${scmUri}:${rootDir}` : scmUri;
     }
 
     /**

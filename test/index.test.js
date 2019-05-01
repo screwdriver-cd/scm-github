@@ -18,6 +18,7 @@ const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
+const testRootDirCommands = require('./data/rootDirCommands.json');
 const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
@@ -223,6 +224,15 @@ describe('index', function () {
                 });
         });
 
+        it('promises to get the checkout command when rootDir is passed in', () => {
+            config.rootDir = 'src/app/component';
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testRootDirCommands);
+                });
+        });
+
         it('promises to use committed branch', () => {
             config.commitBranch = 'commitBranch';
 
@@ -269,7 +279,6 @@ describe('index', function () {
             return scm.getCommitSha(config)
                 .then((data) => {
                     assert.deepEqual(data, branch.commit.sha);
-
                     assert.calledWith(githubMock.repos.getBranch, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
@@ -518,7 +527,22 @@ describe('index', function () {
             return scm.getOrgPermissions(config)
                 .then((data) => {
                     assert.deepEqual(data, result);
+                    assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
+                        org: config.organization
+                    });
+                });
+        });
 
+        it('promises to get organization permissions when state is not active', () => {
+            permission.state = 'inactive';
+            result.admin = false;
+            githubMock.orgs.getMembershipForAuthenticatedUser.resolves(
+                { data: permission }
+            );
+
+            return scm.getOrgPermissions(config)
+                .then((data) => {
+                    assert.deepEqual(data, result);
                     assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });
@@ -536,7 +560,6 @@ describe('index', function () {
                 })
                 .catch((error) => {
                     assert.deepEqual(error, err);
-
                     assert.calledWith(githubMock.orgs.getMembershipForAuthenticatedUser, {
                         org: config.organization
                     });
@@ -562,7 +585,33 @@ describe('index', function () {
                     branch: 'targetBranch',
                     host: 'github.com',
                     repo: 'models',
-                    owner: 'screwdriver-cd'
+                    owner: 'screwdriver-cd',
+                    rootDir: ''
+                });
+
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '23498' }
+                );
+            });
+        });
+
+        it('looks up a repo by SCM URI with rootDir', () => {
+            const testResponse = {
+                full_name: 'screwdriver-cd/models'
+            };
+
+            githubMock.request.resolves({ data: testResponse });
+
+            return scm.lookupScmUri({
+                scmUri: 'github.com:23498:targetBranch:src/app/component',
+                token: 'sometoken'
+            }).then((repoData) => {
+                assert.deepEqual(repoData, {
+                    branch: 'targetBranch',
+                    host: 'github.com',
+                    repo: 'models',
+                    owner: 'screwdriver-cd',
+                    rootDir: 'src/app/component'
                 });
 
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
@@ -855,7 +904,6 @@ jobs:
             token: 'somerandomtoken',
             ref: 'git@github.com:screwdriver-cd/models.git#pull/453/merge'
         };
-
         const configNoRef = {
             scmUri,
             path: 'screwdriver.yaml',
@@ -915,11 +963,29 @@ jobs:
             return scm.getFile(configNoRef)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
-
                     assert.calledWith(githubMock.repos.getContents, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: configNoRef.path,
+                        ref: 'master'
+                    });
+                });
+        });
+
+        it('promises to get content when rootDir exists', () => {
+            githubMock.repos.getContents.resolves({ data: returnData });
+
+            return scm.getFile({
+                scmUri: 'github.com:146:master:src/app/component',
+                path: 'screwdriver.yaml',
+                token: 'somerandomtoken'
+            })
+                .then((data) => {
+                    assert.deepEqual(data, expectedYaml);
+                    assert.calledWith(githubMock.repos.getContents, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        path: `src/app/component/${configNoRef.path}`,
                         ref: 'master'
                     });
                 });
@@ -1274,6 +1340,22 @@ jobs:
             });
         });
 
+        it('parses a complete ssh url with rootDir', () => {
+            githubMock.repos.get.resolves({ data: repoData });
+
+            return scm.parseUrl({
+                checkoutUrl,
+                token,
+                rootDir: 'src/app/component'
+            }).then((result) => {
+                assert.strictEqual(result, 'github.com:8675309:boat:src/app/component');
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({
+                    branch: 'boat'
+                }));
+            });
+        });
+
         it('parses a ssh url, defaulting the branch to master', () => {
             checkoutUrl = 'git@github.com:iAm/theCaptain.git';
 
@@ -1585,9 +1667,32 @@ jobs:
                 assert.deepEqual(data, {
                     branch: 'boat',
                     name: 'iAm/theCaptain',
-                    url: 'https://github.com/iAm/theCaptain/tree/boat'
+                    url: 'https://github.com/iAm/theCaptain/tree/boat',
+                    rootDir: ''
                 });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                    { id: '102498' }
+                );
+            });
+        });
 
+        it('decorates a scm uri with rootDir', () => {
+            const scmUri = 'github.com:102498:boat:src/app/component';
+
+            githubMock.request.resolves({ data: {
+                full_name: 'iAm/theCaptain'
+            } });
+
+            return scm.decorateUrl({
+                scmUri,
+                token: 'mytokenfortesting'
+            }).then((data) => {
+                assert.deepEqual(data, {
+                    branch: 'boat',
+                    name: 'iAm/theCaptain',
+                    url: 'https:/github.com/iAm/theCaptain/tree/boat/src/app/component',
+                    rootDir: 'src/app/component'
+                });
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
                     { id: '102498' }
                 );
@@ -1610,7 +1715,8 @@ jobs:
                 assert.deepEqual(data, {
                     branch: 'boat',
                     name: 'iAm/theCaptain',
-                    url: 'https://github.com/iAm/theCaptain/tree/boat'
+                    url: 'https://github.com/iAm/theCaptain/tree/boat',
+                    rootDir: ''
                 });
 
                 assert.notCalled(githubMock.request);
