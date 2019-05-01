@@ -437,13 +437,7 @@ class GithubScm extends Scm {
 
             // cd into rootDir after cloning
             if (config.rootDir) {
-                // sourcePath is set to rootDir, which contains the relative path to the source repository
-                const sourcePath = config.rootDir;
-
-                // Export $SD_SOURCE_DIR to source repo path and cd into it
-                command.push(`if [ $(cat ${sourcePath}) != "." ]; `
-                    + `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`);
-                command.push('cd $SD_SOURCE_DIR');
+                command.push(`cd ${config.rootDir}`);
             }
         }
 
@@ -482,7 +476,7 @@ class GithubScm extends Scm {
      * @return {Promise}                    Resolves to an array of objects storing opened PR names and refs
      */
     async _getOpenedPRs({ scmUri, token }) {
-        const scmInfo = await this.lookupScmUri({
+        const { owner, repo } = await this.lookupScmUri({
             scmUri,
             token
         });
@@ -493,8 +487,8 @@ class GithubScm extends Scm {
                 scopeType: 'pulls',
                 token,
                 params: {
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo,
+                    owner,
+                    repo,
                     state: 'open'
                 }
             });
