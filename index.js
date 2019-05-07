@@ -1376,6 +1376,9 @@ class GithubScm extends Scm {
             scmInfo,
             page: 1,
             token: config.token
+        }).catch((err) => {
+            winston.error('Failed to getBranchList: ', err);
+            throw err;
         });
     }
 }
