@@ -1100,7 +1100,10 @@ class GithubScm extends Scm {
                 username: hoek.reach(webhookPayload, 'sender.login'),
                 hookId,
                 scmContext: scmContexts[0],
-                ref: hoek.reach(webhookPayload, 'release.tag_name')
+                ref: hoek.reach(webhookPayload, 'release.tag_name'),
+                releaseId: hoek.reach(webhookPayload, 'release.id'),
+                releaseName: hoek.reach(webhookPayload, 'release.name') || '',
+                releaseAuthor: hoek.reach(webhookPayload, 'release.author.login') || ''
             };
         }
         case 'create': {
