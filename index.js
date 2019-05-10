@@ -1101,7 +1101,7 @@ class GithubScm extends Scm {
                 hookId,
                 scmContext: scmContexts[0],
                 ref: hoek.reach(webhookPayload, 'release.tag_name'),
-                releaseId: hoek.reach(webhookPayload, 'release.id'),
+                releaseId: hoek.reach(webhookPayload, 'release.id').toString(),
                 releaseName: hoek.reach(webhookPayload, 'release.name') || '',
                 releaseAuthor: hoek.reach(webhookPayload, 'release.author.login') || ''
             };

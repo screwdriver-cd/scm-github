@@ -1200,7 +1200,7 @@ jobs:
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
                         scmContext: 'github:github.com',
                         ref: '0.0.1',
-                        releaseId: 11248810,
+                        releaseId: '11248810',
                         releaseName: '',
                         releaseAuthor: 'Codertocat'
                     });
