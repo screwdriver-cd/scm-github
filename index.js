@@ -339,6 +339,11 @@ class GithubScm extends Scm {
         command.push(`$SD_GIT_WRAPPER "git config --global user.name ${this.config.username}"`);
         command.push(`$SD_GIT_WRAPPER "git config --global user.email ${this.config.email}"`);
 
+        // Set final checkout dir, default to SD_SOURCE_DIR for backward compatibility
+        command.push('export SD_CHECKOUT_DIR_FINAL=$SD_SOURCE_DIR');
+        // eslint-disable-next-line max-len
+        command.push('if [ ! -z $SD_CHECKOUT_DIR ]; then export SD_CHECKOUT_DIR_FINAL=$SD_CHECKOUT_DIR; fi');
+
         const shallowCloneCmd = 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
         + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
         + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
@@ -428,9 +433,9 @@ class GithubScm extends Scm {
             command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
                   + `"git clone --recursive --quiet --progress --branch ${branch} `
-                  + '$SCM_URL $SD_SOURCE_DIR"; '}${shallowCloneCmd}`
+                  + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}`
                   + `--recursive --quiet --progress --branch ${branch} `
-                  + '$SCM_URL $SD_SOURCE_DIR"; fi');
+                  + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi');
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
             command.push(`echo Reset to ${checkoutRef}`);
