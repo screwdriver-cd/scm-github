@@ -1693,7 +1693,7 @@ jobs:
                 assert.deepEqual(data, {
                     branch: 'boat',
                     name: 'iAm/theCaptain',
-                    url: 'https:/github.com/iAm/theCaptain/tree/boat/src/app/component',
+                    url: 'https://github.com/iAm/theCaptain/tree/boat/src/app/component',
                     rootDir: 'src/app/component'
                 });
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',

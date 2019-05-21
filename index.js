@@ -934,12 +934,12 @@ class GithubScm extends Scm {
 
         const { host, owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
 
-        const baseUrl = `https://${host}/${owner}/${repo}/tree/${branch}`;
+        const baseUrl = `${host}/${owner}/${repo}/tree/${branch}`;
 
         return {
             branch,
             name: `${owner}/${repo}`,
-            url: rootDir ? Path.join(baseUrl, rootDir) : baseUrl,
+            url: `https://${rootDir ? Path.join(baseUrl, rootDir) : baseUrl}`,
             rootDir: rootDir || ''
         };
     }
