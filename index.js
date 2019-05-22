@@ -344,13 +344,17 @@ class GithubScm extends Scm {
         // eslint-disable-next-line max-len
         command.push('if [ ! -z $SD_CHECKOUT_DIR ]; then export SD_CHECKOUT_DIR_FINAL=$SD_CHECKOUT_DIR; fi');
 
-        const shallowCloneCmd = 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
+        const shallowCloneCmd = 'else if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; '
+        + 'then export GIT_SHALLOW_CLONE_DEPTH_OPTION='
+        + '"--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'"; '
+        + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
         + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
+        + 'export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH"; fi; '
         + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
         + 'if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; '
         + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
         + '$SD_GIT_WRAPPER '
-        + '"git clone --depth=$GIT_SHALLOW_CLONE_DEPTH $GIT_SHALLOW_CLONE_BRANCH ';
+        + '"git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH ';
 
         // Checkout config pipeline if this is a child pipeline
         if (config.parentConfig) {
