@@ -2084,7 +2084,8 @@ jobs:
                         username: 'octocat',
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
-                        userProfile: 'https://github.com/octocat'
+                        userProfile: 'https://github.com/octocat',
+                        baseBranch: 'master'
                     }
                 );
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
@@ -2118,7 +2119,8 @@ jobs:
                         username: 'octocat',
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
-                        userProfile: 'https://github.com/octocat'
+                        userProfile: 'https://github.com/octocat',
+                        baseBranch: 'master'
                     }
                 );
                 assert.notCalled(githubMock.request);

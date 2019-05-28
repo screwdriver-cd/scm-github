@@ -1245,7 +1245,8 @@ class GithubScm extends Scm {
                 username: pullRequestInfo.data.user.login,
                 title: pullRequestInfo.data.title,
                 createTime: pullRequestInfo.data.created_at,
-                userProfile: pullRequestInfo.data.user.html_url
+                userProfile: pullRequestInfo.data.user.html_url,
+                baseBranch: pullRequestInfo.data.base.ref
             };
         } catch (err) {
             winston.error('Failed to getPrInfo: ', err);
