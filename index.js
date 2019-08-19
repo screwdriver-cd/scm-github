@@ -870,7 +870,7 @@ class GithubScm extends Scm {
                 params: {
                     owner: scmInfo.owner,
                     repo: scmInfo.repo,
-                    commit_sha: config.sha
+                    ref: config.sha
                 }
             });
 
