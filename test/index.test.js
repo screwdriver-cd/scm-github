@@ -1580,7 +1580,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    commit_sha: sha
+                    ref: sha
                 });
                 assert.calledWith(githubMock.users.getByUsername, {
                     username
@@ -1626,7 +1626,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    commit_sha: sha
+                    ref: sha
                 });
                 assert.callCount(githubMock.users.getByUsername, 0);
             });
@@ -1649,7 +1649,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: 'banana',
                     repo: 'peel',
-                    commit_sha: sha
+                    ref: sha
                 });
             });
         });
