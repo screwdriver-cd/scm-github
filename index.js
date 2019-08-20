@@ -662,16 +662,19 @@ class GithubScm extends Scm {
     async _getCommitRefSha(config) {
         try {
             const commit = await this.breaker.runCommand({
-                action: 'getCommitRefSha',
+                action: 'getCommit',
                 token: config.token,
                 params: {
                     owner: config.owner,
                     repo: config.repo,
-                    ref: config.ref
+                    ref: config.ref,
+                    mediaType: {
+                        format: 'sha'
+                    }
                 }
             });
 
-            return commit.data.sha;
+            return commit.data;
         } catch (err) {
             winston.error('Failed to getCommitRefSha: ', err);
             throw err;
