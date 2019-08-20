@@ -2188,7 +2188,7 @@ jobs:
                 assert.calledWith(githubMock.issues.createComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    number: 1,
+                    issue_number: 1,
                     body: comment
                 });
             });
