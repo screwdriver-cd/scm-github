@@ -1276,7 +1276,7 @@ class GithubScm extends Scm {
                 token: this.config.commentUserToken, // need to use a token with public_repo permissions
                 params: {
                     body: comment,
-                    number: prNum,
+                    issue_number: prNum,
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
