@@ -772,7 +772,7 @@ class GithubScm extends Scm {
                 throw new Error(`Path (${fullPath}) does not point to file`);
             }
 
-            return new Buffer(file.data.content, file.data.encoding).toString();
+            return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
             winston.error('Failed to getFile: ', err);
             throw err;
