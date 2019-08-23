@@ -358,15 +358,12 @@ describe('index', function () {
             token: 'somerandomtoken',
             owner: 'screwdriver-cd',
             repo: 'models',
-            ref: 'v0.0.1',
-            mediaType: {
-                format: 'sha'
-            }
+            ref: 'v0.0.1'
         };
         const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
 
         it('promises to get the commit sha', () => {
-            githubMock.repos.getCommit.resolves({ data: sha });
+            githubMock.repos.getCommit.resolves({ data: { sha } });
 
             return scm.getCommitRefSha(config)
                 .then((data) => {
@@ -375,10 +372,7 @@ describe('index', function () {
                     assert.calledWith(githubMock.repos.getCommit, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
-                        ref: 'v0.0.1',
-                        mediaType: {
-                            format: 'sha'
-                        }
+                        ref: 'v0.0.1'
                     });
                 });
         });
