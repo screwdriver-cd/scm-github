@@ -363,13 +363,13 @@ describe('index', function () {
         const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
 
         it('promises to get the commit sha', () => {
-            githubMock.repos.getCommitRefSha.resolves({ data: { sha } });
+            githubMock.repos.getCommit.resolves({ data: { sha } });
 
             return scm.getCommitRefSha(config)
                 .then((data) => {
                     assert.deepEqual(data, sha);
 
-                    assert.calledWith(githubMock.repos.getCommitRefSha, {
+                    assert.calledWith(githubMock.repos.getCommit, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         ref: 'v0.0.1'
@@ -380,7 +380,7 @@ describe('index', function () {
         it('throws error when failed to get the commit sha', () => {
             const err = new Error('githubError');
 
-            githubMock.repos.getCommitRefSha.rejects(err);
+            githubMock.repos.getCommit.rejects(err);
 
             return scm.getCommitRefSha(config)
                 .then(() => assert.fail('This should not fail the test'))
@@ -1580,7 +1580,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    commit_sha: sha
+                    ref: sha
                 });
                 assert.calledWith(githubMock.users.getByUsername, {
                     username
@@ -1626,7 +1626,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: repoOwner,
                     repo: repoName,
-                    commit_sha: sha
+                    ref: sha
                 });
                 assert.callCount(githubMock.users.getByUsername, 0);
             });
@@ -1649,7 +1649,7 @@ jobs:
                 assert.calledWith(githubMock.repos.getCommit, {
                     owner: 'banana',
                     repo: 'peel',
-                    commit_sha: sha
+                    ref: sha
                 });
             });
         });
@@ -2188,7 +2188,7 @@ jobs:
                 assert.calledWith(githubMock.issues.createComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    number: 1,
+                    issue_number: 1,
                     body: comment
                 });
             });

@@ -662,7 +662,7 @@ class GithubScm extends Scm {
     async _getCommitRefSha(config) {
         try {
             const commit = await this.breaker.runCommand({
-                action: 'getCommitRefSha',
+                action: 'getCommit',
                 token: config.token,
                 params: {
                     owner: config.owner,
@@ -769,7 +769,7 @@ class GithubScm extends Scm {
                 throw new Error(`Path (${fullPath}) does not point to file`);
             }
 
-            return new Buffer(file.data.content, file.data.encoding).toString();
+            return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
             winston.error('Failed to getFile: ', err);
             throw err;
@@ -870,7 +870,7 @@ class GithubScm extends Scm {
                 params: {
                     owner: scmInfo.owner,
                     repo: scmInfo.repo,
-                    commit_sha: config.sha
+                    ref: config.sha
                 }
             });
 
@@ -1276,7 +1276,7 @@ class GithubScm extends Scm {
                 token: this.config.commentUserToken, // need to use a token with public_repo permissions
                 params: {
                     body: comment,
-                    number: prNum,
+                    issue_number: prNum,
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
