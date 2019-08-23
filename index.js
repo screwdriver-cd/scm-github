@@ -667,14 +667,11 @@ class GithubScm extends Scm {
                 params: {
                     owner: config.owner,
                     repo: config.repo,
-                    ref: config.ref,
-                    mediaType: {
-                        format: 'sha'
-                    }
+                    ref: config.ref
                 }
             });
 
-            return commit.data;
+            return commit.data.sha;
         } catch (err) {
             winston.error('Failed to getCommitRefSha: ', err);
             throw err;
