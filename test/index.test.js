@@ -73,6 +73,9 @@ describe('index', function () {
             orgs: {
                 getMembershipForAuthenticatedUser: sinon.stub()
             },
+            git: {
+                getRef: sinon.stub()
+            },
             request: sinon.stub(),
             paginate: sinon.stub()
         };
@@ -358,21 +361,22 @@ describe('index', function () {
             token: 'somerandomtoken',
             owner: 'screwdriver-cd',
             repo: 'models',
+            refType: 'tags',
             ref: 'v0.0.1'
         };
         const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
 
         it('promises to get the commit sha', () => {
-            githubMock.repos.getCommit.resolves({ data: { sha } });
+            githubMock.git.getRef.resolves({ data: { object: { sha } } });
 
             return scm.getCommitRefSha(config)
                 .then((data) => {
                     assert.deepEqual(data, sha);
 
-                    assert.calledWith(githubMock.repos.getCommit, {
+                    assert.calledWith(githubMock.git.getRef, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
-                        ref: 'v0.0.1'
+                        ref: 'tags/v0.0.1'
                     });
                 });
         });
