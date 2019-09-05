@@ -657,21 +657,23 @@ class GithubScm extends Scm {
      * @param  {String}   config.owner     The owner of the target repository
      * @param  {String}   config.repo      The target repository name
      * @param  {String}   config.ref       The reference which we want
+     * @param  {String}   config.refType   The reference type. ex. branch is 'heads', tag is 'tags'.
      * @return {Promise}                   Resolves to the commit sha
      */
     async _getCommitRefSha(config) {
         try {
             const commit = await this.breaker.runCommand({
-                action: 'getCommit',
+                action: 'getRef',
                 token: config.token,
+                scopeType: 'git',
                 params: {
                     owner: config.owner,
                     repo: config.repo,
-                    ref: config.ref
+                    ref: `${config.refType}/${config.ref}`
                 }
             });
 
-            return commit.data.sha;
+            return commit.data.object.sha;
         } catch (err) {
             winston.error('Failed to getCommitRefSha: ', err);
             throw err;
