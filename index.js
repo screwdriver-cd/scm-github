@@ -1093,8 +1093,10 @@ class GithubScm extends Scm {
         }
         case 'push':
 
-            for (let i = 0; i < commits.length; i += 1) {
-                commitAuthors.push(commits[i].author.name);
+            if (Array.isArray(commits)) {
+                commits.forEach((commit) => {
+                    commitAuthors.push(commit.author.name);
+                });
             }
 
             return {
