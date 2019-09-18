@@ -1181,6 +1181,7 @@ jobs:
                         sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
                         type: 'repo',
                         username: 'baxterthehacker2',
+                        commitAuthors: ['baxterthehacker'],
                         lastCommitMessage: 'lastcommitmessage',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
                         scmContext: 'github:github.com',
