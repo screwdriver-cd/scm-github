@@ -1051,6 +1051,8 @@ class GithubScm extends Scm {
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
         const scmContexts = this._getScmContexts();
+        const commitAuthors = [];
+        const commits = hoek.reach(webhookPayload, 'commits');
 
         switch (type) {
         case 'pull_request': {
@@ -1090,6 +1092,11 @@ class GithubScm extends Scm {
             };
         }
         case 'push':
+
+            for (let i = 0; i < commits.length; i += 1) {
+                commitAuthors.push(commits[i].author.name);
+            }
+
             return {
                 action: 'push',
                 branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
@@ -1097,6 +1104,7 @@ class GithubScm extends Scm {
                 sha: hoek.reach(webhookPayload, 'after'),
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
+                commitAuthors,
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId,
                 scmContext: scmContexts[0],
