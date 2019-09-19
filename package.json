@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@octokit/rest": "^16.16.3",
-    "circuit-fuses": "^2.0.3",
+    "circuit-fuses": "^4.0.4",
     "hoek": "^6.1.2",
     "joi": "^13.7.0",
     "screwdriver-data-schema": "^18.46.13",
