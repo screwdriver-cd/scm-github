@@ -2,7 +2,7 @@
 
 'use strict';
 
-const Breaker = require('circuit-fuses');
+const Breaker = require('circuit-fuses').breaker;
 const Octokit = require('@octokit/rest');
 const hoek = require('hoek');
 const Path = require('path');
