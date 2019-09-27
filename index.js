@@ -662,7 +662,7 @@ class GithubScm extends Scm {
      */
     async _getCommitRefSha(config) {
         try {
-            const commit = await this.breaker.runCommand({
+            const refObj = await this.breaker.runCommand({
                 action: 'getRef',
                 token: config.token,
                 scopeType: 'git',
@@ -673,7 +673,25 @@ class GithubScm extends Scm {
                 }
             });
 
-            return commit.data.object.sha;
+            if (refObj.data.object.type === 'tag') {
+                // annotated tag
+                const tagObj = await this.breaker.runCommand({
+                    action: 'getTag',
+                    token: config.token,
+                    scopeType: 'git',
+                    params: {
+                        owner: config.owner,
+                        repo: config.repo,
+                        tag_sha: refObj.data.object.sha
+                    }
+                });
+
+                return tagObj.data.object.sha;
+            } else if (refObj.data.object.type === 'commit') {
+                // commit or lightweight tag
+                return refObj.data.object.sha;
+            }
+            throw new Error(`Cannot handle ${refObj.data.object.type} type`);
         } catch (err) {
             winston.error('Failed to getCommitRefSha: ', err);
             throw err;
