@@ -404,7 +404,7 @@ describe('index', function () {
                 });
         });
 
-        it('throw error when getRef API returned unexpected type', () => {
+        it('throws error when getRef API returned unexpected type', () => {
             const type = Math.random().toString(36).slice(-8);
             const err = new Error(`Cannot handle ${type} type`);
 

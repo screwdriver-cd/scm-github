@@ -674,6 +674,7 @@ class GithubScm extends Scm {
             });
 
             if (refObj.data.object.type === 'tag') {
+                // annotated tag
                 const tagObj = await this.breaker.runCommand({
                     action: 'getTag',
                     token: config.token,
@@ -687,6 +688,7 @@ class GithubScm extends Scm {
 
                 return tagObj.data.object.sha;
             } else if (refObj.data.object.type === 'commit') {
+                // commit or lightweight tag
                 return refObj.data.object.sha;
             }
             throw new Error(`Cannot handle ${refObj.data.object.type} type`);
