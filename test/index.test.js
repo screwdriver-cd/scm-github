@@ -74,7 +74,8 @@ describe('index', function () {
                 getMembershipForAuthenticatedUser: sinon.stub()
             },
             git: {
-                getRef: sinon.stub()
+                getRef: sinon.stub(),
+                getTag: sinon.stub()
             },
             request: sinon.stub(),
             paginate: sinon.stub()
@@ -365,9 +366,10 @@ describe('index', function () {
             ref: 'v0.0.1'
         };
         const sha = '6dcb09b5b57875f334f61aebed695e2e4193db5e';
+        const tagSha = '4f221012e995621480aa8c4b2f503c23b1a075b2';
 
         it('promises to get the commit sha', () => {
-            githubMock.git.getRef.resolves({ data: { object: { sha } } });
+            githubMock.git.getRef.resolves({ data: { object: { sha, type: 'commit' } } });
 
             return scm.getCommitRefSha(config)
                 .then((data) => {
@@ -378,6 +380,41 @@ describe('index', function () {
                         repo: 'models',
                         ref: 'tags/v0.0.1'
                     });
+                });
+        });
+
+        it('promises to get the commit sha for tag', () => {
+            githubMock.git.getRef.resolves({ data: { object: { sha: tagSha, type: 'tag' } } });
+            githubMock.git.getTag.resolves({ data: { object: { sha } } });
+
+            return scm.getCommitRefSha(config)
+                .then((data) => {
+                    assert.deepEqual(data, sha);
+
+                    assert.calledWith(githubMock.git.getRef, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        ref: 'tags/v0.0.1'
+                    });
+                    assert.calledWith(githubMock.git.getTag, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        tag_sha: tagSha
+                    });
+                });
+        });
+
+        it('throw error when getRef API returned unexpected type', () => {
+            const type = Math.random().toString(36).slice(-8);
+            const err = new Error(`Cannot handle ${type} type`);
+
+            githubMock.git.getRef.resolves({ data: { object: { sha: tagSha, type } } });
+            githubMock.git.getTag.resolves({ data: { object: { sha } } });
+
+            return scm.getCommitRefSha(config)
+                .then(() => assert.fail('This should not fail the test'))
+                .catch((actual) => {
+                    assert.deepEqual(actual, err);
                 });
         });
 
