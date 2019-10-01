@@ -566,7 +566,7 @@ class GithubScm extends Scm {
 
     /**
      * Get a users permissions on an organization
-     * @method getOrgPermissions
+     * @method _getOrgPermissions
      * @param  {Object}   config                  Configuration
      * @param  {String}   config.organization     The organization to get permissions on
      * @param  {String}   config.username         The user to check against
@@ -651,7 +651,7 @@ class GithubScm extends Scm {
 
     /**
      * Get a commit sha from a reference
-     * @async  getCommitRefSha
+     * @async  _getCommitRefSha
      * @param  {Object}   config
      * @param  {String}   config.token     The token used to authenticate to the SCM
      * @param  {String}   config.owner     The owner of the target repository
@@ -1029,7 +1029,8 @@ class GithubScm extends Scm {
                 return files.map(file => file.filename);
             } catch (err) {
                 winston.error('Failed to getChangedFiles: ', err);
-                throw err;
+
+                return [];
             }
         }
 
@@ -1236,8 +1237,9 @@ class GithubScm extends Scm {
 
     /**
      * Resolve a pull request object based on the config
-     * @async  getPrRef
+     * @async  _getPrInfo
      * @param  {Object}   config
+     * @param  {Object}   [config.scmRepo]  The SCM repository to look up
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
@@ -1286,6 +1288,7 @@ class GithubScm extends Scm {
 
     /**
      * Add a PR comment
+     * @async  _addPrComment
      * @param  {Object}     config
      * @param  {String}     config.comment     The PR comment
      * @param  {Integer}    config.prNum       The PR number
@@ -1326,7 +1329,7 @@ class GithubScm extends Scm {
 
     /**
      * Get an array of scm context (e.g. github:github.com)
-     * @method getScmContexts
+     * @method _getScmContexts
      * @return {Array}          Array of scm contexts
      */
     _getScmContexts() {
@@ -1339,7 +1342,7 @@ class GithubScm extends Scm {
 
     /**
      * Determine if an scm module can handle the received webhook
-     * @async  canHandleWebhook
+     * @async  _canHandleWebhook
      * @param  {Object}    headers    The request headers associated with the webhook payload
      * @param  {Object}    payload    The webhook payload received from the SCM service
      * @return {Promise}              Resolves a boolean denoting whether scm module supports webhook

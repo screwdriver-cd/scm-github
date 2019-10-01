@@ -1140,7 +1140,7 @@ jobs:
                 });
         });
 
-        it('rejects when failing to communicate with github', () => {
+        it('returns empty array when failing to communicate with github', () => {
             const testError = new Error('someGithubCommError');
 
             type = 'pr';
@@ -1150,11 +1150,8 @@ jobs:
                 type,
                 token,
                 payload: testPayloadOpen
-            }).then(() => {
-                assert.fail('This should not fail the test');
-            }, (err) => {
-                assert.deepEqual(err, testError);
-
+            }).then((result) => {
+                assert.deepEqual(result, []);
                 assert.calledWith(githubMock.paginate,
                     'GET /repos/:owner/:repo/pulls/:number/files', {
                         owner: 'baxterthehacker',
@@ -2005,7 +2002,7 @@ jobs:
         });
     });
 
-    describe('_getOpenedPRs', () => {
+    describe('getOpenedPRs', () => {
         const scmUri = 'github.com:111:branchName';
         const config = {
             scmUri,
