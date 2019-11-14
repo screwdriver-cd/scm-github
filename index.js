@@ -23,6 +23,7 @@ const MATCH_COMPONENT_USER_NAME = 2;
 const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
 const BRANCH_PAGE_SIZE = 100;
+const POLLING_INTERVAL = 0.2;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -181,6 +182,41 @@ class GithubScm extends Scm {
             owner: repoOwner,
             rootDir: rootDir || ''
         };
+    }
+
+    /**
+     * Promise to wait a certain number of seconds
+     *
+     * Might make this centralized for other tests to leverage
+     *
+     * @method promiseToWait
+     * @param  {Number}      timeToWait  Number of seconds to wait before continuing the chain
+     * @return {Promise}
+     */
+    promiseToWait(timeToWait) {
+        return new Promise((resolve) => {
+            setTimeout(() => resolve(), timeToWait * 1000);
+        });
+    }
+
+    /**
+     * Get PR mergeability
+     * @async  getPrMergeable
+     * @param  {Object}   config
+     * @param  {String}   config.scmUri     The scmUri to get PR info of
+     * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @param  {Integer}  config.prNum      The PR number used to fetch the PR
+     * @return {Promise}
+     */
+    async getPrMergeable({ scmUri, token, prNum }) {
+        const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
+
+        if (mergeable !== null) {
+            return mergeable;
+        }
+        await this.promiseToWait(POLLING_INTERVAL);
+
+        return this.getPrMergeable({ scmUri, token, prNum });
     }
 
     /**
@@ -994,7 +1030,7 @@ class GithubScm extends Scm {
      * @async  _getChangedFiles
      * @param  {Object}   config
      * @param  {String}   config.type      Can be 'pr' or 'repo'
-     * @param  {Object}   config.payload   The webhook payload received from the SCM service.
+     * @param  {Object}   [config.payload]   The webhook payload received from the SCM service.
      * @param  {String}   config.token     Service token to authenticate with Github
      * @param  {String}   [config.scmUri]  The scmUri to get PR info of
      * @param  {Integer}  [config.prNum]   The PR number
@@ -1002,21 +1038,12 @@ class GithubScm extends Scm {
      */
     async _getChangedFiles({ type, payload, token, scmUri, prNum }) {
         if (type === 'pr') {
-            let owner;
-            let repo;
-            let number;
+            await this.getPrMergeable({ scmUri, token, prNum });
 
-            if (scmUri && prNum) {
-                const scmInfo = await this.lookupScmUri({ scmUri, token });
-
-                owner = scmInfo.owner;
-                repo = scmInfo.repo;
-                number = prNum;
-            } else {
-                owner = hoek.reach(payload, 'repository.owner.login');
-                repo = hoek.reach(payload, 'repository.name');
-                number = hoek.reach(payload, 'number');
-            }
+            const scmInfo = await this.lookupScmUri({ scmUri, token });
+            const owner = scmInfo.owner;
+            const repo = scmInfo.repo;
+            const number = prNum;
 
             try {
                 const files = await this.breaker.runCommand({
@@ -1278,7 +1305,8 @@ class GithubScm extends Scm {
                 title: pullRequestInfo.data.title,
                 createTime: pullRequestInfo.data.created_at,
                 userProfile: pullRequestInfo.data.user.html_url,
-                baseBranch: pullRequestInfo.data.base.ref
+                baseBranch: pullRequestInfo.data.base.ref,
+                mergeable: pullRequestInfo.data.mergeable
             };
         } catch (err) {
             winston.error('Failed to getPrInfo: ', err);

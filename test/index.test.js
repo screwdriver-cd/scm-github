@@ -1098,23 +1098,10 @@ jobs:
                 });
         });
 
-        it('returns changed files for a pull request event payload', () => {
-            githubMock.paginate.resolves(testPrFiles);
-            type = 'pr';
-
-            return scm.getChangedFiles({
-                type,
-                token,
-                payload: testPayloadOpen
-            })
-                .then((result) => {
-                    assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
-                });
-        });
-
         it('returns changed files for any given pr', () => {
             githubMock.paginate.resolves(testPrFiles);
             githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get.resolves({ data: testPrGet });
 
             return scm.getChangedFiles({
                 type: 'pr',
@@ -1138,28 +1125,6 @@ jobs:
                 .then((result) => {
                     assert.deepEqual(result, []);
                 });
-        });
-
-        it('returns empty array when failing to communicate with github', () => {
-            const testError = new Error('someGithubCommError');
-
-            type = 'pr';
-            githubMock.paginate.rejects(testError);
-
-            return scm.getChangedFiles({
-                type,
-                token,
-                payload: testPayloadOpen
-            }).then((result) => {
-                assert.deepEqual(result, []);
-                assert.calledWith(githubMock.paginate,
-                    'GET /repos/:owner/:repo/pulls/:number/files', {
-                        owner: 'baxterthehacker',
-                        repo: 'public-repo',
-                        number: 1
-                    }
-                );
-            });
         });
 
         it('returns empty array for an event payload which does not have changed files', () => {
@@ -2124,7 +2089,8 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
-                        baseBranch: 'master'
+                        baseBranch: 'master',
+                        mergeable: true
                     }
                 );
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
@@ -2159,7 +2125,8 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
-                        baseBranch: 'master'
+                        baseBranch: 'master',
+                        mergeable: true
                     }
                 );
                 assert.notCalled(githubMock.request);
