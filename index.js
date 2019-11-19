@@ -24,6 +24,7 @@ const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
 const BRANCH_PAGE_SIZE = 100;
 const POLLING_INTERVAL = 0.2;
+const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
@@ -206,14 +207,20 @@ class GithubScm extends Scm {
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
+     * @param  {Integer}  count             The polling count
      * @return {Promise}
      */
-    async getPrMergeable({ scmUri, token, prNum }) {
+    async getPrMergeable({ scmUri, token, prNum }, count) {
+        if (count >= POLLING_MAX_ATTEMPT) {
+            winston.warn('Computing mergerbility did not finish');
+
+            return { success: false };
+        }
         try {
             const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
 
             if (mergeable !== null) {
-                return mergeable;
+                return { success: true, mergeable };
             }
             await this.promiseToWait(POLLING_INTERVAL);
         } catch (err) {
@@ -221,7 +228,7 @@ class GithubScm extends Scm {
             throw err;
         }
 
-        return this.getPrMergeable({ scmUri, token, prNum });
+        return this.getPrMergeable({ scmUri, token, prNum }, count + 1);
     }
 
     /**
@@ -1035,7 +1042,7 @@ class GithubScm extends Scm {
      * @async  _getChangedFiles
      * @param  {Object}   config
      * @param  {String}   config.type      Can be 'pr' or 'repo'
-     * @param  {Object}   [config.payload]   The webhook payload received from the SCM service.
+     * @param  {Object}   [config.payload] The webhook payload received from the SCM service.
      * @param  {String}   config.token     Service token to authenticate with Github
      * @param  {String}   [config.scmUri]  The scmUri to get PR info of
      * @param  {Integer}  [config.prNum]   The PR number
@@ -1043,7 +1050,7 @@ class GithubScm extends Scm {
      */
     async _getChangedFiles({ type, payload, token, scmUri, prNum }) {
         if (type === 'pr') {
-            await this.getPrMergeable({ scmUri, token, prNum });
+            await this.getPrMergeable({ scmUri, token, prNum }, 0);
 
             const scmInfo = await this.lookupScmUri({ scmUri, token });
             const owner = scmInfo.owner;

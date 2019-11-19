@@ -23,6 +23,7 @@ const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
+const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
 
 sinon.assert.expose(assert, {
@@ -83,6 +84,7 @@ describe('index', function () {
         githubMockClass = sinon.stub().returns(githubMock);
         winstonMock = {
             info: sinon.stub(),
+            warn: sinon.stub(),
             error: sinon.stub()
         };
 
@@ -1138,6 +1140,53 @@ jobs:
                 .then((result) => {
                     assert.deepEqual(result, []);
                 });
+        });
+    });
+
+    describe('getPrMergeable', () => {
+        const token = 'tokenforgetchangedfiles';
+        const testResponse = {
+            full_name: 'screwdriver-cd/models'
+        };
+
+        it('returns mergeable when polling succeeded on first time', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm.getPrMergeable({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: true, mergeable: true });
+            });
+        });
+
+        it('returns mergeable when polling succeded on second time', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.onFirstCall().resolves({ data: testPrGetNullMergeable });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm.getPrMergeable({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: true, mergeable: true });
+            });
+        });
+
+        it('returns undefined when polling never succeeded', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.resolves({ data: testPrGetNullMergeable });
+
+            return scm.getPrMergeable({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: false });
+            });
         });
     });
 
