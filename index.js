@@ -1050,19 +1050,19 @@ class GithubScm extends Scm {
      */
     async _getChangedFiles({ type, payload, token, scmUri, prNum }) {
         if (type === 'pr') {
-            await this.getPrMergeable({ scmUri, token, prNum }, 0);
-
-            const scmInfo = await this.lookupScmUri({ scmUri, token });
-            const owner = scmInfo.owner;
-            const repo = scmInfo.repo;
-            const number = prNum;
-
             try {
+                await this.getPrMergeable({ scmUri, token, prNum }, 0);
+
+                const scmInfo = await this.lookupScmUri({ scmUri, token });
                 const files = await this.breaker.runCommand({
                     scopeType: 'paginate',
                     route: 'GET /repos/:owner/:repo/pulls/:number/files',
                     token,
-                    params: { owner, repo, number }
+                    params: { 
+                        owner: scmInfo.owner,
+                        repo: scmInfo.repo, 
+                        number: prNum
+                    }
                 });
 
                 return files.map(file => file.filename);
