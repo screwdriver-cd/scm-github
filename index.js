@@ -1058,9 +1058,9 @@ class GithubScm extends Scm {
                     scopeType: 'paginate',
                     route: 'GET /repos/:owner/:repo/pulls/:number/files',
                     token,
-                    params: { 
+                    params: {
                         owner: scmInfo.owner,
-                        repo: scmInfo.repo, 
+                        repo: scmInfo.repo,
                         number: prNum
                     }
                 });
