@@ -209,12 +209,17 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     async getPrMergeable({ scmUri, token, prNum }) {
-        const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
+        try {
+            const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
 
-        if (mergeable !== null) {
-            return mergeable;
+            if (mergeable !== null) {
+                return mergeable;
+            }
+            await this.promiseToWait(POLLING_INTERVAL);
+        } catch (err) {
+            winston.error('Failed to getPrInfo: ', err);
+            throw err;
         }
-        await this.promiseToWait(POLLING_INTERVAL);
 
         return this.getPrMergeable({ scmUri, token, prNum });
     }
