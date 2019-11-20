@@ -1143,7 +1143,7 @@ jobs:
         });
     });
 
-    describe('getPrMergeable', () => {
+    describe('waitPrMergeability', () => {
         const token = 'tokenforgetchangedfiles';
         const testResponse = {
             full_name: 'screwdriver-cd/models'
@@ -1153,7 +1153,7 @@ jobs:
             githubMock.request.resolves({ data: testResponse });
             githubMock.pulls.get.resolves({ data: testPrGet });
 
-            return scm.getPrMergeable({
+            return scm.waitPrMergeability({
                 token,
                 scmUri: 'github.com:28476:master',
                 prNum: 1
@@ -1167,7 +1167,7 @@ jobs:
             githubMock.pulls.get.onFirstCall().resolves({ data: testPrGetNullMergeable });
             githubMock.pulls.get.resolves({ data: testPrGet });
 
-            return scm.getPrMergeable({
+            return scm.waitPrMergeability({
                 token,
                 scmUri: 'github.com:28476:master',
                 prNum: 1
@@ -1180,7 +1180,7 @@ jobs:
             githubMock.request.resolves({ data: testResponse });
             githubMock.pulls.get.resolves({ data: testPrGetNullMergeable });
 
-            return scm.getPrMergeable({
+            return scm.waitPrMergeability({
                 token,
                 scmUri: 'github.com:28476:master',
                 prNum: 1

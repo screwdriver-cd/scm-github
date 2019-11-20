@@ -201,16 +201,17 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get PR mergeability
+     * Wait computing mergeability
      * @async  getPrMergeable
      * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
      * @param  {Integer}  count             The polling count
-     * @return {Promise}
+     * @return {Promise}                    Resolves to object containing result of computing mergeability
+     *                                      The parameter of success exists for testing
      */
-    async getPrMergeable({ scmUri, token, prNum }, count) {
+    async waitPrMergeability({ scmUri, token, prNum }, count) {
         if (count >= POLLING_MAX_ATTEMPT) {
             winston.warn('Computing mergerbility did not finish');
 
@@ -228,7 +229,7 @@ class GithubScm extends Scm {
             throw err;
         }
 
-        return this.getPrMergeable({ scmUri, token, prNum }, count + 1);
+        return this.waitPrMergeability({ scmUri, token, prNum }, count + 1);
     }
 
     /**
@@ -1051,7 +1052,7 @@ class GithubScm extends Scm {
     async _getChangedFiles({ type, payload, token, scmUri, prNum }) {
         if (type === 'pr') {
             try {
-                await this.getPrMergeable({ scmUri, token, prNum }, 0);
+                await this.waitPrMergeability({ scmUri, token, prNum }, 0);
 
                 const scmInfo = await this.lookupScmUri({ scmUri, token });
                 const files = await this.breaker.runCommand({
