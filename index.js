@@ -220,7 +220,7 @@ class GithubScm extends Scm {
         try {
             const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
 
-            if (mergeable !== null) {
+            if (mergeable) {
                 return { success: true, mergeable };
             }
             await this.promiseToWait(POLLING_INTERVAL);
