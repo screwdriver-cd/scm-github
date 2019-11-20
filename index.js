@@ -35,6 +35,12 @@ const DESCRIPTION_MAP = {
     RUNNING: 'Testing your code...',
     QUEUED: 'Looking for a place to park...'
 };
+const logger = winston.createLogger({
+    level: process.env.LOG_LEVEL || 'info',
+    transports: [
+        new (winston.transports.Console)({ timestamp: true })
+    ]
+});
 
 /**
  * Get repo information
@@ -167,7 +173,7 @@ class GithubScm extends Scm {
 
                 repoFullName = repo.data.full_name;
             } catch (err) {
-                winston.error('Failed to lookupScmUri: ', err);
+                logger.error('Failed to lookupScmUri: ', err);
                 throw err;
             }
         }
@@ -218,7 +224,7 @@ class GithubScm extends Scm {
 
             return screwdriverHook;
         } catch (err) {
-            winston.error('Failed to findWebhook: ', err);
+            logger.error('Failed to findWebhook: ', err);
             throw err;
         }
     }
@@ -262,7 +268,7 @@ class GithubScm extends Scm {
 
             return hooks.data;
         } catch (err) {
-            winston.error('Failed to createWebhook: ', err);
+            logger.error('Failed to createWebhook: ', err);
             throw err;
         }
     }
@@ -512,7 +518,7 @@ class GithubScm extends Scm {
                 userProfile: pullRequest.user.html_url
             }));
         } catch (err) {
-            winston.error('Failed to getOpenedPRs: ', err);
+            logger.error('Failed to getOpenedPRs: ', err);
             throw err;
         }
     }
@@ -552,14 +558,14 @@ class GithubScm extends Scm {
         } catch (err) {
             // Suspended user
             if (err.message.match(/suspend/i)) {
-                winston.info(
+                logger.info(
                     `User's account suspended for ${config.scmUri}, ` +
                     'it will be removed from pipeline admins.');
 
                 return { admin: false, push: false, pull: false };
             }
 
-            winston.error('Failed to getPermissions: ', err);
+            logger.error('Failed to getPermissions: ', err);
             throw err;
         }
     }
@@ -600,7 +606,7 @@ class GithubScm extends Scm {
 
             return result;
         } catch (err) {
-            winston.error('Failed to getOrgPermissions: ', err);
+            logger.error('Failed to getOrgPermissions: ', err);
             throw err;
         }
     }
@@ -644,7 +650,7 @@ class GithubScm extends Scm {
 
             return branch.data.commit.sha;
         } catch (err) {
-            winston.error('Failed to getCommitSha: ', err);
+            logger.error('Failed to getCommitSha: ', err);
             throw err;
         }
     }
@@ -693,7 +699,7 @@ class GithubScm extends Scm {
             }
             throw new Error(`Cannot handle ${refObj.data.object.type} type`);
         } catch (err) {
-            winston.error('Failed to getCommitRefSha: ', err);
+            logger.error('Failed to getCommitRefSha: ', err);
             throw err;
         }
     }
@@ -741,7 +747,7 @@ class GithubScm extends Scm {
             return status ? status.data : undefined;
         } catch (err) {
             if (err.status !== 422) {
-                winston.error('Failed to updateCommitStatus: ', err);
+                logger.error('Failed to updateCommitStatus: ', err);
                 throw err;
             }
 
@@ -791,7 +797,7 @@ class GithubScm extends Scm {
 
             return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
-            winston.error('Failed to getFile: ', err);
+            logger.error('Failed to getFile: ', err);
             throw err;
         }
     }
@@ -833,7 +839,7 @@ class GithubScm extends Scm {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
             }
 
-            winston.error('Failed to getRepoId: ', err);
+            logger.error('Failed to getRepoId: ', err);
             throw new Error(err);
         }
     }
@@ -863,7 +869,7 @@ class GithubScm extends Scm {
                 url: user.data.html_url
             };
         } catch (err) {
-            winston.error('Failed to decorateAuthor: ', err);
+            logger.error('Failed to decorateAuthor: ', err);
             throw err;
         }
     }
@@ -930,7 +936,7 @@ class GithubScm extends Scm {
                 url: commit.data.html_url
             };
         } catch (err) {
-            winston.error('Failed to decorateCommit: ', err);
+            logger.error('Failed to decorateCommit: ', err);
             throw err;
         }
     }
@@ -1028,7 +1034,7 @@ class GithubScm extends Scm {
 
                 return files.map(file => file.filename);
             } catch (err) {
-                winston.error('Failed to getChangedFiles: ', err);
+                logger.error('Failed to getChangedFiles: ', err);
 
                 return [];
             }
@@ -1150,7 +1156,7 @@ class GithubScm extends Scm {
             const refType = hoek.reach(webhookPayload, 'ref_type');
 
             if (refType !== 'tag') {
-                winston.info('%s event of %s is not available yet in scm-github plugin',
+                logger.info('%s event of %s is not available yet in scm-github plugin',
                     type, refType);
 
                 return null;
@@ -1169,7 +1175,7 @@ class GithubScm extends Scm {
         }
 
         default:
-            winston.info('%s event is not available yet in scm-github plugin', type);
+            logger.info('%s event is not available yet in scm-github plugin', type);
 
             return null;
         }
@@ -1281,7 +1287,7 @@ class GithubScm extends Scm {
                 baseBranch: pullRequestInfo.data.base.ref
             };
         } catch (err) {
-            winston.error('Failed to getPrInfo: ', err);
+            logger.error('Failed to getPrInfo: ', err);
             throw err;
         }
     }
@@ -1321,7 +1327,7 @@ class GithubScm extends Scm {
                 username: pullRequestComment.data.user.login
             };
         } catch (err) {
-            winston.error('Failed to addPRComment: ', err);
+            logger.error('Failed to addPRComment: ', err);
 
             return null;
         }
@@ -1360,7 +1366,7 @@ class GithubScm extends Scm {
 
             return result.checkoutUrl.startsWith(checkoutSshHost);
         } catch (err) {
-            winston.error('Failed to run canHandleWebhook', err);
+            logger.error('Failed to run canHandleWebhook', err);
 
             return false;
         }
@@ -1399,7 +1405,7 @@ class GithubScm extends Scm {
 
             return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
         } catch (err) {
-            winston.error('Failed to findBranches: ', err);
+            logger.error('Failed to findBranches: ', err);
             throw err;
         }
     }
@@ -1423,7 +1429,7 @@ class GithubScm extends Scm {
             page: 1,
             token: config.token
         }).catch((err) => {
-            winston.error('Failed to getBranchList: ', err);
+            logger.error('Failed to getBranchList: ', err);
             throw err;
         });
     }
