@@ -213,7 +213,8 @@ class GithubScm extends Scm {
      */
     async waitPrMergeability({ scmUri, token, prNum }, count) {
         if (count >= POLLING_MAX_ATTEMPT) {
-            winston.warn('Computing mergerbility did not finish');
+            winston.warn('Computing mergerbility did not finish. '
+                + `scmUri: ${scmUri}, prNum: ${prNum}`);
 
             return { success: false };
         }
