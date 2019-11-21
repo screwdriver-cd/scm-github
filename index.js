@@ -10,7 +10,7 @@ const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const Scm = require('screwdriver-scm-base');
 const crypto = require('crypto');
-const winston = require('winston');
+const logger = require('screwdriver-logger');
 const DEFAULT_AUTHOR = {
     avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
     name: 'n/a',
@@ -35,12 +35,6 @@ const DESCRIPTION_MAP = {
     RUNNING: 'Testing your code...',
     QUEUED: 'Looking for a place to park...'
 };
-const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
-    transports: [
-        new (winston.transports.Console)({ timestamp: true })
-    ]
-});
 
 /**
  * Get repo information

@@ -87,12 +87,7 @@ describe('index', function () {
         };
 
         mockery.registerMock('@octokit/rest', githubMockClass);
-        mockery.registerMock('winston', {
-            createLogger: () => winstonMock,
-            transports: {
-                Console: sinon.stub()
-            }
-        });
+        mockery.registerMock('screwdriver-logger', winstonMock);
 
         // eslint-disable-next-line global-require
         GithubScm = require('../');
