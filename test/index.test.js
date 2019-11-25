@@ -23,6 +23,7 @@ const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
+const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
 
 sinon.assert.expose(assert, {
@@ -83,6 +84,7 @@ describe('index', function () {
         githubMockClass = sinon.stub().returns(githubMock);
         winstonMock = {
             info: sinon.stub(),
+            warn: sinon.stub(),
             error: sinon.stub()
         };
 
@@ -1098,23 +1100,10 @@ jobs:
                 });
         });
 
-        it('returns changed files for a pull request event payload', () => {
-            githubMock.paginate.resolves(testPrFiles);
-            type = 'pr';
-
-            return scm.getChangedFiles({
-                type,
-                token,
-                payload: testPayloadOpen
-            })
-                .then((result) => {
-                    assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
-                });
-        });
-
         it('returns changed files for any given pr', () => {
             githubMock.paginate.resolves(testPrFiles);
             githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get.resolves({ data: testPrGet });
 
             return scm.getChangedFiles({
                 type: 'pr',
@@ -1140,28 +1129,6 @@ jobs:
                 });
         });
 
-        it('returns empty array when failing to communicate with github', () => {
-            const testError = new Error('someGithubCommError');
-
-            type = 'pr';
-            githubMock.paginate.rejects(testError);
-
-            return scm.getChangedFiles({
-                type,
-                token,
-                payload: testPayloadOpen
-            }).then((result) => {
-                assert.deepEqual(result, []);
-                assert.calledWith(githubMock.paginate,
-                    'GET /repos/:owner/:repo/pulls/:number/files', {
-                        owner: 'baxterthehacker',
-                        repo: 'public-repo',
-                        number: 1
-                    }
-                );
-            });
-        });
-
         it('returns empty array for an event payload which does not have changed files', () => {
             type = 'repo';
 
@@ -1173,6 +1140,53 @@ jobs:
                 .then((result) => {
                     assert.deepEqual(result, []);
                 });
+        });
+    });
+
+    describe('waitPrMergeability', () => {
+        const token = 'tokenforgetchangedfiles';
+        const testResponse = {
+            full_name: 'screwdriver-cd/models'
+        };
+
+        it('returns mergeable when polling succeeded on first time', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm.waitPrMergeability({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: true, mergeable: true });
+            });
+        });
+
+        it('returns mergeable when polling succeded on second time', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.onFirstCall().resolves({ data: testPrGetNullMergeable });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm.waitPrMergeability({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: true, mergeable: true });
+            });
+        });
+
+        it('returns undefined when polling never succeeded', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.resolves({ data: testPrGetNullMergeable });
+
+            return scm.waitPrMergeability({
+                token,
+                scmUri: 'github.com:28476:master',
+                prNum: 1
+            }, 0).then((result) => {
+                assert.deepEqual(result, { success: false });
+            });
         });
     });
 
@@ -2124,7 +2138,8 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
-                        baseBranch: 'master'
+                        baseBranch: 'master',
+                        mergeable: true
                     }
                 );
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
@@ -2159,7 +2174,8 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
-                        baseBranch: 'master'
+                        baseBranch: 'master',
+                        mergeable: true
                     }
                 );
                 assert.notCalled(githubMock.request);
