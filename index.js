@@ -213,7 +213,7 @@ class GithubScm extends Scm {
      */
     async waitPrMergeability({ scmUri, token, prNum }, count) {
         if (count >= POLLING_MAX_ATTEMPT) {
-            winston.warn('Computing mergerbility did not finish. '
+            logger.warn('Computing mergerbility did not finish. '
                 + `scmUri: ${scmUri}, prNum: ${prNum}`);
 
             return { success: false };
@@ -226,7 +226,7 @@ class GithubScm extends Scm {
             }
             await this.promiseToWait(POLLING_INTERVAL);
         } catch (err) {
-            winston.error('Failed to getPrInfo: ', err);
+            logger.error('Failed to getPrInfo: ', err);
             throw err;
         }
 
