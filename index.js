@@ -1173,6 +1173,12 @@ class GithubScm extends Scm {
                 ref: hoek.reach(webhookPayload, 'ref')
             };
         case 'release': {
+            const action = hoek.reach(webhookPayload, 'action');
+
+            if (!['published'].includes(action)) {
+                return null;
+            }
+
             return {
                 action: 'release',
                 branch: hoek.reach(webhookPayload, 'release.target_commitish'),
