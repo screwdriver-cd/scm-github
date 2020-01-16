@@ -37,6 +37,9 @@ const DESCRIPTION_MAP = {
     RUNNING: 'Testing your code...',
     QUEUED: 'Looking for a place to park...'
 };
+const PERMITTED_RELEASE_EVENT = [
+    'published'
+];
 
 /**
  * Get repo information
@@ -1173,6 +1176,12 @@ class GithubScm extends Scm {
                 ref: hoek.reach(webhookPayload, 'ref')
             };
         case 'release': {
+            const action = hoek.reach(webhookPayload, 'action');
+
+            if (!PERMITTED_RELEASE_EVENT.includes(action)) {
+                return null;
+            }
+
             return {
                 action: 'release',
                 branch: hoek.reach(webhookPayload, 'release.target_commitish'),

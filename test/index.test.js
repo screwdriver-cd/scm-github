@@ -9,6 +9,7 @@ const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
 const testPayloadRelease = require('./data/github.release.json');
+const testPayloadReleaseBadAction = require('./data/github.release.badAction.json');
 const testPayloadTag = require('./data/github.tag.json');
 const testPayloadPushBadHead = require('./data/github.push.badHead.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
@@ -1257,6 +1258,16 @@ jobs:
                         releaseName: '',
                         releaseAuthor: 'Codertocat'
                     });
+                });
+        });
+
+        it('resolves null for a release event payload with an unsupported action', () => {
+            testHeaders['x-github-event'] = 'release';
+            testHeaders['x-hub-signature'] = 'sha1=0ecd27db793b3a4129705c5314d8511c5d90e33e';
+
+            return scm.parseHook(testHeaders, testPayloadReleaseBadAction)
+                .then((result) => {
+                    assert.isNull(result);
                 });
         });
 
