@@ -689,7 +689,7 @@ class GithubScm extends Scm {
                 action: 'getBranch',
                 token: config.token,
                 params: {
-                    branch: scmInfo.branch,
+                    branch: scmInfo.branch.replace(/#/g, '%23'),
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
