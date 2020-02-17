@@ -515,6 +515,7 @@ class GithubScm extends Scm {
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
+
             // eslint-disable-next-line no-useless-escape
             // eslint-disable-next-line max-len
             command.push(`curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | sed ${regex} | tr ',' '\n' | grep -m1 'ref' | cut -f 2 -d ':' | tr -d '\"' | tr -d ' ' > prBranchName.json`);
