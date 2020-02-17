@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 /* eslint no-underscore-dangle: ["error", { "allowAfterThis": true }] */
 
 'use strict';
@@ -506,16 +507,22 @@ class GithubScm extends Scm {
         // For pull requests
         if (config.prRef) {
             const prRef = config.prRef.replace('merge', 'head:pr');
-            const prBranch = prRef.split(':')[0];
+            const prNumber = prRef.split('/')[1];
+
+            // eslint-disable-next-line no-useless-escape
+            const regex = '\'s\/^\\[{\\(.*\\)}]$\/\\1\/\'';
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
-            command.push('$SD_GIT_WRAPPER "git fetch origin +refs/pull/*:refs/remotes/pull/*"');
+            command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
+            // eslint-disable-next-line no-useless-escape
+            // eslint-disable-next-line max-len
+            command.push(`curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | sed ${regex} | tr ',' '\n' | grep -m1 'ref' | cut -f 2 -d ':' | tr -d '\"' | tr -d ' ' > prBranchName.json`);
 
+            command.push('export GIT_BRANCH=origin/$(cat prBranchName.json)');
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
             command.push(`export GIT_PR_REF=origin/refs/${prRef}`);
-            command.push(`export GIT_BRANCH=remotes/${prBranch}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${branch}`);
         }
