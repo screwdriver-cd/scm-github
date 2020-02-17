@@ -506,13 +506,16 @@ class GithubScm extends Scm {
         // For pull requests
         if (config.prRef) {
             const prRef = config.prRef.replace('merge', 'head:pr');
+            const prBranch = prRef.split(':')[0];
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
-            command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
+            command.push('$SD_GIT_WRAPPER "git fetch origin +refs/pull/*:refs/remotes/pull/*"');
+
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
-            command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
+            command.push(`export GIT_PR_REF=origin/refs/${prRef}`);
+            command.push(`export GIT_BRANCH=remotes/${prBranch}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${branch}`);
         }
