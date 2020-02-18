@@ -518,12 +518,11 @@ class GithubScm extends Scm {
 
             // eslint-disable-next-line no-useless-escape
             // eslint-disable-next-line max-len
-            command.push(`curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | sed ${regex} | tr ',' '\n' | grep -m1 'ref' | cut -f 2 -d ':' | tr -d '\"' | tr -d ' ' > prBranchName.json`);
+            command.push(`export PR_BRANCH_NAME=$(curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | sed ${regex} | tr ',' '\n' | grep -m1 'ref' | cut -f 2 -d ':' | tr -d '\"' | tr -d ' ')`);
 
-            command.push('export GIT_BRANCH=origin/$(cat prBranchName.json)');
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
-            command.push(`export GIT_PR_REF=origin/refs/${prRef}`);
+            command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH=origin/${branch}`);
         }
