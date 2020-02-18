@@ -510,7 +510,7 @@ class GithubScm extends Scm {
             const prNumber = prRef.split('/')[1];
 
             // eslint-disable-next-line no-useless-escape
-            const regex = '\'s\/^\\[{\\(.*\\)}]$\/\\1\/\'';
+            // const regex = '\'s\/^\\[{\\(.*\\)}]$\/\\1\/\'';
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
@@ -518,7 +518,7 @@ class GithubScm extends Scm {
 
             // eslint-disable-next-line no-useless-escape
             // eslint-disable-next-line max-len
-            command.push(`export PR_BRANCH_NAME=origin/$(curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | sed ${regex} | tr ',' '\n' | grep -m1 'ref' | cut -f 2 -d ':' | tr -d '\"' | tr -d ' ')`);
+            command.push(`export PR_BRANCH_NAME=origin/$(curl -s https://api.${config.host}/repos/${config.org}/${config.repo}/pulls/${prNumber} | tr -d '\n' |  sed -e 's/.*"head": {[^}]*"ref": "\([^\"]*\)",.*/\\1/')`);
 
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
