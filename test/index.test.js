@@ -185,7 +185,8 @@ describe('index', function () {
                 host: 'github.com',
                 org: 'screwdriver-cd',
                 repo: 'guide',
-                sha: '12345'
+                sha: '12345',
+                prBranchName: 'prBranchName'
             };
         });
 
