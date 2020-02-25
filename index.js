@@ -1327,6 +1327,7 @@ class GithubScm extends Scm {
                 name: `PR-${pullRequestInfo.data.number}`,
                 ref: `pull/${pullRequestInfo.data.number}/merge`,
                 sha: pullRequestInfo.data.head.sha,
+                prBranchName: pullRequestInfo.data.head.ref,
                 url: pullRequestInfo.data.html_url,
                 username: pullRequestInfo.data.user.login,
                 title: pullRequestInfo.data.title,
