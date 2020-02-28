@@ -17,6 +17,7 @@ const testPayloadBadAction = require('./data/github.pull_request.badAction.json'
 const testPayloadPing = require('./data/github.ping.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
+const testForkPrCommands = require('./data/forkPrCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
 const testRootDirCommands = require('./data/rootDirCommands.json');
@@ -186,6 +187,7 @@ describe('index', function () {
                 org: 'screwdriver-cd',
                 repo: 'guide',
                 sha: '12345',
+                prSource: 'branch',
                 prBranchName: 'prBranchName'
             };
         });
@@ -203,6 +205,16 @@ describe('index', function () {
             return scm.getCheckoutCommand(config)
                 .then((command) => {
                     assert.deepEqual(command, testPrCommands);
+                });
+        });
+
+        it('promises to get the checkout command for a pull request', () => {
+            config.prRef = 'pull/3/merge';
+            config.prSource = 'fork';
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testForkPrCommands);
                 });
         });
 
