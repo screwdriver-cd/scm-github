@@ -208,7 +208,7 @@ describe('index', function () {
                 });
         });
 
-        it('promises to get the checkout command for a pull request', () => {
+        it('promises to get the checkout command for a pull request from forked repo', () => {
             config.prRef = 'pull/3/merge';
             config.prSource = 'fork';
 
