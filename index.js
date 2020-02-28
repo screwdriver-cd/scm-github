@@ -1,4 +1,3 @@
-/* eslint-disable no-useless-escape */
 /* eslint no-underscore-dangle: ["error", { "allowAfterThis": true }] */
 
 'use strict';
