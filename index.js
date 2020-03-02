@@ -506,10 +506,14 @@ class GithubScm extends Scm {
         // For pull requests
         if (config.prRef) {
             const prRef = config.prRef.replace('merge', 'head:pr');
+            const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
 
             // Fetch a pull request
             command.push(`echo Fetching PR and merging with ${branch}`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
+
+            command.push(`export PR_BRANCH_NAME=${baseRepo}/${config.prBranchName}`);
+
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
@@ -1323,6 +1327,7 @@ class GithubScm extends Scm {
                 name: `PR-${pullRequestInfo.data.number}`,
                 ref: `pull/${pullRequestInfo.data.number}/merge`,
                 sha: pullRequestInfo.data.head.sha,
+                prBranchName: pullRequestInfo.data.head.ref,
                 url: pullRequestInfo.data.html_url,
                 username: pullRequestInfo.data.user.login,
                 title: pullRequestInfo.data.title,

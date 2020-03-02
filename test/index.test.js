@@ -17,6 +17,7 @@ const testPayloadBadAction = require('./data/github.pull_request.badAction.json'
 const testPayloadPing = require('./data/github.ping.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
+const testForkPrCommands = require('./data/forkPrCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
 const testRootDirCommands = require('./data/rootDirCommands.json');
@@ -185,7 +186,9 @@ describe('index', function () {
                 host: 'github.com',
                 org: 'screwdriver-cd',
                 repo: 'guide',
-                sha: '12345'
+                sha: '12345',
+                prSource: 'branch',
+                prBranchName: 'prBranchName'
             };
         });
 
@@ -202,6 +205,16 @@ describe('index', function () {
             return scm.getCheckoutCommand(config)
                 .then((command) => {
                     assert.deepEqual(command, testPrCommands);
+                });
+        });
+
+        it('promises to get the checkout command for a pull request from forked repo', () => {
+            config.prRef = 'pull/3/merge';
+            config.prSource = 'fork';
+
+            return scm.getCheckoutCommand(config)
+                .then((command) => {
+                    assert.deepEqual(command, testForkPrCommands);
                 });
         });
 
@@ -2149,6 +2162,7 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
+                        prBranchName: 'new-topic',
                         baseBranch: 'master',
                         mergeable: true
                     }
@@ -2185,6 +2199,7 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
+                        prBranchName: 'new-topic',
                         baseBranch: 'master',
                         mergeable: true
                     }
