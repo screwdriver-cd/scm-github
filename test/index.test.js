@@ -2162,6 +2162,7 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
+                        prBranchName: 'new-topic',
                         baseBranch: 'master',
                         mergeable: true
                     }
@@ -2198,6 +2199,7 @@ jobs:
                         title: 'new-feature',
                         createTime: '2011-01-26T19:01:12Z',
                         userProfile: 'https://github.com/octocat',
+                        prBranchName: 'new-topic',
                         baseBranch: 'master',
                         mergeable: true
                     }
