@@ -428,12 +428,12 @@ class GithubScm extends Scm {
             command.push(`export SD_CONFIG_DIR=${externalConfigDir}`);
 
             // Git clone
-            command.push(`echo Cloning external config repo ${parentCheckoutUrl}`);
+            command.push(`echo 'Cloning external config repo ${parentCheckoutUrl}'`);
             command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
-                  + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
+                  + `"git clone --recursive --quiet --progress --branch '${parentBranch}' `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}`
-                  + `--recursive --quiet --progress --branch ${parentBranch} `
+                  + `--recursive --quiet --progress --branch '${parentBranch}' `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
             // Reset to SHA
@@ -486,16 +486,16 @@ class GithubScm extends Scm {
             command.push('cd $SD_SOURCE_DIR');
         } else {
             // Git clone
-            command.push(`echo Cloning ${checkoutUrl}, on branch ${branch}`);
+            command.push(`echo 'Cloning ${checkoutUrl}, on branch ${branch}'`);
             command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
-                  + `"git clone --recursive --quiet --progress --branch ${branch} `
+                  + `"git clone --recursive --quiet --progress --branch '${branch}' `
                   + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}`
-                  + `--recursive --quiet --progress --branch ${branch} `
+                  + `--recursive --quiet --progress --branch '${branch}' `
                   + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi');
             // Reset to SHA
-            command.push(`$SD_GIT_WRAPPER "git reset --hard ${checkoutRef} --"`);
-            command.push(`echo Reset to ${checkoutRef}`);
+            command.push(`$SD_GIT_WRAPPER "git reset --hard '${checkoutRef}' --"`);
+            command.push(`echo 'Reset to ${checkoutRef}'`);
 
             // cd into rootDir after cloning
             if (config.rootDir) {
@@ -509,16 +509,16 @@ class GithubScm extends Scm {
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
 
             // Fetch a pull request
-            command.push(`echo Fetching PR and merging with ${branch}`);
+            command.push(`echo 'Fetching PR and merging with ${branch}'`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
 
-            command.push(`export PR_BRANCH_NAME=${baseRepo}/${config.prBranchName}`);
+            command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
 
             // Merge a pull request with pipeline branch
             command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
-            command.push(`export GIT_BRANCH=origin/${branch}`);
+            command.push(`export GIT_BRANCH='origin/${branch}'`);
         }
 
         if (!config.manifest) {
