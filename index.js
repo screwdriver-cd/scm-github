@@ -431,9 +431,9 @@ class GithubScm extends Scm {
             command.push(`echo 'Cloning external config repo ${parentCheckoutUrl}'`);
             command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
                   + 'then $SD_GIT_WRAPPER '
-                  + `"git clone --recursive --quiet --progress --branch ${parentBranch} `
+                  + `"git clone --recursive --quiet --progress --branch '${parentBranch}' `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}`
-                  + `--recursive --quiet --progress --branch ${parentBranch} `
+                  + `--recursive --quiet --progress --branch '${parentBranch}' `
                   + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
 
             // Reset to SHA
