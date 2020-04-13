@@ -237,6 +237,66 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get all the comments of a particular Pull Request
+     * @async  prComments
+     * @param  {Object}   scmInfo           The information regarding SCM like repo, owner
+     * @param  {Integer}  prNum             The PR number used to fetch the PR
+     * @param  {String}   token             The PA token of the owner
+     * @return {Promise}                    Resolves to object containing the list of comments of this PR
+     */
+    async prComments(scmInfo, prNum, token) {
+        try {
+            const { data } = await this.breaker.runCommand({
+                action: 'listComments',
+                scopeType: 'issues',
+                token,
+                params: {
+                    issue_number: prNum,
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo
+                }
+            });
+
+            return {
+                comments: data
+            };
+        } catch (err) {
+            logger.error('Failed to fetch PR comments: ', err);
+
+            return null;
+        }
+    }
+
+    /**
+     * Edit a particular comment in the PR
+     * @async  editPrCpmment
+     * @param  {Integer}  commentId         The id of the particular comment to be edited
+     * @param  {Object}   scmInfo           The information regarding SCM like repo, owner
+     * @param  {String}   comment           The new comment body
+     * @return {Promise}                    Resolves to object containing PR comment info
+     */
+    async editPrComment(commentId, scmInfo, comment) {
+        try {
+            const pullRequestComment = await this.breaker.runCommand({
+                action: 'updateComment',
+                scopeType: 'issues',
+                token: this.config.commentUserToken, // need to use a token with public_repo permissions
+                params: {
+                    owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    comment_id: commentId,
+                    body: comment
+                }
+            });
+
+            return pullRequestComment;
+        } catch (err) {
+            logger.error('Failed to edit PR comment: ', err);
+            throw err;
+        }
+    }
+
+    /**
      * Look up a webhook from a repo
      * @async  _findWebhook
      * @param  {Object}     config
@@ -1357,6 +1417,30 @@ class GithubScm extends Scm {
             scmUri,
             token
         });
+
+        const prComments = await this.prComments(scmInfo, prNum, token);
+
+        if (prComments) {
+            const botComment = prComments.comments.find(commentObj =>
+                commentObj.user.login === this.config.username);
+
+            if (botComment) {
+                try {
+                    const pullRequestComment = await this.editPrComment(
+                        botComment.id, scmInfo, comment);
+
+                    return {
+                        commentId: `${pullRequestComment.data.id}`,
+                        createTime: `${pullRequestComment.data.created_at}`,
+                        username: pullRequestComment.data.user.login
+                    };
+                } catch (err) {
+                    logger.error('Failed to addPRComment: ', err);
+
+                    return null;
+                }
+            }
+        }
 
         try {
             const pullRequestComment = await this.breaker.runCommand({
