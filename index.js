@@ -269,7 +269,7 @@ class GithubScm extends Scm {
 
     /**
      * Edit a particular comment in the PR
-     * @async  editPrCpmment
+     * @async  editPrComment
      * @param  {Integer}  commentId         The id of the particular comment to be edited
      * @param  {Object}   scmInfo           The information regarding SCM like repo, owner
      * @param  {String}   comment           The new comment body
@@ -292,7 +292,8 @@ class GithubScm extends Scm {
             return pullRequestComment;
         } catch (err) {
             logger.error('Failed to edit PR comment: ', err);
-            throw err;
+
+            return null;
         }
     }
 
