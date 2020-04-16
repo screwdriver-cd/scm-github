@@ -2164,7 +2164,8 @@ jobs:
                         userProfile: 'https://github.com/octocat',
                         prBranchName: 'new-topic',
                         baseBranch: 'master',
-                        mergeable: true
+                        mergeable: true,
+                        prSource: 'branch'
                     }
                 );
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
@@ -2201,7 +2202,8 @@ jobs:
                         userProfile: 'https://github.com/octocat',
                         prBranchName: 'new-topic',
                         baseBranch: 'master',
-                        mergeable: true
+                        mergeable: true,
+                        prSource: 'branch'
                     }
                 );
                 assert.notCalled(githubMock.request);
