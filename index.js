@@ -1219,7 +1219,13 @@ class GithubScm extends Scm {
                 scmContext: scmContexts[0]
             };
         }
-        case 'push':
+        case 'push': {
+            const ref = hoek.reach(webhookPayload, 'ref');
+
+            // repository tag pushed
+            if (ref.startsWith('refs/tags/')) {
+                return null;
+            }
 
             if (Array.isArray(commits)) {
                 commits.forEach((commit) => {
@@ -1240,6 +1246,7 @@ class GithubScm extends Scm {
                 scmContext: scmContexts[0],
                 ref: hoek.reach(webhookPayload, 'ref')
             };
+        }
         case 'release': {
             const action = hoek.reach(webhookPayload, 'action');
 

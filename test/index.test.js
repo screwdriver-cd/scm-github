@@ -8,6 +8,7 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
+const testPayloadPushTag = require('./data/github.push.tag.json');
 const testPayloadRelease = require('./data/github.release.json');
 const testPayloadReleaseBadAction = require('./data/github.release.badAction.json');
 const testPayloadTag = require('./data/github.tag.json');
@@ -1309,6 +1310,16 @@ jobs:
             testPayloadTag.ref_type = 'branch';
 
             return scm.parseHook(testHeaders, testPayloadTag)
+                .then((result) => {
+                    assert.isNull(result);
+                });
+        });
+
+        it('resolves null for a push repository tag event payload', () => {
+            testHeaders['x-github-event'] = 'push';
+            testHeaders['x-hub-signature'] = 'sha1=c3d5ae557c6f37a24d5887f1d642a6674d8f11fb';
+
+            return scm.parseHook(testHeaders, testPayloadPushTag)
                 .then((result) => {
                     assert.isNull(result);
                 });
