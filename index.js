@@ -1390,6 +1390,9 @@ class GithubScm extends Scm {
                     repo: scmInfo.repo
                 }
             });
+            const prSource = pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id
+                ? 'branch'
+                : 'fork';
 
             return {
                 name: `PR-${pullRequestInfo.data.number}`,
@@ -1402,7 +1405,8 @@ class GithubScm extends Scm {
                 createTime: pullRequestInfo.data.created_at,
                 userProfile: pullRequestInfo.data.user.html_url,
                 baseBranch: pullRequestInfo.data.base.ref,
-                mergeable: pullRequestInfo.data.mergeable
+                mergeable: pullRequestInfo.data.mergeable,
+                prSource
             };
         } catch (err) {
             logger.error('Failed to getPrInfo: ', err);
