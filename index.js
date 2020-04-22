@@ -1169,18 +1169,19 @@ class GithubScm extends Scm {
      */
     async _parseHook(payloadHeaders, webhookPayload) {
         const signature = payloadHeaders['x-hub-signature'];
-
-        // eslint-disable-next-line no-underscore-dangle
-        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
-            throw new Error('Invalid x-hub-signature');
-        }
-
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
         const scmContexts = this._getScmContexts();
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
+
+        // eslint-disable-next-line no-underscore-dangle
+        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
+            logger.error('Invalid x-hub-signature: %s, type: %s, checkoutUrl: %s',
+                signature, type, checkoutUrl);
+            throw new Error('Invalid x-hub-signature');
+        }
 
         switch (type) {
         case 'pull_request': {
