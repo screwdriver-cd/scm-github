@@ -1580,6 +1580,76 @@ class GithubScm extends Scm {
             throw err;
         });
     }
+
+    /**
+    * Open a pull request on the repository with given file change
+    *
+    * @method _openPr
+    * @param  {Object}     config                  Configuration
+    * @param  {String}     config.scmUri           SCM URI to open pull request on
+    * @param  {String}     config.token            Service token to authenticate with the SCM service
+    * @param  {String}     config.files            Files to open pull request with
+    * @param  {String}     config.title            Pull request title
+    * @param  {String}     config.message          Pull request message
+    * @param  {String}     [config.scmContext]     The scm context name
+    * @return {Promise}                            Resolves when operation completed without failure
+    */
+    async _openPr(config) {
+        const { scmUri, token, files, title, message } = config;
+        const branch = 'master'; // todo: default to master?
+        const SCM_URL_REGEX = /^(?:(?:https?|git):\/\/)?(?:[^@]+@)?([^/:]+)(?:\/|:)([^/]+)\/(.+?)(?:\.git)?(#.+)?$/;
+        const [, , owner, repo] = scmUri.match(SCM_URL_REGEX);
+        const newBranch = title.replace(/ /g, "_");
+
+        return this,breaker,runCommand({
+            action: 'createFork',
+            scopeType: 'repos',
+            token,
+            params: {
+                owner,
+                repo,
+                branch
+            }
+        })
+        .then(baseBranch => this.breaker.runCommand({
+            action: 'createRef',
+            scopeType: 'git',
+            token,
+            params: {
+                owner: org,
+                repo,
+                ref: `refs/heads/${newBranch}`,
+                sha: baseBranch.commit.sha
+            }
+        }))
+        .then(() => Promise.all(files.map(file =>
+            this.breaker.runCommand({
+                action: 'createOrUpdateFile',
+                scopeType: 'repos',
+                token,
+                params: {
+                    owner,
+                    repo,
+                    path: file.name,
+                    branch: newBranch,
+                    message,
+                    content: Buffer.from(file.content).toString('base64')
+                }
+            }))
+        ))
+        .then(() => this.breaker.runCommand({
+            action: 'create',
+            scopeType: 'pulls',
+            token,
+            params: {
+                owner,
+                repo,
+                title,
+                head: `${owner}:${newBranch}`,
+                base: branch
+            }
+        }));
+    }
 }
 
 module.exports = GithubScm;
