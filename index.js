@@ -8,6 +8,7 @@ const hoek = require('hoek');
 const Path = require('path');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
+const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
 const crypto = require('crypto');
 const logger = require('screwdriver-logger');
@@ -1596,8 +1597,7 @@ class GithubScm extends Scm {
     */
     async _openPr(config) {
         const { checkoutUrl, token, files, title, message } = config;
-        const SCM_URL_REGEX = /^(?:(?:https?|git):\/\/)?(?:[^@]+@)?([^/:]+)(?:\/|:)([^/]+)\/(.+?)(?:\.git)?(#.+)?$/;
-        const [, , owner, repo, branch] = checkoutUrl.match(SCM_URL_REGEX);
+        const [, , owner, repo, branch] = checkoutUrl.match(CHECKOUT_URL_REGEX);
         const newBranch = title.replace(/ /g, "_");
 
         return this.breaker.runCommand({
