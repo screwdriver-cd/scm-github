@@ -1598,7 +1598,7 @@ class GithubScm extends Scm {
     async _openPr(config) {
         const { checkoutUrl, token, files, title, message } = config;
         const [, , owner, repo, branch] = checkoutUrl.match(CHECKOUT_URL_REGEX);
-        const newBranch = title.replace(/ /g, "_");
+        const newBranch = title.replace(/ /g, '_');
 
         return this.breaker.runCommand({
             action: 'getBranch',
@@ -1610,44 +1610,44 @@ class GithubScm extends Scm {
                 branch
             }
         })
-        .then(baseBranch => this.breaker.runCommand({
-            action: 'createRef',
-            scopeType: 'git',
-            token,
-            params: {
-                owner,
-                repo,
-                ref: `refs/heads/${newBranch}`,
-                sha: baseBranch.commit.sha
-            }
-        }))
-        .then(() => Promise.all(files.map(file =>
-            this.breaker.runCommand({
-                action: 'createOrUpdateFile',
-                scopeType: 'repos',
+            .then(baseBranch => this.breaker.runCommand({
+                action: 'createRef',
+                scopeType: 'git',
                 token,
                 params: {
                     owner,
                     repo,
-                    path: file.name,
-                    branch: newBranch,
-                    message,
-                    content: Buffer.from(file.content).toString('base64')
+                    ref: `refs/heads/${newBranch}`,
+                    sha: baseBranch.commit.sha
                 }
             }))
-        ))
-        .then(() => this.breaker.runCommand({
-            action: 'create',
-            scopeType: 'pulls',
-            token,
-            params: {
-                owner,
-                repo,
-                title,
-                head: `${owner}:${newBranch}`,
-                base: branch
-            }
-        }));
+            .then(() => Promise.all(files.map(file =>
+                this.breaker.runCommand({
+                    action: 'createOrUpdateFile',
+                    scopeType: 'repos',
+                    token,
+                    params: {
+                        owner,
+                        repo,
+                        path: file.name,
+                        branch: newBranch,
+                        message,
+                        content: Buffer.from(file.content).toString('base64')
+                    }
+                }))
+            ))
+            .then(() => this.breaker.runCommand({
+                action: 'create',
+                scopeType: 'pulls',
+                token,
+                params: {
+                    owner,
+                    repo,
+                    title,
+                    head: `${owner}:${newBranch}`,
+                    base: branch
+                }
+            }));
     }
 }
 
