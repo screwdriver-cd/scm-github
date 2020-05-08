@@ -1586,7 +1586,7 @@ class GithubScm extends Scm {
     *
     * @method _openPr
     * @param  {Object}     config                  Configuration
-    * @param  {String}     config.scmUri           SCM URI to open pull request on
+    * @param  {String}     config.checkoutUrl      Checkout url to the repo
     * @param  {String}     config.token            Service token to authenticate with the SCM service
     * @param  {String}     config.files            Files to open pull request with
     * @param  {String}     config.title            Pull request title
@@ -1595,14 +1595,13 @@ class GithubScm extends Scm {
     * @return {Promise}                            Resolves when operation completed without failure
     */
     async _openPr(config) {
-        const { scmUri, token, files, title, message } = config;
-        const branch = 'master'; // todo: default to master?
+        const { checkoutUrl, token, files, title, message } = config;
         const SCM_URL_REGEX = /^(?:(?:https?|git):\/\/)?(?:[^@]+@)?([^/:]+)(?:\/|:)([^/]+)\/(.+?)(?:\.git)?(#.+)?$/;
-        const [, , owner, repo] = scmUri.match(SCM_URL_REGEX);
+        const [, , owner, repo, branch] = checkoutUrl.match(SCM_URL_REGEX);
         const newBranch = title.replace(/ /g, "_");
 
-        return this,breaker,runCommand({
-            action: 'createFork',
+        return this.breaker.runCommand({
+            action: 'getBranch',
             scopeType: 'repos',
             token,
             params: {
@@ -1616,7 +1615,7 @@ class GithubScm extends Scm {
             scopeType: 'git',
             token,
             params: {
-                owner: org,
+                owner,
                 repo,
                 ref: `refs/heads/${newBranch}`,
                 sha: baseBranch.commit.sha
