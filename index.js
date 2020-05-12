@@ -1170,17 +1170,25 @@ class GithubScm extends Scm {
     async _parseHook(payloadHeaders, webhookPayload) {
         const signature = payloadHeaders['x-hub-signature'];
 
-        // eslint-disable-next-line no-underscore-dangle
-        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
-            throw new Error('Invalid x-hub-signature');
-        }
-
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
         const scmContexts = this._getScmContexts();
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
+
+        const checkoutSshHost = this.config.gheHost
+            ? `git@${this.config.gheHost}:`
+            : 'git@github.com:';
+
+        if (!checkoutUrl.startsWith(checkoutSshHost)) {
+            return null;
+        }
+
+        // eslint-disable-next-line no-underscore-dangle
+        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
+            throw new Error('Invalid x-hub-signature');
+        }
 
         switch (type) {
         case 'pull_request': {
@@ -1502,15 +1510,8 @@ class GithubScm extends Scm {
     async _canHandleWebhook(headers, payload) {
         try {
             const result = await this._parseHook(headers, payload);
-            const checkoutSshHost = this.config.gheHost
-                ? `git@${this.config.gheHost}:`
-                : 'git@github.com:';
 
-            if (result === null) {
-                return false;
-            }
-
-            return result.checkoutUrl.startsWith(checkoutSshHost);
+            return result !== null;
         } catch (err) {
             logger.error('Failed to run canHandleWebhook', err);
 

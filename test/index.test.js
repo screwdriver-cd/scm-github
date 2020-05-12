@@ -16,6 +16,7 @@ const testPayloadPushBadHead = require('./data/github.push.badHead.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
 const testPayloadPing = require('./data/github.ping.json');
+const testPayloadPingBadSshHost = require('./data/github.ping.badSshHost.json');
 const testCommands = require('./data/commands.json');
 const testPrCommands = require('./data/prCommands.json');
 const testForkPrCommands = require('./data/forkPrCommands.json');
@@ -1380,6 +1381,15 @@ jobs:
             testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
 
             return scm.parseHook(testHeaders, testPayloadPing)
+                .then((result) => {
+                    assert.isNull(result);
+                });
+        });
+
+        it('rejects when ssh host is not valid', () => {
+            testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
+
+            return scm.parseHook(testHeaders, testPayloadPingBadSshHost)
                 .then((result) => {
                     assert.isNull(result);
                 });
