@@ -2501,7 +2501,7 @@ jobs:
         });
     });
 
-    describe.only('openPr', () => {
+    describe('openPr', () => {
         const openPrConfig = {
             checkoutUrl: 'git@github.com:screwdriver-cd/scm-github.git#master',
             token: 'thisisatoken',
@@ -2572,14 +2572,14 @@ jobs:
                     base: 'master'
                 });
                 assert.deepEqual(
-                    pr,
+                    pr.data,
                     {
                         url: 'https://api.github.com/repos/screwdriver-cd/scm-github/pulls/1347',
                         id: 1
                     }
                 );
                 done();
-            }).catch(done);
+            });
         });
 
         it('opens pull request with multiple file updates', (done) => {
@@ -2599,14 +2599,15 @@ jobs:
 
             scm.openPr(openPrConfig).then((pr) => {
                 assert.deepEqual(
-                    pr,
+                    pr.data,
                     {
                         url: 'https://api.github.com/repos/screwdriver-cd/scm-github/pulls/1347',
                         id: 1
                     }
-                );
-                done();
-            }).catch(done);
+                )
+            });
+
+            done();
         });
 
         it('throws an error when failing to get branch', () => {

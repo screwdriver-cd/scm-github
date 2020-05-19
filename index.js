@@ -1618,7 +1618,7 @@ class GithubScm extends Scm {
                     owner,
                     repo,
                     ref: `refs/heads/${newBranch}`,
-                    sha: baseBranch.commit.sha
+                    sha: baseBranch.data.commit.sha
                 }
             }))
             .then(() => Promise.all(files.map(file =>
@@ -1647,7 +1647,11 @@ class GithubScm extends Scm {
                     head: `${owner}:${newBranch}`,
                     base: branch
                 }
-            }));
+            }))
+            .catch((err) => {
+                logger.error('Failed to openPr: ', err);
+                throw err;
+            });
     }
 }
 
