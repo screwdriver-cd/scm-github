@@ -1607,7 +1607,7 @@ class GithubScm extends Scm {
             params: {
                 owner,
                 repo,
-                branch
+                branch: branch.slice(1)
             }
         })
             .then(baseBranch => this.breaker.runCommand({
@@ -1645,7 +1645,7 @@ class GithubScm extends Scm {
                     repo,
                     title,
                     head: `${owner}:${newBranch}`,
-                    base: branch
+                    base: branch.slice(1)
                 }
             }))
             .catch((err) => {
