@@ -57,12 +57,14 @@ describe('index', function () {
                 createComment: sinon.stub()
             },
             pulls: {
+                create: sinon.stub(),
                 list: sinon.stub(),
                 get: sinon.stub()
             },
             repos: {
                 createHook: sinon.stub(),
                 createStatus: sinon.stub(),
+                createOrUpdateFile: sinon.stub(),
                 updateHook: sinon.stub(),
                 get: sinon.stub(),
                 getBranch: sinon.stub(),
@@ -80,6 +82,7 @@ describe('index', function () {
             },
             git: {
                 getRef: sinon.stub(),
+                createRef: sinon.stub(),
                 getTag: sinon.stub()
             },
             request: sinon.stub(),
@@ -2493,6 +2496,156 @@ jobs:
             githubMock.repos.listBranches.rejects(testError);
 
             return scm.getBranchList(branchListConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
+        });
+    });
+
+    describe('openPr', () => {
+        const openPrConfig = {
+            checkoutUrl: 'git@github.com:screwdriver-cd/scm-github.git#master',
+            token: 'thisisatoken',
+            files: [{
+                name: 'file.txt',
+                content: 'content'
+            }],
+            title: 'update file',
+            message: 'update file'
+        };
+
+        beforeEach(() => {
+            githubMock.repos.getBranch.resolves({
+                data: {
+                    name: 'master',
+                    commit: {
+                        sha: '1234',
+                    }
+                }
+            });
+            githubMock.git.createRef.resolves({
+                data: {
+                    ref: 'refs/heads/update_file'
+                }
+            });
+            githubMock.repos.createOrUpdateFile.resolves({
+                data: {
+                    content: {
+                        name: 'file.txt',
+                        path: 'file.txt'
+                    }
+                }
+            });
+            githubMock.pulls.create.resolves({
+                data: {
+                    url: 'https://api.github.com/repos/screwdriver-cd/scm-github/pulls/1347',
+                    id: 1
+                }
+            });
+        });
+
+        it('opens pull request', (done) => {
+            scm.openPr(openPrConfig).then((pr) => {
+                assert.calledWith(githubMock.repos.getBranch, {
+                    owner: 'screwdriver-cd',
+                    repo: 'scm-github',
+                    branch: 'master'
+                });
+                assert.calledWith(githubMock.git.createRef, {
+                    owner: 'screwdriver-cd',
+                    repo: 'scm-github',
+                    ref: 'refs/heads/update_file',
+                    sha: '1234'
+                });
+                assert.calledWith(githubMock.repos.createOrUpdateFile, {
+                    owner: 'screwdriver-cd',
+                    repo: 'scm-github',
+                    path: 'file.txt',
+                    branch: 'update_file',
+                    message: 'update file',
+                    content: Buffer.from('content').toString('base64')
+                });
+                assert.calledWith(githubMock.pulls.create, {
+                    owner: 'screwdriver-cd',
+                    repo: 'scm-github',
+                    title: 'update file',
+                    head: 'screwdriver-cd:update_file',
+                    base: 'master'
+                });
+                assert.deepEqual(
+                    pr.data,
+                    {
+                        url: 'https://api.github.com/repos/screwdriver-cd/scm-github/pulls/1347',
+                        id: 1
+                    }
+                );
+                done();
+            });
+        });
+
+        it('opens pull request with multiple file updates', (done) => {
+            const openPrConfig = {
+                checkoutUrl: 'git@github.com:screwdriver-cd/scm-github.git#master',
+                token: 'thisisatoken',
+                files: [{
+                    name: 'file.txt',
+                    content: 'content'
+                }, {
+                    name: 'file2.txt',
+                    content: 'content'
+                }],
+                title: 'update file',
+                message: 'update file'
+            };
+
+            scm.openPr(openPrConfig).then((pr) => {
+                assert.deepEqual(
+                    pr.data,
+                    {
+                        url: 'https://api.github.com/repos/screwdriver-cd/scm-github/pulls/1347',
+                        id: 1
+                    }
+                )
+            });
+
+            done();
+        });
+
+        it('throws an error when failing to get branch', () => {
+            const testError = new Error('getBranchError');
+
+            githubMock.repos.getBranch.rejects(testError);
+
+            return scm.openPr(openPrConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to create Ref', () => {
+            const testError = new Error('createRefError');
+
+            githubMock.git.createRef.rejects(testError);
+
+            return scm.openPr(openPrConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to create file', () => {
+            const testError = new Error('createFileError');
+
+            githubMock.repos.createOrUpdateFile.rejects(testError);
+
+            return scm.openPr(openPrConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to open pull request', () => {
+            const testError = new Error('pullsCreateError');
+
+            githubMock.pulls.create.rejects(testError);
+
+            return scm.openPr(openPrConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });

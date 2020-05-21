@@ -8,6 +8,7 @@ const hoek = require('hoek');
 const Path = require('path');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
+const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
 const crypto = require('crypto');
 const logger = require('screwdriver-logger');
@@ -1579,6 +1580,78 @@ class GithubScm extends Scm {
             logger.error('Failed to getBranchList: ', err);
             throw err;
         });
+    }
+
+    /**
+    * Open a pull request on the repository with given file change
+    *
+    * @method _openPr
+    * @param  {Object}     config                  Configuration
+    * @param  {String}     config.checkoutUrl      Checkout url to the repo
+    * @param  {String}     config.token            Service token to authenticate with the SCM service
+    * @param  {String}     config.files            Files to open pull request with
+    * @param  {String}     config.title            Pull request title
+    * @param  {String}     config.message          Pull request message
+    * @param  {String}     [config.scmContext]     The scm context name
+    * @return {Promise}                            Resolves when operation completed without failure
+    */
+    async _openPr(config) {
+        const { checkoutUrl, token, files, title, message } = config;
+        const [, , owner, repo, branch] = checkoutUrl.match(CHECKOUT_URL_REGEX);
+        const newBranch = title.replace(/ /g, '_');
+
+        return this.breaker.runCommand({
+            action: 'getBranch',
+            scopeType: 'repos',
+            token,
+            params: {
+                owner,
+                repo,
+                branch: branch.slice(1)
+            }
+        })
+            .then(baseBranch => this.breaker.runCommand({
+                action: 'createRef',
+                scopeType: 'git',
+                token,
+                params: {
+                    owner,
+                    repo,
+                    ref: `refs/heads/${newBranch}`,
+                    sha: baseBranch.data.commit.sha
+                }
+            }))
+            .then(() => Promise.all(files.map(file =>
+                this.breaker.runCommand({
+                    action: 'createOrUpdateFile',
+                    scopeType: 'repos',
+                    token,
+                    params: {
+                        owner,
+                        repo,
+                        path: file.name,
+                        branch: newBranch,
+                        message,
+                        content: Buffer.from(file.content).toString('base64')
+                    }
+                }))
+            ))
+            .then(() => this.breaker.runCommand({
+                action: 'create',
+                scopeType: 'pulls',
+                token,
+                params: {
+                    owner,
+                    repo,
+                    title,
+                    head: `${owner}:${newBranch}`,
+                    base: branch.slice(1)
+                }
+            }))
+            .catch((err) => {
+                logger.error('Failed to openPr: ', err);
+                throw err;
+            });
     }
 }
 
