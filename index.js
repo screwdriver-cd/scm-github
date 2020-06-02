@@ -432,6 +432,13 @@ class GithubScm extends Scm {
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
         const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
+        const ghHost = config.host || 'github.com'; // URL for host to checkout from
+        const gitConfigString = `
+        Host ${ghHost}
+            StrictHostKeyChecking no
+        `; // config to permit SCM host for one time SSH connect
+        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+
         const command = [];
 
         command.push("export SD_GIT_WRAPPER=\"$(if [ `uname` = 'Darwin' ]; " +
@@ -448,6 +455,17 @@ class GithubScm extends Scm {
         command.push('export GIT_URL=$SCM_URL.git');
         // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
         command.push('export GIT_MERGE_AUTOEDIT=no');
+
+        // Configure git to use SSH based checkout
+        // 1. Check for presence of deploy keys and clone type
+        // 2. Store the deploy private key to /tmp/git_key
+        // 3. Give it the necessary permissions and set env var to instruct git to use the key
+        // 4. Add SCM host as a known host by adding config to ~/.ssh/config
+        command.push('if [ ! -z $DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+        'then ' +
+        'echo $DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
+        'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
+        `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d > ~/.ssh/config; fi`);
 
         // Set config
         command.push('echo Setting user name and user email');
