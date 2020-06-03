@@ -4,13 +4,13 @@
 
 const Breaker = require('circuit-fuses').breaker;
 const Octokit = require('@octokit/rest');
+const { verify } = require('@octokit/webhooks');
 const hoek = require('hoek');
 const Path = require('path');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
-const crypto = require('crypto');
 const logger = require('screwdriver-logger');
 const DEFAULT_AUTHOR = {
     avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
@@ -1088,27 +1088,6 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Check validity of Github webhook event signature
-     * @method  _checkSignature
-     * @param   {String}    secret      The secret used to sign the payload
-     * @param   {String}    payload     The payload of the webhook event
-     * @param   {String}    signature   The signature of the webhook event
-     * @returns {boolean}
-     */
-    _checkSignature(secret, payload, signature) {
-        const hmac = crypto.createHmac('sha1', secret);
-
-        hmac.setEncoding('hex');
-        hmac.write(JSON.stringify(payload), 'utf-8');
-        hmac.end();
-
-        const sha = hmac.read();
-        const hash = `sha1=${sha}`;
-
-        return hash === signature;
-    }
-
-    /**
      * Get the changed files from a Github event
      * @async  _getChangedFiles
      * @param  {Object}   config
@@ -1187,7 +1166,7 @@ class GithubScm extends Scm {
         }
 
         // eslint-disable-next-line no-underscore-dangle
-        if (!this._checkSignature(this.config.secret, webhookPayload, signature)) {
+        if (!verify(this.config.secret, webhookPayload, signature)) {
             throw new Error('Invalid x-hub-signature');
         }
 
