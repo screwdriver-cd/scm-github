@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@octokit/rest": "~16.33",
+    "@octokit/webhooks": "~7.6.2",
     "circuit-fuses": "^4.0.4",
     "hoek": "^6.1.2",
     "joi": "^13.7.0",
