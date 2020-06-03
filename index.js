@@ -461,9 +461,9 @@ class GithubScm extends Scm {
         // 2. Store the deploy private key to /tmp/git_key
         // 3. Give it the necessary permissions and set env var to instruct git to use the key
         // 4. Add SCM host as a known host by adding config to ~/.ssh/config
-        command.push('if [ ! -z $DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
         'then ' +
-        'echo $DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
+        'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
         'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
         `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d > ~/.ssh/config; fi`);
 
