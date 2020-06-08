@@ -914,7 +914,7 @@ class GithubScm extends Scm {
 
             if (err.status === 404) {
                 // Returns a empty file if there are no screwdriver.yaml
-                return Buffer.from([]);
+                return '';
             }
 
             throw err;
