@@ -913,7 +913,7 @@ class GithubScm extends Scm {
             logger.error('Failed to getFile: ', err);
 
             if (err.status === 404) {
-                // Returns a empty file if there are no screwdriver.yaml
+                // Returns an empty file if there is no screwdriver.yaml
                 return '';
             }
 
