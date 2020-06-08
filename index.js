@@ -911,6 +911,12 @@ class GithubScm extends Scm {
             return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
             logger.error('Failed to getFile: ', err);
+
+            if (err.status === 404) {
+                // Returns a empty file if there are no screwdriver.yaml
+                return Buffer.from([]);
+            }
+
             throw err;
         }
     }
