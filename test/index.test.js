@@ -1073,30 +1073,6 @@ jobs:
                 });
         });
 
-        it('returns an error when github command fails', () => {
-            const err = new Error('githubError');
-
-            err.status = 403;
-
-            githubMock.repos.getContents.rejects(err);
-
-            return scm.getFile(config)
-                .then(() => {
-                    assert.fail('This should not fail the test');
-                })
-                .catch((error) => {
-                    assert.calledWith(githubMock.repos.getContents, {
-                        owner: 'screwdriver-cd',
-                        repo: 'models',
-                        path: config.path,
-                        ref: config.ref
-                    });
-
-                    assert.deepEqual(error, err);
-                    assert.strictEqual(scm.breaker.getTotalRequests(), 2);
-                });
-        });
-
         it('returns error when path is not a file', () => {
             const expectedErrorMessage = 'Path (screwdriver.yaml) does not point to file';
 
