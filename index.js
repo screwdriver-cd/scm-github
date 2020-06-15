@@ -1164,10 +1164,10 @@ class GithubScm extends Scm {
         const commits = hoek.reach(webhookPayload, 'commits');
 
         const checkoutSshHost = this.config.gheHost
-            ? `git@${this.config.gheHost}:`
-            : 'git@github.com:';
+            ? this.config.gheHost : 'github.com';
+        const checkoutUrlArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
-        if (!checkoutUrl.startsWith(checkoutSshHost)) {
+        if (!checkoutUrlArray || checkoutUrlArray[1] !== checkoutSshHost) {
             return null;
         }
 
