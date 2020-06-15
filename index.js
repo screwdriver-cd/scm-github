@@ -1168,6 +1168,7 @@ class GithubScm extends Scm {
         const checkoutUrlArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
         if (!checkoutUrlArray || checkoutUrlArray[1] !== checkoutSshHost) {
+            logger.info('Incorrect checkout SshHost');
             return null;
         }
 
