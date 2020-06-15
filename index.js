@@ -1165,10 +1165,11 @@ class GithubScm extends Scm {
 
         const checkoutSshHost = this.config.gheHost
             ? this.config.gheHost : 'github.com';
-        const checkoutUrlArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
+        const regexMatchArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
-        if (!checkoutUrlArray || checkoutUrlArray[1] !== checkoutSshHost) {
-            logger.info('Incorrect checkout SshHost');
+        if (!regexMatchArray || regexMatchArray[1] !== checkoutSshHost) {
+            logger.info(`Incorrect checkout SshHost: ${checkoutUrl}`);
+
             return null;
         }
 
