@@ -315,17 +315,10 @@ class GithubScm extends Scm {
      */
     async generateDeployKey() {
         return new Promise((resolve, reject) => {
-<<<<<<< HEAD
             const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
             const comment = this.config.email;
             const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
             const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
-=======
-            const location = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
-            const comment = this.config.email;
-            const password = ''; // Passphrase left empty
-            const format = 'PEM'; // default is RFC4716
->>>>>>> 4aabb24... feat(scm-github): Add key pair generation method and push pub key to scm
 
             keygen({
                 location,
@@ -333,7 +326,6 @@ class GithubScm extends Scm {
                 password,
                 read: true,
                 format
-<<<<<<< HEAD
             }, (err, keyPair) => {
                 if (err) {
                     logger.error('Failed to create keys: ', err);
@@ -342,14 +334,6 @@ class GithubScm extends Scm {
                 }
 
                 return resolve(keyPair);
-=======
-            }, (err, out) => {
-                if (err) {
-                    logger.error('Failed to create keys: ', err);
-                    reject(err);
-                }
-                resolve(out);
->>>>>>> 4aabb24... feat(scm-github): Add key pair generation method and push pub key to scm
             });
         });
     }
@@ -386,6 +370,15 @@ class GithubScm extends Scm {
             logger.error('Failed to add token: ', err);
             throw err;
         }
+    }
+
+    /**
+     * Returns whether auto deploy key generation is enabled or not
+     * @async  _autoDeployKeyGenerationEnabled
+     * @return {Boolean}                        Resolves to the private key string
+     */
+    async _autoDeployKeyGenerationEnabled() {
+        return this.config.autoDeployKeyGeneration;
     }
 
     /**
