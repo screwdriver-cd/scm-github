@@ -46,8 +46,9 @@
     "hoek": "^6.1.2",
     "joi": "^13.7.0",
     "screwdriver-data-schema": "^19.1.1",
+    "screwdriver-logger": "^1.0.0",
     "screwdriver-scm-base": "^6.0.0",
-    "screwdriver-logger": "^1.0.0"
+    "ssh-keygen": "^0.5.0"
   },
   "release": {
     "debug": false,
