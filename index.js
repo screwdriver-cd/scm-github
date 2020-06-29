@@ -7,6 +7,7 @@ const Octokit = require('@octokit/rest');
 const hoek = require('hoek');
 const Path = require('path');
 const joi = require('joi');
+const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
@@ -295,6 +296,62 @@ class GithubScm extends Scm {
             logger.error('Failed to edit PR comment: ', err);
 
             return null;
+        }
+    }
+
+    /**
+     * Generate a deploy private and public key pair
+     * @async  generateDeployKey
+     * @return {Promise}                    Resolves to object containing the public and private key pair
+     */
+    async generateDeployKey() {
+        return new Promise((resolve, reject) => {
+            const location = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
+            const comment = this.config.email;
+            const password = ''; // Passphrase left empty
+            const format = 'PEM'; // default is RFC4716
+
+            keygen({
+                location,
+                comment,
+                password,
+                read: true,
+                format
+            }, (err, out) => {
+                if (err) {
+                    logger.error('Failed to create keys: ', err);
+                    reject(err);
+                }
+                resolve(out);
+            });
+        });
+    }
+
+    /**
+     * Adds deploy public key to the github repo and returns the private key
+     * @async  _addDeployKey
+     * @param  {Object}     config
+     * @param  {Object}     config.token        Admin token for repo
+     * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
+     * @return {Promise}                        Resolves to the private key string
+     */
+    async _addDeployKey(config) {
+        const { token, checkoutUrl } = config;
+        const scmInfo = getInfo(checkoutUrl);
+        const keys = await this.generateDeployKey();
+
+        try {
+            await this.breaker.runCommand({
+                scopeType: 'request',
+                route: `POST /repos/${scmInfo.owner}/${scmInfo.repo}/keys`,
+                token,
+                params: { title: 'sd@screwdriver.cd', key: keys.pubKey, read_only: true }
+            });
+
+            return keys.key;
+        } catch (err) {
+            logger.error('Failed to add token: ', err);
+            throw err;
         }
     }
 
