@@ -240,7 +240,7 @@ describe('index', function () {
                 });
         });
 
-        it('promises to get the checkout command for a repo manfiest file', () => {
+        it('promises to get the checkout command for a repo manifest file', () => {
             config.manifest = 'git@github.com:org/repo.git/default.xml';
 
             return scm.getCheckoutCommand(config)

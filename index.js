@@ -574,6 +574,7 @@ class GithubScm extends Scm {
             command.push(`echo 'Fetching PR and merging with ${branch}'`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
 
+            command.push(`export PR_BASE_BRANCH_NAME='${branch}'`);
             command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
 
             // Merge a pull request with pipeline branch
