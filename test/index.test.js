@@ -1197,7 +1197,23 @@ jobs:
                 scmUri: 'github.com:28476:master',
                 prNum: 1
             }, 0).then((result) => {
-                assert.deepEqual(result, { success: true, mergeable: true });
+                assert.deepEqual(result, {
+                    success: true,
+                    pullRequestInfo: {
+                        baseBranch: 'master',
+                        createTime: '2011-01-26T19:01:12Z',
+                        mergeable: true,
+                        name: 'PR-1',
+                        prBranchName: 'new-topic',
+                        prSource: 'branch',
+                        ref: 'pull/1/merge',
+                        sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                        title: 'new-feature',
+                        url: 'https://github.com/octocat/Hello-World/pull/1',
+                        userProfile: 'https://github.com/octocat',
+                        username: 'octocat'
+                    }
+                });
             });
         });
 
@@ -1211,7 +1227,23 @@ jobs:
                 scmUri: 'github.com:28476:master',
                 prNum: 1
             }, 0).then((result) => {
-                assert.deepEqual(result, { success: true, mergeable: true });
+                assert.deepEqual(result, {
+                    success: true,
+                    pullRequestInfo: {
+                        baseBranch: 'master',
+                        createTime: '2011-01-26T19:01:12Z',
+                        mergeable: true,
+                        name: 'PR-1',
+                        prBranchName: 'new-topic',
+                        prSource: 'branch',
+                        ref: 'pull/1/merge',
+                        sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                        title: 'new-feature',
+                        url: 'https://github.com/octocat/Hello-World/pull/1',
+                        userProfile: 'https://github.com/octocat',
+                        username: 'octocat'
+                    }
+                });
             });
         });
 
@@ -1224,7 +1256,23 @@ jobs:
                 scmUri: 'github.com:28476:master',
                 prNum: 1
             }, 0).then((result) => {
-                assert.deepEqual(result, { success: false });
+                assert.deepEqual(result, {
+                    success: false,
+                    pullRequestInfo: {
+                        baseBranch: 'master',
+                        createTime: '2011-01-26T19:01:12Z',
+                        mergeable: null,
+                        name: 'PR-1',
+                        prBranchName: 'new-topic',
+                        prSource: 'branch',
+                        ref: 'pull/1/merge',
+                        sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                        title: 'new-feature',
+                        url: 'https://github.com/octocat/Hello-World/pull/1',
+                        userProfile: 'https://github.com/octocat',
+                        username: 'octocat'
+                    }
+                });
             });
         });
     });
