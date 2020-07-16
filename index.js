@@ -124,6 +124,7 @@ class GithubScm extends Scm {
             username: joi.string().optional().default('sd-buildbot'),
             email: joi.string().optional().default('dev-null@screwdriver.cd'),
             commentUserToken: joi.string().optional().description('Token for PR comments'),
+            autoDeployKeyGeneration: joi.boolean().optional().default(false),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -317,12 +318,14 @@ class GithubScm extends Scm {
                 password,
                 read: true,
                 format
-            }, (err, out) => {
+            }, (err, keyPair) => {
                 if (err) {
                     logger.error('Failed to create keys: ', err);
-                    reject(err);
+
+                    return reject(err);
                 }
-                resolve(out);
+
+                return resolve(keyPair);
             });
         });
     }
@@ -342,10 +345,14 @@ class GithubScm extends Scm {
 
         try {
             await this.breaker.runCommand({
-                scopeType: 'request',
-                route: `POST /repos/${scmInfo.owner}/${scmInfo.repo}/keys`,
+                action: 'createDeployKey',
+                scopeType: 'repos',
                 token,
-                params: { title: 'sd@screwdriver.cd', key: keys.pubKey, read_only: true }
+                params: { owner: scmInfo.owner,
+                    repo: scmInfo.repo,
+                    title: 'sd@screwdriver.cd',
+                    key: keys.pubKey,
+                    read_only: true }
             });
 
             return keys.key;
@@ -353,6 +360,15 @@ class GithubScm extends Scm {
             logger.error('Failed to add token: ', err);
             throw err;
         }
+    }
+
+    /**
+     * Adds deploy public key to the github repo and returns the private key
+     * @async  _checkAutoDeployKeyGeneration
+     * @return {Boolean}                        Resolves to the private key string
+     */
+    async _checkAutoDeployKeyGeneration() {
+        return this.config.autoDeployKeyGeneration;
     }
 
     /**
