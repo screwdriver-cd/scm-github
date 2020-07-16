@@ -206,7 +206,7 @@ class GithubScm extends Scm {
 
     /**
      * Wait computing mergeability
-     * @async  getPrMergeable
+     * @async  waitPrMergeable
      * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
@@ -216,18 +216,18 @@ class GithubScm extends Scm {
      *                                      The parameter of success exists for testing
      */
     async waitPrMergeability({ scmUri, token, prNum }, count) {
-        if (count >= POLLING_MAX_ATTEMPT) {
-            logger.warn('Computing mergerbility did not finish. '
-                + `scmUri: ${scmUri}, prNum: ${prNum}`);
-
-            return { success: false };
-        }
         try {
-            const { mergeable } = await this.getPrInfo({ scmUri, token, prNum });
+            const pullRequestInfo = await this.getPrInfo({ scmUri, token, prNum });
 
-            if (mergeable) {
-                return { success: true, mergeable };
+            if (pullRequestInfo.mergeable) {
+                return { success: true, pullRequestInfo };
+            } else if (count >= POLLING_MAX_ATTEMPT - 1) {
+                logger.warn('Computing mergerbility did not finish. '
+                    + `scmUri: ${scmUri}, prNum: ${prNum}`);
+
+                return { success: false, pullRequestInfo };
             }
+
             await this.promiseToWait(POLLING_INTERVAL);
         } catch (err) {
             logger.error('Failed to getPrInfo: ', err);
@@ -737,7 +737,9 @@ class GithubScm extends Scm {
      */
     async _getCommitSha(config) {
         if (config.prNum) {
-            return this._getPrInfo(config).then(pr => pr.sha);
+            const { pullRequestInfo } = await this.waitPrMergeability(config, 0);
+
+            return pullRequestInfo.sha;
         }
 
         const lookupConfig = {
