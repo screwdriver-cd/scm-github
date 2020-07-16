@@ -373,15 +373,6 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Returns whether auto deploy key generation is enabled or not
-     * @async  _autoDeployKeyGenerationEnabled
-     * @return {Boolean}                        Resolves to the private key string
-     */
-    async _autoDeployKeyGenerationEnabled() {
-        return this.config.autoDeployKeyGeneration;
-    }
-
-    /**
      * Look up a webhook from a repo
      * @async  _findWebhook
      * @param  {Object}     config
