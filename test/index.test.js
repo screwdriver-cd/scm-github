@@ -29,7 +29,6 @@ const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
 const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
-const { describe } = require('joi');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -73,7 +72,8 @@ describe('index', function () {
                 getCommitRefSha: sinon.stub(),
                 getContents: sinon.stub(),
                 listHooks: sinon.stub(),
-                listBranches: sinon.stub()
+                listBranches: sinon.stub(),
+                createDeployKey: sinon.stub()
             },
             users: {
                 getByUsername: sinon.stub()
@@ -1873,9 +1873,45 @@ jobs:
         it('returns a public and private key pair object', () => {
             scm.generateDeployKey().then((keys) => {
                 assert.isObject(keys);
-                assert.hasAllKeys(keys, ['key', 'pubKey']);
+                assert.property(keys, 'pubKey');
+                assert.property(keys, 'key');
             });
         });
+    });
+
+    describe('addDeployKey', () => {
+        const addDepKeyConfig = {
+            checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+            token: 'token'
+        };
+        const pubKey = 'public_key';
+        const privKey = 'private_Key';
+        let generateDeployKeyStub;
+
+        beforeEach(() => {
+            generateDeployKeyStub = sinon.stub(scm, 'generateDeployKey');
+        });
+
+        afterEach(() => {
+            generateDeployKeyStub.restore();
+        });
+
+        it('returns a private key', async () => {
+            generateDeployKeyStub.returns(Promise.resolve({ pubKey, key: privKey }));
+            githubMock.repos.createDeployKey.resolves({ data: pubKey });
+            const privateKey = await scm.addDeployKey(addDepKeyConfig);
+
+            assert.isString(privateKey);
+            assert.deepEqual(privateKey, privKey);
+        });
+    });
+
+    describe('checkAutoDeployKeyGeneration', () => {
+        it('returns a boolean check', () =>
+            scm.checkAutoDeployKeyGeneration().then((check) => {
+                assert.isBoolean(check);
+            })
+        );
     });
 
     describe('getBellConfiguration', () => {
