@@ -29,7 +29,6 @@ const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
 const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
-const { describe } = require('joi');
 
 sinon.assert.expose(assert, {
     prefix: ''
