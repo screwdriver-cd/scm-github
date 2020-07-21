@@ -24,6 +24,7 @@ const MATCH_COMPONENT_USER_NAME = 2;
 const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
 const BRANCH_PAGE_SIZE = 100;
+const PR_FILES_PAGE_SIZE = 100;
 const POLLING_INTERVAL = 0.2;
 const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
@@ -1120,7 +1121,8 @@ class GithubScm extends Scm {
                     params: {
                         owner: scmInfo.owner,
                         repo: scmInfo.repo,
-                        number: prNum
+                        number: prNum,
+                        per_page: PR_FILES_PAGE_SIZE
                     }
                 });
 
