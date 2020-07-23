@@ -1906,9 +1906,9 @@ jobs:
         });
     });
 
-    describe('checkAutoDeployKeyGeneration', () => {
+    describe('autoDeployKeyGenerationEnabled', () => {
         it('returns a boolean check', () =>
-            scm.checkAutoDeployKeyGeneration().then((check) => {
+            scm.autoDeployKeyGenerationEnabled().then((check) => {
                 assert.isBoolean(check);
             })
         );

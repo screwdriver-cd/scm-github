@@ -42,6 +42,10 @@ const DESCRIPTION_MAP = {
 const PERMITTED_RELEASE_EVENT = [
     'published'
 ];
+const DEPLOY_KEYS_FILE = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
+const DEPLOY_KEYS_FORMAT = 'PEM'; // Default is RFC4716
+const DEPLOY_KEYS_PASSWORD = ''; // Password left empty
+const DEPLOY_KEY_TITLE = 'sd@screwdriver.cd';
 
 /**
  * Get repo information
@@ -307,10 +311,10 @@ class GithubScm extends Scm {
      */
     async generateDeployKey() {
         return new Promise((resolve, reject) => {
-            const location = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
+            const location = DEPLOY_KEYS_FILE;
             const comment = this.config.email;
-            const password = ''; // Passphrase left empty
-            const format = 'PEM'; // default is RFC4716
+            const password = DEPLOY_KEYS_PASSWORD;
+            const format = DEPLOY_KEYS_FORMAT;
 
             keygen({
                 location,
@@ -350,7 +354,7 @@ class GithubScm extends Scm {
                 token,
                 params: { owner: scmInfo.owner,
                     repo: scmInfo.repo,
-                    title: 'sd@screwdriver.cd',
+                    title: DEPLOY_KEY_TITLE,
                     key: keys.pubKey,
                     read_only: true }
             });
@@ -363,11 +367,11 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Adds deploy public key to the github repo and returns the private key
-     * @async  _checkAutoDeployKeyGeneration
+     * Returns whether auto deploy key generation is enabled or not
+     * @async  _autoDeployKeyGenerationEnabled
      * @return {Boolean}                        Resolves to the private key string
      */
-    async _checkAutoDeployKeyGeneration() {
+    async _autoDeployKeyGenerationEnabled() {
         return this.config.autoDeployKeyGeneration;
     }
 
