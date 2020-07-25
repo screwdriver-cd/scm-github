@@ -42,10 +42,13 @@ const DESCRIPTION_MAP = {
 const PERMITTED_RELEASE_EVENT = [
     'published'
 ];
-const DEPLOY_KEYS_FILE = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
-const DEPLOY_KEYS_FORMAT = 'PEM'; // Default is RFC4716
-const DEPLOY_KEYS_PASSWORD = ''; // Password left empty
-const DEPLOY_KEY_TITLE = 'sd@screwdriver.cd';
+
+const DEPLOY_KEY_GENERATOR_CONFIG = {
+    DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
+    DEPLOY_KEYS_FORMAT: 'PEM',
+    DEPLOY_KEYS_PASSWORD: '',
+    DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
+};
 
 /**
  * Get repo information
@@ -311,10 +314,10 @@ class GithubScm extends Scm {
      */
     async generateDeployKey() {
         return new Promise((resolve, reject) => {
-            const location = DEPLOY_KEYS_FILE;
+            const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
             const comment = this.config.email;
-            const password = DEPLOY_KEYS_PASSWORD;
-            const format = DEPLOY_KEYS_FORMAT;
+            const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
+            const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
 
             keygen({
                 location,
@@ -344,22 +347,24 @@ class GithubScm extends Scm {
      */
     async _addDeployKey(config) {
         const { token, checkoutUrl } = config;
-        const scmInfo = getInfo(checkoutUrl);
-        const keys = await this.generateDeployKey();
+        const { owner, repo } = getInfo(checkoutUrl);
+        const { pubKey, key } = await this.generateDeployKey();
 
         try {
             await this.breaker.runCommand({
                 action: 'createDeployKey',
                 scopeType: 'repos',
                 token,
-                params: { owner: scmInfo.owner,
-                    repo: scmInfo.repo,
-                    title: DEPLOY_KEY_TITLE,
-                    key: keys.pubKey,
-                    read_only: true }
+                params: {
+                    owner,
+                    repo,
+                    title: DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEY_TITLE,
+                    key: pubKey,
+                    read_only: true
+                }
             });
 
-            return keys.key;
+            return key;
         } catch (err) {
             logger.error('Failed to add token: ', err);
             throw err;
