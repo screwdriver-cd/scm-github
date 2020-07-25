@@ -43,10 +43,6 @@ const DESCRIPTION_MAP = {
 const PERMITTED_RELEASE_EVENT = [
     'published'
 ];
-const DEPLOY_KEYS_FILE = `${__dirname}/keys_rsa`; // Directory where keys will be stored temporarily
-const DEPLOY_KEYS_FORMAT = 'PEM'; // Default is RFC4716
-const DEPLOY_KEYS_PASSWORD = ''; // Password left empty
-const DEPLOY_KEY_TITLE = 'sd@screwdriver.cd';
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
@@ -319,17 +315,10 @@ class GithubScm extends Scm {
      */
     async generateDeployKey() {
         return new Promise((resolve, reject) => {
-<<<<<<< HEAD
             const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
             const comment = this.config.email;
             const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
             const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
-=======
-            const location = DEPLOY_KEYS_FILE;
-            const comment = this.config.email;
-            const password = DEPLOY_KEYS_PASSWORD;
-            const format = DEPLOY_KEYS_FORMAT;
->>>>>>> eeba5c0... refactor(): change function names and localize constants
 
             keygen({
                 location,
