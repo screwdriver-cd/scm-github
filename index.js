@@ -465,7 +465,7 @@ class GithubScm extends Scm {
         'then ' +
         'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
         'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
-        `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d > ~/.ssh/config; fi`);
+        `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`);
 
         // Set config
         command.push('echo Setting user name and user email');
