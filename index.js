@@ -5,7 +5,7 @@
 const Breaker = require('circuit-fuses').breaker;
 const Octokit = require('@octokit/rest');
 const { verify } = require('@octokit/webhooks');
-const hoek = require('hoek');
+const hoek = require('@hapi/hoek');
 const Path = require('path');
 const joi = require('joi');
 const schema = require('screwdriver-data-schema');
