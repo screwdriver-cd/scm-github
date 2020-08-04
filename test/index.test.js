@@ -72,7 +72,8 @@ describe('index', function () {
                 getCommitRefSha: sinon.stub(),
                 getContents: sinon.stub(),
                 listHooks: sinon.stub(),
-                listBranches: sinon.stub()
+                listBranches: sinon.stub(),
+                createDeployKey: sinon.stub()
             },
             users: {
                 getByUsername: sinon.stub()
@@ -1914,6 +1915,51 @@ jobs:
                 );
             });
         });
+    });
+
+    describe('generateDeployKey', () => {
+        it('returns a public and private key pair object', () => {
+            scm.generateDeployKey().then((keys) => {
+                assert.isObject(keys);
+                assert.property(keys, 'pubKey');
+                assert.property(keys, 'key');
+            });
+        });
+    });
+
+    describe('addDeployKey', () => {
+        const addDepKeyConfig = {
+            checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+            token: 'token'
+        };
+        const pubKey = 'public_key';
+        const privKey = 'private_Key';
+        let generateDeployKeyStub;
+
+        beforeEach(() => {
+            generateDeployKeyStub = sinon.stub(scm, 'generateDeployKey');
+        });
+
+        afterEach(() => {
+            generateDeployKeyStub.restore();
+        });
+
+        it('returns a private key', async () => {
+            generateDeployKeyStub.returns(Promise.resolve({ pubKey, key: privKey }));
+            githubMock.repos.createDeployKey.resolves({ data: pubKey });
+            const privateKey = await scm.addDeployKey(addDepKeyConfig);
+
+            assert.isString(privateKey);
+            assert.deepEqual(privateKey, privKey);
+        });
+    });
+
+    describe('autoDeployKeyGenerationEnabled', () => {
+        it('returns a boolean check', () =>
+            scm.autoDeployKeyGenerationEnabled().then((check) => {
+                assert.isBoolean(check);
+            })
+        );
     });
 
     describe('getBellConfiguration', () => {

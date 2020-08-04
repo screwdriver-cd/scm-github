@@ -8,6 +8,7 @@ const { verify } = require('@octokit/webhooks');
 const hoek = require('hoek');
 const Path = require('path');
 const joi = require('joi');
+const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
@@ -42,6 +43,13 @@ const DESCRIPTION_MAP = {
 const PERMITTED_RELEASE_EVENT = [
     'published'
 ];
+
+const DEPLOY_KEY_GENERATOR_CONFIG = {
+    DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
+    DEPLOY_KEYS_FORMAT: 'PEM',
+    DEPLOY_KEYS_PASSWORD: '',
+    DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
+};
 
 /**
  * Get repo information
@@ -124,6 +132,7 @@ class GithubScm extends Scm {
             username: joi.string().optional().default('sd-buildbot'),
             email: joi.string().optional().default('dev-null@screwdriver.cd'),
             commentUserToken: joi.string().optional().description('Token for PR comments'),
+            autoDeployKeyGeneration: joi.boolean().optional().default(false),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -297,6 +306,79 @@ class GithubScm extends Scm {
 
             return null;
         }
+    }
+
+    /**
+     * Generate a deploy private and public key pair
+     * @async  generateDeployKey
+     * @return {Promise}                    Resolves to object containing the public and private key pair
+     */
+    async generateDeployKey() {
+        return new Promise((resolve, reject) => {
+            const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
+            const comment = this.config.email;
+            const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
+            const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
+
+            keygen({
+                location,
+                comment,
+                password,
+                read: true,
+                format
+            }, (err, keyPair) => {
+                if (err) {
+                    logger.error('Failed to create keys: ', err);
+
+                    return reject(err);
+                }
+
+                return resolve(keyPair);
+            });
+        });
+    }
+
+    /**
+     * Adds deploy public key to the github repo and returns the private key
+     * @async  _addDeployKey
+     * @param  {Object}     config
+     * @param  {Object}     config.token        Admin token for repo
+     * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
+     * @return {Promise}                        Resolves to the private key string
+     */
+    async _addDeployKey(config) {
+        const { token, checkoutUrl } = config;
+        const { owner, repo } = getInfo(checkoutUrl);
+        const { pubKey, key } = await this.generateDeployKey();
+
+        try {
+            await this.breaker.runCommand({
+                action: 'createDeployKey',
+                scopeType: 'repos',
+                token,
+                params: {
+                    owner,
+                    repo,
+                    title: DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEY_TITLE,
+                    key: pubKey,
+                    read_only: true
+                }
+            });
+
+            return key;
+        } catch (err) {
+            logger.error('Failed to add token: ', err);
+            throw err;
+        }
+    }
+
+    /**
+     * Returns whether auto deploy key generation is enabled or not
+     * @async  _autoDeployKeyGenerationEnabled
+     * @return {Boolean}                        Resolves to the private key string
+     */
+    async _autoDeployKeyGenerationEnabled() {
+        return this.config.autoDeployKeyGeneration;
     }
 
     /**
