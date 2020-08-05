@@ -1954,14 +1954,6 @@ jobs:
         });
     });
 
-    describe('autoDeployKeyGenerationEnabled', () => {
-        it('returns a boolean check', () =>
-            scm.autoDeployKeyGenerationEnabled().then((check) => {
-                assert.isBoolean(check);
-            })
-        );
-    });
-
     describe('getBellConfiguration', () => {
         it('returns a default configuration', () => (
             scm.getBellConfiguration().then((config) => {
