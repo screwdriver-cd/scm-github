@@ -72,8 +72,7 @@ describe('index', function () {
                 getCommitRefSha: sinon.stub(),
                 getContents: sinon.stub(),
                 listHooks: sinon.stub(),
-                listBranches: sinon.stub(),
-                createDeployKey: sinon.stub()
+                listBranches: sinon.stub()
             },
             users: {
                 getByUsername: sinon.stub()
@@ -1946,7 +1945,7 @@ jobs:
 
         it('returns a private key', async () => {
             generateDeployKeyStub.returns(Promise.resolve({ pubKey, key: privKey }));
-            githubMock.repos.createDeployKey.resolves({ data: pubKey });
+            githubMock.request.resolves({ data: pubKey });
             const privateKey = await scm.addDeployKey(addDepKeyConfig);
 
             assert.isString(privateKey);
