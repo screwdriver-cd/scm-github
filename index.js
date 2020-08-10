@@ -353,12 +353,10 @@ class GithubScm extends Scm {
 
         try {
             await this.breaker.runCommand({
-                action: 'createDeployKey',
-                scopeType: 'repos',
+                scopeType: 'request',
+                route: `POST /repos/${owner}/${repo}/keys`,
                 token,
                 params: {
-                    owner,
-                    repo,
                     title: DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEY_TITLE,
                     key: pubKey,
                     read_only: true
