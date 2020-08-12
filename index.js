@@ -517,6 +517,9 @@ class GithubScm extends Scm {
             "then echo 'eval'; " +
             "else echo 'sd-step exec core/git'; fi)\"");
 
+        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; ' +
+            'then export SCM_CLONE_TYPE=ssh; fi');
+
         // Export environment variables
         command.push('echo Exporting environment variables');
         command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
