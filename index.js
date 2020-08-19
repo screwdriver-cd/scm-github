@@ -65,13 +65,13 @@ function getInfo(scmUrl) {
         throw new Error(`Invalid scmUrl: ${scmUrl}`);
     }
 
-    const branch = matched[MATCH_COMPONENT_BRANCH_NAME] || '#master';
+    const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
 
     return {
         owner: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
         host: matched[MATCH_COMPONENT_HOST_NAME],
-        branch: branch.slice(1)
+        branch: branch ? branch.slice(1) : undefined
     };
 }
 
@@ -169,11 +169,13 @@ class GithubScm extends Scm {
         const [scmHost, scmId, scmBranch, rootDir] = scmUri.split(':');
 
         let repoFullName;
+        let defaultBranch;
 
         if (scmRepo) {
             repoFullName = scmRepo.name;
         } else {
             try {
+                // https://github.com/octokit/rest.js/issues/163
                 const repo = await this.breaker.runCommand({
                     scopeType: 'request',
                     route: 'GET /repositories/:id',
@@ -182,6 +184,7 @@ class GithubScm extends Scm {
                 });
 
                 repoFullName = repo.data.full_name;
+                defaultBranch = repo.data.default_branch;
             } catch (err) {
                 logger.error('Failed to lookupScmUri: ', err);
                 throw err;
@@ -191,7 +194,7 @@ class GithubScm extends Scm {
         const [repoOwner, repoName] = repoFullName.split('/');
 
         return {
-            branch: scmBranch,
+            branch: scmBranch || defaultBranch,
             host: scmHost,
             repo: repoName,
             owner: repoOwner,
@@ -1033,14 +1036,14 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get id of a specific repo
-     * @async  _getRepoId
+     * Get repo id and default branch of specific repo
+     * @async  _getRepoInfo
      * @param  {Object}   scmInfo               The result of getScmInfo
      * @param  {String}   token                 The token used to authenticate to the SCM
      * @param  {String}   checkoutUrl           The checkoutUrl to parse
-     * @return {Promise}                        Resolves to the id of the repo
+     * @return {Promise}                        Resolves an object with repo id and default branch
      */
-    async _getRepoId(scmInfo, token, checkoutUrl) {
+    async _getRepoInfo(scmInfo, token, checkoutUrl) {
         try {
             const repo = await this.breaker.runCommand({
                 action: 'get',
@@ -1048,7 +1051,7 @@ class GithubScm extends Scm {
                 params: scmInfo
             });
 
-            return repo.data.id;
+            return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
         } catch (err) {
             if (err.status === 404) {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
@@ -1159,7 +1162,7 @@ class GithubScm extends Scm {
     /**
      * Decorate a given SCM URI with additional data to better display
      * related information. If a branch suffix is not provided, it will default
-     * to the master branch
+     * to the default branch
      * @async  _decorateUrl
      * @param  {Config}    config
      * @param  {String}    config.scmUri        The SCM URI the commit belongs to
@@ -1373,7 +1376,7 @@ class GithubScm extends Scm {
 
             return {
                 action: 'tag',
-                branch: hoek.reach(webhookPayload, 'master_branch'),
+                branch: hoek.reach(webhookPayload, 'repository.default_branch'),
                 checkoutUrl,
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
@@ -1413,8 +1416,8 @@ class GithubScm extends Scm {
             throw new Error(message);
         }
 
-        const repoId = await this._getRepoId(scmInfo, token, checkoutUrl);
-        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch}`;
+        const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
+        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch || defaultBranch}`;
 
         return rootDir ? `${scmUri}:${rootDir}` : scmUri;
     }
