@@ -421,13 +421,14 @@ class GithubScm extends Scm {
      * @param  {Object}     config.scmInfo      Information about the repo
      * @param  {String}     config.token        Admin token for repo
      * @param  {String}     config.url          Payload destination url for webhook notifications
+     * @param  {String}     config.actions      Actions for the webhook events
      * @return {Promise}                        Resolves when complete
      */
     async _createWebhook(config) {
         let action = 'createHook';
         const params = {
             active: true,
-            events: ['push', 'pull_request', 'create', 'release'],
+            events: config.actions,
             owner: config.scmInfo.owner,
             repo: config.scmInfo.repo,
             name: 'web',
@@ -464,6 +465,7 @@ class GithubScm extends Scm {
      * @param  {String}    config.scmUri      The SCM URI to add the webhook to
      * @param  {String}    config.token       Service token to authenticate with Github
      * @param  {String}    config.webhookUrl  The URL to use for the webhook notifications
+     * @param  {Array}     config.actions     The list of actions to be added for this webhook
      * @return {Promise}                      Resolve means operation completed without failure
      */
     async _addWebhook(config) {
@@ -481,6 +483,7 @@ class GithubScm extends Scm {
         return this._createWebhook({
             hookInfo,
             scmInfo,
+            actions: config.actions,
             token: config.token,
             url: config.webhookUrl
         });
