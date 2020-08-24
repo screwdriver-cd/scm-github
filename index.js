@@ -663,7 +663,8 @@ class GithubScm extends Scm {
 
         // For pull requests
         if (config.prRef) {
-            const prRef = config.prRef.replace('merge', 'head:pr');
+            const LOCAL_BRANCH_NAME = 'pr';
+            const prRef = config.prRef.replace('merge', `head:${LOCAL_BRANCH_NAME}`);
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
 
             // Fetch a pull request
@@ -674,7 +675,7 @@ class GithubScm extends Scm {
             command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
 
             command.push(`echo 'Checking out the PR branch ${config.prBranchName}'`);
-            command.push(`$SD_GIT_WRAPPER "git checkout ${config.prBranchName}"`);
+            command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH='origin/${branch}'`);
