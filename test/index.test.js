@@ -90,7 +90,7 @@ describe('index', function () {
             paginate: sinon.stub(),
             request: sinon.stub()
         };
-        githubMockClass = sinon.stub().returns(githubMock);
+        githubMockClass = { Octokit: sinon.stub().returns(githubMock) };
         winstonMock = {
             info: sinon.stub(),
             warn: sinon.stub(),

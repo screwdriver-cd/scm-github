@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses').breaker;
-const Octokit = require('@octokit/rest');
+const { Octokit } = require('@octokit/rest');
 const { verify } = require('@octokit/webhooks');
 const hoek = require('hoek');
 const Path = require('path');
