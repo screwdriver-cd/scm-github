@@ -8,6 +8,7 @@ const { verify } = require('@octokit/webhooks');
 const hoek = require('@hapi/hoek');
 const Path = require('path');
 const joi = require('joi');
+const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const Scm = require('screwdriver-scm-base');
@@ -43,6 +44,13 @@ const PERMITTED_RELEASE_EVENT = [
     'published'
 ];
 
+const DEPLOY_KEY_GENERATOR_CONFIG = {
+    DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
+    DEPLOY_KEYS_FORMAT: 'PEM',
+    DEPLOY_KEYS_PASSWORD: '',
+    DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
+};
+
 /**
  * Get repo information
  * @method getInfo
@@ -57,13 +65,13 @@ function getInfo(scmUrl) {
         throw new Error(`Invalid scmUrl: ${scmUrl}`);
     }
 
-    const branch = matched[MATCH_COMPONENT_BRANCH_NAME] || '#master';
+    const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
 
     return {
         owner: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
         host: matched[MATCH_COMPONENT_HOST_NAME],
-        branch: branch.slice(1)
+        branch: branch ? branch.slice(1) : undefined
     };
 }
 
@@ -124,6 +132,7 @@ class GithubScm extends Scm {
             username: joi.string().optional().default('sd-buildbot'),
             email: joi.string().optional().default('dev-null@screwdriver.cd'),
             commentUserToken: joi.string().optional().description('Token for PR comments'),
+            autoDeployKeyGeneration: joi.boolean().optional().default(false),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -160,11 +169,13 @@ class GithubScm extends Scm {
         const [scmHost, scmId, scmBranch, rootDir] = scmUri.split(':');
 
         let repoFullName;
+        let defaultBranch;
 
         if (scmRepo) {
             repoFullName = scmRepo.name;
         } else {
             try {
+                // https://github.com/octokit/rest.js/issues/163
                 const repo = await this.breaker.runCommand({
                     scopeType: 'request',
                     route: 'GET /repositories/:id',
@@ -173,6 +184,7 @@ class GithubScm extends Scm {
                 });
 
                 repoFullName = repo.data.full_name;
+                defaultBranch = repo.data.default_branch;
             } catch (err) {
                 logger.error('Failed to lookupScmUri: ', err);
                 throw err;
@@ -182,7 +194,7 @@ class GithubScm extends Scm {
         const [repoOwner, repoName] = repoFullName.split('/');
 
         return {
-            branch: scmBranch,
+            branch: scmBranch || defaultBranch,
             host: scmHost,
             repo: repoName,
             owner: repoOwner,
@@ -296,6 +308,68 @@ class GithubScm extends Scm {
             logger.error('Failed to edit PR comment: ', err);
 
             return null;
+        }
+    }
+
+    /**
+     * Generate a deploy private and public key pair
+     * @async  generateDeployKey
+     * @return {Promise}                    Resolves to object containing the public and private key pair
+     */
+    async generateDeployKey() {
+        return new Promise((resolve, reject) => {
+            const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
+            const comment = this.config.email;
+            const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
+            const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
+
+            keygen({
+                location,
+                comment,
+                password,
+                read: true,
+                format
+            }, (err, keyPair) => {
+                if (err) {
+                    logger.error('Failed to create keys: ', err);
+
+                    return reject(err);
+                }
+
+                return resolve(keyPair);
+            });
+        });
+    }
+
+    /**
+     * Adds deploy public key to the github repo and returns the private key
+     * @async  _addDeployKey
+     * @param  {Object}     config
+     * @param  {Object}     config.token        Admin token for repo
+     * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
+     * @return {Promise}                        Resolves to the private key string
+     */
+    async _addDeployKey(config) {
+        const { token, checkoutUrl } = config;
+        const { owner, repo } = getInfo(checkoutUrl);
+        const { pubKey, key } = await this.generateDeployKey();
+
+        try {
+            await this.breaker.runCommand({
+                scopeType: 'request',
+                route: `POST /repos/${owner}/${repo}/keys`,
+                token,
+                params: {
+                    title: DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEY_TITLE,
+                    key: pubKey,
+                    read_only: true
+                }
+            });
+
+            return key;
+        } catch (err) {
+            logger.error('Failed to add token: ', err);
+            throw err;
         }
     }
 
@@ -433,11 +507,21 @@ class GithubScm extends Scm {
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
         const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
+        const ghHost = config.host || 'github.com'; // URL for host to checkout from
+        const gitConfigString = `
+        Host ${ghHost}
+            StrictHostKeyChecking no
+        `; // config to permit SCM host for one time SSH connect
+        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+
         const command = [];
 
         command.push("export SD_GIT_WRAPPER=\"$(if [ `uname` = 'Darwin' ]; " +
             "then echo 'eval'; " +
             "else echo 'sd-step exec core/git'; fi)\"");
+
+        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; ' +
+            'then export SCM_CLONE_TYPE=ssh; fi');
 
         // Export environment variables
         command.push('echo Exporting environment variables');
@@ -449,6 +533,17 @@ class GithubScm extends Scm {
         command.push('export GIT_URL=$SCM_URL.git');
         // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
         command.push('export GIT_MERGE_AUTOEDIT=no');
+
+        // Configure git to use SSH based checkout
+        // 1. Check for presence of deploy keys and clone type
+        // 2. Store the deploy private key to /tmp/git_key
+        // 3. Give it the necessary permissions and set env var to instruct git to use the key
+        // 4. Add SCM host as a known host by adding config to ~/.ssh/config
+        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+        'then ' +
+        'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
+        'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
+        `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`);
 
         // Set config
         command.push('echo Setting user name and user email');
@@ -568,18 +663,19 @@ class GithubScm extends Scm {
 
         // For pull requests
         if (config.prRef) {
-            const prRef = config.prRef.replace('merge', 'head:pr');
+            const LOCAL_BRANCH_NAME = 'pr';
+            const prRef = config.prRef.replace('merge', `head:${LOCAL_BRANCH_NAME}`);
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
 
             // Fetch a pull request
-            command.push(`echo 'Fetching PR and merging with ${branch}'`);
+            command.push(`echo 'Fetching PR ${prRef}'`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
 
             command.push(`export PR_BASE_BRANCH_NAME='${branch}'`);
             command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
 
-            // Merge a pull request with pipeline branch
-            command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
+            command.push(`echo 'Checking out the PR branch ${config.prBranchName}'`);
+            command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH='origin/${branch}'`);
@@ -941,14 +1037,14 @@ class GithubScm extends Scm {
     }
 
     /**
-     * Get id of a specific repo
-     * @async  _getRepoId
+     * Get repo id and default branch of specific repo
+     * @async  _getRepoInfo
      * @param  {Object}   scmInfo               The result of getScmInfo
      * @param  {String}   token                 The token used to authenticate to the SCM
      * @param  {String}   checkoutUrl           The checkoutUrl to parse
-     * @return {Promise}                        Resolves to the id of the repo
+     * @return {Promise}                        Resolves an object with repo id and default branch
      */
-    async _getRepoId(scmInfo, token, checkoutUrl) {
+    async _getRepoInfo(scmInfo, token, checkoutUrl) {
         try {
             const repo = await this.breaker.runCommand({
                 action: 'get',
@@ -956,7 +1052,7 @@ class GithubScm extends Scm {
                 params: scmInfo
             });
 
-            return repo.data.id;
+            return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
         } catch (err) {
             if (err.status === 404) {
                 throw new Error(`Cannot find repository ${checkoutUrl}`);
@@ -1067,7 +1163,7 @@ class GithubScm extends Scm {
     /**
      * Decorate a given SCM URI with additional data to better display
      * related information. If a branch suffix is not provided, it will default
-     * to the master branch
+     * to the default branch
      * @async  _decorateUrl
      * @param  {Config}    config
      * @param  {String}    config.scmUri        The SCM URI the commit belongs to
@@ -1281,7 +1377,7 @@ class GithubScm extends Scm {
 
             return {
                 action: 'tag',
-                branch: hoek.reach(webhookPayload, 'master_branch'),
+                branch: hoek.reach(webhookPayload, 'repository.default_branch'),
                 checkoutUrl,
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
@@ -1321,8 +1417,8 @@ class GithubScm extends Scm {
             throw new Error(message);
         }
 
-        const repoId = await this._getRepoId(scmInfo, token, checkoutUrl);
-        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch}`;
+        const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
+        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch || defaultBranch}`;
 
         return rootDir ? `${scmUri}:${rootDir}` : scmUri;
     }

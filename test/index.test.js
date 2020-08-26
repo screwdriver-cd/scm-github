@@ -1483,17 +1483,19 @@ jobs:
         let checkoutUrl;
         const repoData = {
             id: 8675309,
-            full_name: 'iAm/theCaptain'
+            full_name: 'iAm/theCaptain',
+            default_branch: 'main'
         };
         const token = 'mygithubapitoken';
-        const repoInfo = {
-            host: 'github.com',
-            repo: 'theCaptain',
-            owner: 'iAm'
-        };
+        let repoInfo;
 
         beforeEach(() => {
             checkoutUrl = 'git@github.com:iAm/theCaptain.git#boat';
+            repoInfo = {
+                host: 'github.com',
+                repo: 'theCaptain',
+                owner: 'iAm'
+            };
         });
 
         it('parses a complete ssh url', () => {
@@ -1528,21 +1530,17 @@ jobs:
             });
         });
 
-        it('parses a ssh url, defaulting the branch to master', () => {
+        it('parses a ssh url, defaulting the branch to default branch', () => {
             checkoutUrl = 'git@github.com:iAm/theCaptain.git';
-
+            repoInfo.branch = undefined;
             githubMock.repos.get.resolves({ data: repoData });
 
             return scm.parseUrl({
                 checkoutUrl,
                 token
             }).then((result) => {
-                assert.strictEqual(result, 'github.com:8675309:master');
-
+                assert.strictEqual(result, 'github.com:8675309:main');
                 assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
-                assert.calledWith(githubMock.repos.get, sinon.match({
-                    branch: 'master'
-                }));
             });
         });
 
@@ -1912,6 +1910,43 @@ jobs:
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
                     { id: '102498' }
                 );
+            });
+        });
+    });
+
+    describe('generateDeployKey', () => {
+        it('returns a public and private key pair object', () =>
+            scm.generateDeployKey().then((keys) => {
+                assert.isObject(keys);
+                assert.property(keys, 'pubKey');
+                assert.property(keys, 'key');
+            }));
+    });
+
+    describe('addDeployKey', () => {
+        const addDepKeyConfig = {
+            checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+            token: 'token'
+        };
+        const pubKey = 'public_key';
+        const privKey = 'private_Key';
+        let generateDeployKeyStub;
+
+        beforeEach(() => {
+            generateDeployKeyStub = sinon.stub(scm, 'generateDeployKey');
+        });
+
+        afterEach(() => {
+            generateDeployKeyStub.restore();
+        });
+
+        it('returns a private key', async () => {
+            generateDeployKeyStub.returns(Promise.resolve({ pubKey, key: privKey }));
+            githubMock.request.resolves({ data: pubKey });
+
+            return scm.addDeployKey(addDepKeyConfig).then((privateKey) => {
+                assert.isString(privateKey);
+                assert.deepEqual(privateKey, privKey);
             });
         });
     });
