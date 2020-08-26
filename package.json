@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-scm-github",
-  "version": "5.0.0",
+  "version": "11.0.0",
   "description": "Github implementation for the scm-base class",
   "main": "index.js",
   "scripts": {
@@ -45,9 +45,9 @@
     "@octokit/webhooks": "~7.6.2",
     "circuit-fuses": "^4.0.4",
     "joi": "^17.1.1",
-    "screwdriver-data-schema": "git://github.com/screwdriver-cd/data-schema.git#hapi-v19",
+    "screwdriver-data-schema": "^20.0.0",
     "screwdriver-logger": "^1.0.0",
-    "screwdriver-scm-base": "git://github.com/screwdriver-cd/scm-base.git#hapi-v19"
+    "screwdriver-scm-base": "^7.0.0"
   },
   "release": {
     "debug": false,
