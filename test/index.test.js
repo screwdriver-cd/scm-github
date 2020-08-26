@@ -58,21 +58,23 @@ describe('index', function () {
             },
             pulls: {
                 create: sinon.stub(),
-                list: sinon.stub(),
-                get: sinon.stub()
+                get: sinon.stub(),
+                list: sinon.stub()
             },
             repos: {
-                createHook: sinon.stub(),
-                createStatus: sinon.stub(),
-                createOrUpdateFile: sinon.stub(),
-                updateHook: sinon.stub(),
+                createCommitStatus: sinon.stub(),
+                createDeployKey: sinon.stub(),
+                createOrUpdateFileContents: sinon.stub(),
+                createWebhook: sinon.stub(),
                 get: sinon.stub(),
                 getBranch: sinon.stub(),
                 getCommit: sinon.stub(),
                 getCommitRefSha: sinon.stub(),
-                getContents: sinon.stub(),
-                listHooks: sinon.stub(),
-                listBranches: sinon.stub()
+                getContent: sinon.stub(),
+                listBranches: sinon.stub(),
+                listWebhooks: sinon.stub(),
+                updateWebhook: sinon.stub()
+
             },
             users: {
                 getByUsername: sinon.stub()
@@ -81,14 +83,14 @@ describe('index', function () {
                 getMembershipForAuthenticatedUser: sinon.stub()
             },
             git: {
-                getRef: sinon.stub(),
                 createRef: sinon.stub(),
+                getRef: sinon.stub(),
                 getTag: sinon.stub()
             },
-            request: sinon.stub(),
-            paginate: sinon.stub()
+            paginate: sinon.stub(),
+            request: sinon.stub()
         };
-        githubMockClass = sinon.stub().returns(githubMock);
+        githubMockClass = { Octokit: sinon.stub().returns(githubMock) };
         winstonMock = {
             info: sinon.stub(),
             warn: sinon.stub(),
@@ -156,6 +158,7 @@ describe('index', function () {
             githubMock.repos.get.resolves({ data: {} });
             config.gheHost = 'github.screwdriver.cd';
             scm = new GithubScm(config);
+
             scm._githubCommand(dummyOption, () => {
                 assert.equal(scm.octokitConfig.baseUrl,
                     'https://github.screwdriver.cd/api/v3'
@@ -727,7 +730,7 @@ describe('index', function () {
             githubMock.request.resolves({ data: {
                 full_name: 'screwdriver-cd/models'
             } });
-            githubMock.repos.createStatus.resolves({ data });
+            githubMock.repos.createCommitStatus.resolves({ data });
         });
 
         it('promises to update commit status on success', () =>
@@ -738,7 +741,7 @@ describe('index', function () {
                     assert.calledWith(githubMock.request, 'GET /repositories/:id',
                         { id: '14052' }
                     );
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -761,7 +764,7 @@ describe('index', function () {
                     assert.calledWith(githubMock.request, 'GET /repositories/:id',
                         { id: '14052' }
                     );
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -780,7 +783,7 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -797,7 +800,7 @@ describe('index', function () {
 
             return scm.updateCommitStatus(config)
                 .then(() => {
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -816,7 +819,7 @@ describe('index', function () {
                 .then((result) => {
                     assert.deepEqual(result, data);
 
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -844,14 +847,14 @@ describe('index', function () {
             const err = new Error(errMsg);
 
             err.status = 422;
-            githubMock.repos.createStatus.rejects(err);
+            githubMock.repos.createCommitStatus.rejects(err);
 
             config.buildStatus = 'FAILURE';
 
             return scm.updateCommitStatus(config)
                 .then((result) => {
                     assert.deepEqual(result, undefined);
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -871,7 +874,7 @@ describe('index', function () {
 
             err.status = 500;
 
-            githubMock.repos.createStatus.rejects(err);
+            githubMock.repos.createCommitStatus.rejects(err);
 
             return scm.updateCommitStatus(config)
                 .then(() => {
@@ -880,7 +883,7 @@ describe('index', function () {
                 .catch((error) => {
                     assert.deepEqual(error, err);
 
-                    assert.calledWith(githubMock.repos.createStatus, {
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         sha: config.sha,
@@ -908,7 +911,7 @@ describe('index', function () {
             githubMock.request.resolves({ data: {
                 full_name: 'screwdriver-cd/models'
             } });
-            githubMock.repos.createStatus.resolves({ data: {} });
+            githubMock.repos.createCommitStatus.resolves({ data: {} });
 
             return scm.updateCommitStatus(config)
                 .then(() => {
@@ -979,13 +982,13 @@ jobs:
         });
 
         it('promises to get content when a ref is passed', () => {
-            githubMock.repos.getContents.resolves({ data: returnData });
+            githubMock.repos.getContent.resolves({ data: returnData });
 
             return scm.getFile(config)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -998,7 +1001,7 @@ jobs:
             'when a ref and scmRepo is passed', () => {
             const configWithScmRepo = Object.assign({}, config);
 
-            githubMock.repos.getContents.resolves({ data: returnData });
+            githubMock.repos.getContent.resolves({ data: returnData });
             configWithScmRepo.scmRepo = {
                 branch: 'branch',
                 url: 'https://github.com/screwdriver-cd/models/tree/branch',
@@ -1009,7 +1012,7 @@ jobs:
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
 
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -1020,12 +1023,12 @@ jobs:
         });
 
         it('promises to get content when a ref is not passed', () => {
-            githubMock.repos.getContents.resolves({ data: returnData });
+            githubMock.repos.getContent.resolves({ data: returnData });
 
             return scm.getFile(configNoRef)
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: configNoRef.path,
@@ -1035,7 +1038,7 @@ jobs:
         });
 
         it('promises to get content when rootDir exists', () => {
-            githubMock.repos.getContents.resolves({ data: returnData });
+            githubMock.repos.getContent.resolves({ data: returnData });
 
             return scm.getFile({
                 scmUri: 'github.com:146:master:src/app/component',
@@ -1044,7 +1047,7 @@ jobs:
             })
                 .then((data) => {
                     assert.deepEqual(data, expectedYaml);
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: `src/app/component/${configNoRef.path}`,
@@ -1058,13 +1061,13 @@ jobs:
 
             err.status = 404;
 
-            githubMock.repos.getContents.rejects(err);
+            githubMock.repos.getContent.rejects(err);
 
             return scm.getFile(config)
                 .then((data) => {
                     assert.deepEqual(data, '');
 
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -1076,7 +1079,7 @@ jobs:
         it('returns error when path is not a file', () => {
             const expectedErrorMessage = 'Path (screwdriver.yaml) does not point to file';
 
-            githubMock.repos.getContents.resolves({ data: returnInvalidData });
+            githubMock.repos.getContent.resolves({ data: returnInvalidData });
 
             return scm.getFile(config)
                 .then(() => {
@@ -1084,7 +1087,7 @@ jobs:
                 }, (err) => {
                     assert.strictEqual(err.message, expectedErrorMessage);
 
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -1098,14 +1101,14 @@ jobs:
 
             err.status = 403;
 
-            githubMock.repos.getContents.rejects(err);
+            githubMock.repos.getContent.rejects(err);
 
             return scm.getFile(config)
                 .then(() => {
                     assert.fail('This should not fail the test');
                 })
                 .catch((error) => {
-                    assert.calledWith(githubMock.repos.getContents, {
+                    assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
                         repo: 'models',
                         path: config.path,
@@ -1941,8 +1944,8 @@ jobs:
         });
 
         it('returns a private key', async () => {
+            githubMock.repos.createDeployKey.resolves({ data: pubKey });
             generateDeployKeyStub.returns(Promise.resolve({ pubKey, key: privKey }));
-            githubMock.request.resolves({ data: pubKey });
 
             return scm.addDeployKey(addDepKeyConfig).then((privateKey) => {
                 assert.isString(privateKey);
@@ -2047,21 +2050,21 @@ jobs:
             githubMock.request.resolves({ data: {
                 full_name: 'dolores/violentdelights'
             } });
-            githubMock.repos.listHooks.resolves({ data: [{
+            githubMock.repos.listWebhooks.resolves({ data: [{
                 config: { url: 'https://somewhere.in/the/interwebs' },
                 id: 783150
             }] });
         });
 
         it('add a hook', () => {
-            githubMock.repos.listHooks.resolves({ data: [] });
-            githubMock.repos.createHook.resolves({ data: [] });
+            githubMock.repos.listWebhooks.resolves({ data: [] });
+            githubMock.repos.createWebhook.resolves({ data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
                     { id: '1263' }
                 );
-                assert.calledWith(githubMock.repos.createHook, {
+                assert.calledWith(githubMock.repos.createWebhook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -2077,16 +2080,16 @@ jobs:
         });
 
         it('updates a pre-existing hook', () => {
-            githubMock.repos.updateHook.resolves({ data: [] });
+            githubMock.repos.updateWebhook.resolves({ data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(githubMock.repos.listHooks, {
+                assert.calledWith(githubMock.repos.listWebhooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 1,
                     per_page: 30
                 });
-                assert.calledWith(githubMock.repos.updateHook, {
+                assert.calledWith(githubMock.repos.updateWebhook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -2109,17 +2112,17 @@ jobs:
                 invalidHooks.push({});
             }
 
-            githubMock.repos.listHooks.onCall(0).resolves({ data: invalidHooks });
-            githubMock.repos.updateHook.resolves({ data: [] });
+            githubMock.repos.listWebhooks.onCall(0).resolves({ data: invalidHooks });
+            githubMock.repos.updateWebhook.resolves({ data: [] });
 
             return scm.addWebhook(webhookConfig).then(() => {
-                assert.calledWith(githubMock.repos.listHooks, {
+                assert.calledWith(githubMock.repos.listWebhooks, {
                     owner: 'dolores',
                     repo: 'violentdelights',
                     page: 2,
                     per_page: 30
                 });
-                assert.calledWith(githubMock.repos.updateHook, {
+                assert.calledWith(githubMock.repos.updateWebhook, {
                     active: true,
                     config: {
                         content_type: 'json',
@@ -2135,31 +2138,31 @@ jobs:
             });
         });
 
-        it('throws an error when failing to listHooks', () => {
-            const testError = new Error('listHooksError');
+        it('throws an error when failing to listWebhooks', () => {
+            const testError = new Error('listWebhooksError');
 
-            githubMock.repos.listHooks.rejects(testError);
-
-            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
-                assert.equal(err, testError);
-            });
-        });
-
-        it('throws an error when failing to createHook', () => {
-            const testError = new Error('createHookError');
-
-            githubMock.repos.listHooks.resolves({ data: [] });
-            githubMock.repos.createHook.rejects(testError);
+            githubMock.repos.listWebhooks.rejects(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
         });
 
-        it('throws an error when failing to updateHook', () => {
-            const testError = new Error('updateHookError');
+        it('throws an error when failing to createWebhook', () => {
+            const testError = new Error('createWebhookError');
 
-            githubMock.repos.updateHook.rejects(testError);
+            githubMock.repos.listWebhooks.resolves({ data: [] });
+            githubMock.repos.createWebhook.rejects(testError);
+
+            return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
+                assert.equal(err, testError);
+            });
+        });
+
+        it('throws an error when failing to updateWebhook', () => {
+            const testError = new Error('updateWebhookError');
+
+            githubMock.repos.updateWebhook.rejects(testError);
 
             return scm.addWebhook(webhookConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
@@ -2630,7 +2633,7 @@ jobs:
                     ref: 'refs/heads/update_file'
                 }
             });
-            githubMock.repos.createOrUpdateFile.resolves({
+            githubMock.repos.createOrUpdateFileContents.resolves({
                 data: {
                     content: {
                         name: 'file.txt',
@@ -2659,7 +2662,7 @@ jobs:
                     ref: 'refs/heads/update_file',
                     sha: '1234'
                 });
-                assert.calledWith(githubMock.repos.createOrUpdateFile, {
+                assert.calledWith(githubMock.repos.createOrUpdateFileContents, {
                     owner: 'screwdriver-cd',
                     repo: 'scm-github',
                     path: 'file.txt',
@@ -2736,7 +2739,7 @@ jobs:
         it('throws an error when failing to create file', () => {
             const testError = new Error('createFileError');
 
-            githubMock.repos.createOrUpdateFile.rejects(testError);
+            githubMock.repos.createOrUpdateFileContents.rejects(testError);
 
             return scm.openPr(openPrConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);

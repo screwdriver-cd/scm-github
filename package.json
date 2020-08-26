@@ -37,12 +37,12 @@
     "eslint-config-screwdriver": "^3.0.1",
     "mocha": "^8.1.2",
     "mockery": "^2.0.0",
-    "sinon": "^7.2.7"
+    "sinon": "^7.5.0"
   },
   "dependencies": {
     "@hapi/hoek": "^9.0.4",
-    "@octokit/rest": "~16.33",
-    "@octokit/webhooks": "~7.6.2",
+    "@octokit/rest": "^18.0.0",
+    "@octokit/webhooks": "^7.6.2",
     "circuit-fuses": "^4.0.4",
     "joi": "^17.2.1",
     "screwdriver-data-schema": "^20.0.0",

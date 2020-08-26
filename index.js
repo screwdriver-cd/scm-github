@@ -3,7 +3,7 @@
 'use strict';
 
 const Breaker = require('circuit-fuses').breaker;
-const Octokit = require('@octokit/rest');
+const { Octokit } = require('@octokit/rest');
 const { verify } = require('@octokit/webhooks');
 const hoek = require('@hapi/hoek');
 const Path = require('path');
@@ -356,10 +356,11 @@ class GithubScm extends Scm {
 
         try {
             await this.breaker.runCommand({
-                scopeType: 'request',
-                route: `POST /repos/${owner}/${repo}/keys`,
+                action: 'createDeployKey',
                 token,
                 params: {
+                    owner,
+                    repo,
                     title: DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEY_TITLE,
                     key: pubKey,
                     read_only: true
@@ -386,7 +387,7 @@ class GithubScm extends Scm {
     async _findWebhook(config) {
         try {
             const hooks = await this.breaker.runCommand({
-                action: 'listHooks',
+                action: 'listWebhooks',
                 token: config.token,
                 params: {
                     owner: config.scmInfo.owner,
@@ -424,7 +425,7 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves when complete
      */
     async _createWebhook(config) {
-        let action = 'createHook';
+        let action = 'createWebhook';
         const params = {
             active: true,
             events: ['push', 'pull_request', 'create', 'release'],
@@ -439,7 +440,7 @@ class GithubScm extends Scm {
         };
 
         if (config.hookInfo) {
-            action = 'updateHook';
+            action = 'updateWebhook';
             Object.assign(params, { hook_id: config.hookInfo.id });
         }
 
@@ -739,7 +740,7 @@ class GithubScm extends Scm {
      * @async  _getPermissions
      * @param  {Object}   config
      * @param  {String}   config.scmUri      The scmUri to get permissions on
-     * @param  {Object}   config.scmRepo     The SCM repo to look up
+     * @param  {Object}   [config.scmRepo]   The SCM repo to look up
      * @param  {String}   config.token       The token used to authenticate to the SCM
      * @return {Promise}                     Resolves to the owner's repository permissions
      */
@@ -934,7 +935,7 @@ class GithubScm extends Scm {
      */
     async _updateCommitStatus({ scmUri, sha, buildStatus, token, jobName, url,
         pipelineId, context, description }) {
-        const scmInfo = await this.lookupScmUri({
+        const { owner, repo } = await this.lookupScmUri({
             scmUri,
             token
         });
@@ -943,16 +944,16 @@ class GithubScm extends Scm {
         const params = {
             context: statusTitle,
             description: description || DESCRIPTION_MAP[buildStatus],
-            repo: scmInfo.repo,
+            repo,
             sha,
             state: STATE_MAP[buildStatus] || 'failure',
-            owner: scmInfo.owner,
+            owner,
             target_url: url
         };
 
         try {
             const status = await this.breaker.runCommand({
-                action: 'createStatus',
+                action: 'createCommitStatus',
                 token,
                 params
             });
@@ -994,7 +995,7 @@ class GithubScm extends Scm {
 
         try {
             const file = await this.breaker.runCommand({
-                action: 'getContents',
+                action: 'getContent',
                 token,
                 params: {
                     owner,
@@ -1212,12 +1213,12 @@ class GithubScm extends Scm {
                 const scmInfo = await this.lookupScmUri({ scmUri, token });
                 const files = await this.breaker.runCommand({
                     scopeType: 'paginate',
-                    route: 'GET /repos/:owner/:repo/pulls/:number/files',
+                    route: 'GET /repos/:owner/:repo/pulls/:pull_number/files',
                     token,
                     params: {
                         owner: scmInfo.owner,
                         repo: scmInfo.repo,
-                        number: prNum,
+                        pull_number: prNum,
                         per_page: PR_FILES_PAGE_SIZE
                     }
                 });
@@ -1711,7 +1712,7 @@ class GithubScm extends Scm {
             }))
             .then(() => Promise.all(files.map(file =>
                 this.breaker.runCommand({
-                    action: 'createOrUpdateFile',
+                    action: 'createOrUpdateFileContents',
                     scopeType: 'repos',
                     token,
                     params: {
