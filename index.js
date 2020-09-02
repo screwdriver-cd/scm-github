@@ -425,7 +425,7 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves when complete
      */
     async _createWebhook(config) {
-        let action = 'createHook';
+        let action = 'createWebhook';
         const params = {
             active: true,
             events: config.actions,
@@ -440,7 +440,7 @@ class GithubScm extends Scm {
         };
 
         if (config.hookInfo) {
-            action = 'updateHook';
+            action = 'updateWebhook';
             Object.assign(params, { hook_id: config.hookInfo.id });
         }
 
