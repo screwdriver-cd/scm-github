@@ -675,11 +675,9 @@ class GithubScm extends Scm {
             command.push(`export PR_BASE_BRANCH_NAME='${branch}'`);
             command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
 
-            command.push("echo 'Checking if PR branch is mergeable'");
-            command.push(`$SD_GIT_WRAPPER "git merge ${config.sha}"`);
-
             command.push(`echo 'Checking out the PR branch ${config.prBranchName}'`);
             command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
+            command.push(`$SD_GIT_WRAPPER "git merge ${branch}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH='origin/${branch}'`);
