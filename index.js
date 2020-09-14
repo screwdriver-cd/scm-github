@@ -428,7 +428,8 @@ class GithubScm extends Scm {
         let action = 'createWebhook';
         const params = {
             active: true,
-            events: config.actions,
+            events: config.actions.length === 0 ?
+                ['push', 'pull_request', 'create', 'release'] : config.actions,
             owner: config.scmInfo.owner,
             repo: config.scmInfo.repo,
             name: 'web',
