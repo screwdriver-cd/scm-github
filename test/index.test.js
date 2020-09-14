@@ -1323,6 +1323,7 @@ jobs:
                         lastCommitMessage: 'lastcommitmessage',
                         hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
                         scmContext: 'github:github.com',
+                        deleted: false,
                         ref: 'refs/heads/master'
                     });
                 });

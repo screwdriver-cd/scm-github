@@ -1265,6 +1265,7 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
+        const deleted = hoek.reach(webhookPayload, 'deleted');
 
         const checkoutSshHost = this.config.gheHost
             ? this.config.gheHost : 'github.com';
@@ -1343,6 +1344,7 @@ class GithubScm extends Scm {
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId,
                 scmContext: scmContexts[0],
+                deleted,
                 ref: hoek.reach(webhookPayload, 'ref')
             };
         }
