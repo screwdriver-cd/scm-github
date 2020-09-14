@@ -1333,6 +1333,10 @@ class GithubScm extends Scm {
                 });
             }
 
+            if (deleted) {
+                return null;
+            }
+
             return {
                 action: 'push',
                 branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
@@ -1344,7 +1348,6 @@ class GithubScm extends Scm {
                 lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                 hookId,
                 scmContext: scmContexts[0],
-                deleted,
                 ref: hoek.reach(webhookPayload, 'ref')
             };
         }
