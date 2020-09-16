@@ -8,6 +8,7 @@ const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
 const testPayloadPush = require('./data/github.push.json');
+const testPayloadPushDeleted = require('./data/github.push.deleted.json');
 const testPayloadPushTag = require('./data/github.push.tag.json');
 const testPayloadRelease = require('./data/github.release.json');
 const testPayloadReleaseBadAction = require('./data/github.release.badAction.json');
@@ -1325,6 +1326,16 @@ jobs:
                         scmContext: 'github:github.com',
                         ref: 'refs/heads/master'
                     });
+                });
+        });
+
+        it('parses a payload for a delete event payload', () => {
+            testHeaders['x-github-event'] = 'push';
+            testHeaders['x-hub-signature'] = 'sha1=f2589b49939e662188aed20967779a3e500149af';
+
+            return scm.parseHook(testHeaders, testPayloadPushDeleted)
+                .then((result) => {
+                    assert.equal(result, null);
                 });
         });
 

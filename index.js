@@ -1265,6 +1265,7 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
+        const deleted = hoek.reach(webhookPayload, 'deleted');
 
         const checkoutSshHost = this.config.gheHost
             ? this.config.gheHost : 'github.com';
@@ -1330,6 +1331,10 @@ class GithubScm extends Scm {
                 commits.forEach((commit) => {
                     commitAuthors.push(commit.author.name);
                 });
+            }
+
+            if (deleted) {
+                return null;
             }
 
             return {
