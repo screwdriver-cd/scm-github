@@ -379,12 +379,12 @@ class GithubScm extends Scm {
      * @async _getWebhookEventsMapping
      * @return {Object}     Returns a mapping of the events
      */
-    async _getWebhookEventsMapping() {
+    _getWebhookEventsMapping() {
         return {
-            '~pr': 'pull_request',
-            '~release': 'release',
-            '~tag': 'create',
-            '~commit': 'push'
+            pr: 'pull_request',
+            release: 'release',
+            tag: 'create',
+            commit: 'push'
         };
     }
 
