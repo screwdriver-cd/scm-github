@@ -376,7 +376,7 @@ class GithubScm extends Scm {
 
     /**
      * Get the webhook events mapping of screwdriver events and scm events
-     * @async _getWebhookEventsMapping
+     * @method _getWebhookEventsMapping
      * @return {Object}     Returns a mapping of the events
      */
     _getWebhookEventsMapping() {
