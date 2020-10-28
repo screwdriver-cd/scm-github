@@ -164,7 +164,7 @@ describe('index', function () {
                 assert.equal(scm.octokitConfig.baseUrl,
                     'https://github.screwdriver.cd/api/v3'
                 );
-                assert.calledWith(githubMockClass, {
+                assert.calledWith(githubMockClass.Octokit, {
                     auth: 'token sometoken',
                     baseUrl: 'https://github.screwdriver.cd/api/v3'
                 });
