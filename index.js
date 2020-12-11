@@ -1378,7 +1378,7 @@ class GithubScm extends Scm {
 
             return {
                 action: 'release',
-                branch: hoek.reach(webhookPayload, 'release.target_commitish'),
+                branch: hoek.reach(webhookPayload, 'repository.default_branch'),
                 checkoutUrl,
                 type: 'repo',
                 username: hoek.reach(webhookPayload, 'sender.login'),
