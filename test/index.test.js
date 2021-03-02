@@ -3,6 +3,7 @@
 const { assert } = require('chai');
 const mockery = require('mockery');
 const sinon = require('sinon');
+const boom = require('@hapi/boom');
 
 const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
@@ -367,7 +368,9 @@ describe('index', function () {
             return scm.getCommitSha(config).then(() => {
                 assert.fail('This should not fail the test');
             }).catch((err) => {
-                assert.deepEqual(err, error);
+                const expected = new boom.Boom(error.message);
+
+                assert.deepEqual(err, expected);
 
                 assert.calledWith(githubMock.repos.getBranch, {
                     owner: 'screwdriver-cd',

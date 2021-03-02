@@ -2,6 +2,7 @@
 
 'use strict';
 
+const boom = require('@hapi/boom');
 const Breaker = require('circuit-fuses').breaker;
 const { Octokit } = require('@octokit/rest');
 const { verify } = require('@octokit/webhooks');
@@ -884,7 +885,7 @@ class GithubScm extends Scm {
             return branch.data.commit.sha;
         } catch (err) {
             logger.error('Failed to getCommitSha: ', err);
-            throw err;
+            throw new boom.Boom(err.message, { statusCode: err.status });
         }
     }
 
