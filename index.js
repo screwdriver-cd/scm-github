@@ -885,7 +885,7 @@ class GithubScm extends Scm {
             return branch.data.commit.sha;
         } catch (err) {
             logger.error('Failed to getCommitSha: ', err);
-            throw new boom.Boom(err.message, { statusCode: err.status });
+            throw boom.boomify(err, { statusCode: err.status });
         }
     }
 

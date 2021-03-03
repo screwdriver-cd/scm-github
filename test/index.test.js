@@ -368,7 +368,7 @@ describe('index', function () {
             return scm.getCommitSha(config).then(() => {
                 assert.fail('This should not fail the test');
             }).catch((err) => {
-                const expected = new boom.Boom(error.message);
+                const expected = boom.boomify(error, { statusCode: error.status });
 
                 assert.deepEqual(err, expected);
 
