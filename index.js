@@ -19,6 +19,7 @@ const DEFAULT_AUTHOR = {
     username: 'n/a',
     url: 'https://cd.screwdriver.cd/'
 };
+const MATCH_COMPONENT_ROOTDIR_NAME = 5;
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
@@ -55,9 +56,10 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
  * Get repo information
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
- * @return {Object}              An object with the user, repo, host, and branch
+ * @param  {String}  [rootDir]   Root dir of the pipeline
+ * @return {Object}              An object with the user, repo, host, branch, and rootDir
  */
-function getInfo(scmUrl) {
+function getInfo(scmUrl, rootDir) {
     const matched = (schema.config.regex.CHECKOUT_URL).exec(scmUrl);
 
     // Check if regex did not pass
@@ -66,12 +68,14 @@ function getInfo(scmUrl) {
     }
 
     const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
+    const rootDirFromScmUrl = matched[MATCH_COMPONENT_ROOTDIR_NAME];
 
     return {
         owner: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
         host: matched[MATCH_COMPONENT_HOST_NAME],
-        branch: branch ? branch.slice(1) : undefined
+        branch: branch ? branch.slice(1) : undefined,
+        rootDir: rootDir || (rootDirFromScmUrl ? rootDirFromScmUrl.slice(1) : undefined)
     };
 }
 
@@ -1433,19 +1437,20 @@ class GithubScm extends Scm {
      */
     async _parseUrl(config) {
         const { checkoutUrl, rootDir, token } = config;
-        const scmInfo = getInfo(checkoutUrl);
+        const scmInfo = getInfo(checkoutUrl, rootDir);
+        const { host, branch, rootDir: sourceDir } = scmInfo;
         const myHost = this.config.gheHost || 'github.com';
 
-        if (scmInfo.host !== myHost) {
+        if (host !== myHost) {
             const message = 'This checkoutUrl is not supported for your current login host.';
 
             throw new Error(message);
         }
 
         const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
-        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch || defaultBranch}`;
+        const scmUri = `${host}:${repoId}:${branch || defaultBranch}`;
 
-        return rootDir ? `${scmUri}:${rootDir}` : scmUri;
+        return sourceDir ? `${scmUri}:${sourceDir}` : scmUri;
     }
 
     /**
