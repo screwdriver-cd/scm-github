@@ -523,6 +523,7 @@ class GithubScm extends Scm {
      * @param  {String}    [config.rootDir]      Root directory
      * @param  {String}    [config.scmContext]   The scm context name
      * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
+     * @param  {Object}    [config.parentConfig] Config for parent pipeline
      * @return {Promise}                         Resolves to object containing name and checkout commands
      */
     async _getCheckoutCommand(config) {
@@ -1433,10 +1434,9 @@ class GithubScm extends Scm {
      * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
      * @param  {String}     [config.rootDir]    The root directory
      * @param  {String}     config.token        The token used to authenticate to the SCM service
-     * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName'
+     * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName:rootDir'
      */
-    async _parseUrl(config) {
-        const { checkoutUrl, rootDir, token } = config;
+    async _parseUrl({ checkoutUrl, rootDir, token }) {
         const scmInfo = getInfo(checkoutUrl, rootDir);
         const { host, branch, rootDir: sourceDir } = scmInfo;
         const myHost = this.config.gheHost || 'github.com';
