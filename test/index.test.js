@@ -1528,7 +1528,7 @@ jobs:
             });
         });
 
-        it('parses a complete ssh url with rootDir', () => {
+        it('parses a ssh url with rootDir passed in', () => {
             githubMock.repos.get.resolves({ data: repoData });
 
             return scm.parseUrl({
@@ -1540,6 +1540,22 @@ jobs:
                 assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
                 assert.calledWith(githubMock.repos.get, sinon.match({
                     branch: 'boat'
+                }));
+            });
+        });
+
+        it('parses a complete ssh url with rootDir', () => {
+            githubMock.repos.get.resolves({ data: repoData });
+
+            return scm.parseUrl({
+                checkoutUrl: 'git@github.com:iAm/theCaptain.git#boat:path/to/water',
+                token,
+                rootDir: ''
+            }).then((result) => {
+                assert.strictEqual(result, 'github.com:8675309:boat:path/to/water');
+                assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
+                assert.calledWith(githubMock.repos.get, sinon.match({
+                    rootDir: 'path/to/water'
                 }));
             });
         });
