@@ -638,7 +638,8 @@ describe('index', function () {
 
         it('looks up a repo by SCM URI', () => {
             const testResponse = {
-                full_name: 'screwdriver-cd/models'
+                full_name: 'screwdriver-cd/models',
+                private: false
             };
 
             githubMock.request.resolves({ data: testResponse });
@@ -652,7 +653,8 @@ describe('index', function () {
                     host: 'github.com',
                     repo: 'models',
                     owner: 'screwdriver-cd',
-                    rootDir: ''
+                    rootDir: '',
+                    privateRepo: false
                 });
 
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
@@ -663,7 +665,8 @@ describe('index', function () {
 
         it('looks up a repo by SCM URI with rootDir', () => {
             const testResponse = {
-                full_name: 'screwdriver-cd/models'
+                full_name: 'screwdriver-cd/models',
+                private: false
             };
 
             githubMock.request.resolves({ data: testResponse });
@@ -677,7 +680,8 @@ describe('index', function () {
                     host: 'github.com',
                     repo: 'models',
                     owner: 'screwdriver-cd',
-                    rootDir: 'src/app/component'
+                    rootDir: 'src/app/component',
+                    privateRepo: false
                 });
 
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
@@ -1857,7 +1861,8 @@ jobs:
             const scmUri = 'github.com:102498:boat';
 
             githubMock.request.resolves({ data: {
-                full_name: 'iAm/theCaptain'
+                full_name: 'iAm/theCaptain',
+                private: false
             } });
 
             return scm.decorateUrl({
@@ -1868,7 +1873,8 @@ jobs:
                     branch: 'boat',
                     name: 'iAm/theCaptain',
                     url: 'https://github.com/iAm/theCaptain/tree/boat',
-                    rootDir: ''
+                    rootDir: '',
+                    private: false
                 });
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
                     { id: '102498' }
@@ -1880,7 +1886,8 @@ jobs:
             const scmUri = 'github.com:102498:boat:src/app/component';
 
             githubMock.request.resolves({ data: {
-                full_name: 'iAm/theCaptain'
+                full_name: 'iAm/theCaptain',
+                private: false
             } });
 
             return scm.decorateUrl({
@@ -1891,7 +1898,8 @@ jobs:
                     branch: 'boat',
                     name: 'iAm/theCaptain',
                     url: 'https://github.com/iAm/theCaptain/tree/boat/src/app/component',
-                    rootDir: 'src/app/component'
+                    rootDir: 'src/app/component',
+                    private: false
                 });
                 assert.calledWith(githubMock.request, 'GET /repositories/:id',
                     { id: '102498' }
@@ -1904,7 +1912,8 @@ jobs:
             const scmRepo = {
                 branch: 'boat',
                 url: 'https://github.com/iAm/theCaptain/tree/boat',
-                name: 'iAm/theCaptain'
+                name: 'iAm/theCaptain',
+                private: false
             };
 
             return scm.decorateUrl({
@@ -1916,7 +1925,8 @@ jobs:
                     branch: 'boat',
                     name: 'iAm/theCaptain',
                     url: 'https://github.com/iAm/theCaptain/tree/boat',
-                    rootDir: ''
+                    rootDir: '',
+                    private: false
                 });
 
                 assert.notCalled(githubMock.request);

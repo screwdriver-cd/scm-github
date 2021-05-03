@@ -174,6 +174,7 @@ class GithubScm extends Scm {
 
         let repoFullName;
         let defaultBranch;
+        let privateRepo;
 
         if (scmRepo) {
             repoFullName = scmRepo.name;
@@ -189,6 +190,7 @@ class GithubScm extends Scm {
 
                 repoFullName = repo.data.full_name;
                 defaultBranch = repo.data.default_branch;
+                privateRepo = repo.data.private;
             } catch (err) {
                 logger.error('Failed to lookupScmUri: ', err);
                 throw err;
@@ -202,7 +204,8 @@ class GithubScm extends Scm {
             host: scmHost,
             repo: repoName,
             owner: repoOwner,
-            rootDir: rootDir || ''
+            rootDir: rootDir || '',
+            privateRepo
         };
     }
 
@@ -1206,7 +1209,14 @@ class GithubScm extends Scm {
             lookupConfig.scmRepo = scmRepo;
         }
 
-        const { host, owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
+        const {
+            host,
+            owner,
+            repo,
+            branch,
+            rootDir,
+            privateRepo
+        } = await this.lookupScmUri(lookupConfig);
 
         const baseUrl = `${host}/${owner}/${repo}/tree/${branch}`;
 
@@ -1214,7 +1224,8 @@ class GithubScm extends Scm {
             branch,
             name: `${owner}/${repo}`,
             url: `https://${rootDir ? Path.join(baseUrl, rootDir) : baseUrl}`,
-            rootDir: rootDir || ''
+            rootDir: rootDir || '',
+            private: privateRepo
         };
     }
 
