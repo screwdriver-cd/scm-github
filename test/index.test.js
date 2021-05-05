@@ -1912,8 +1912,7 @@ jobs:
             const scmRepo = {
                 branch: 'boat',
                 url: 'https://github.com/iAm/theCaptain/tree/boat',
-                name: 'iAm/theCaptain',
-                private: false
+                name: 'iAm/theCaptain'
             };
 
             return scm.decorateUrl({

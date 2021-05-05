@@ -178,6 +178,7 @@ class GithubScm extends Scm {
 
         if (scmRepo) {
             repoFullName = scmRepo.name;
+            privateRepo = scmRepo.privateRepo || false;
         } else {
             try {
                 // https://github.com/octokit/rest.js/issues/163
