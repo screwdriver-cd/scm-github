@@ -33,7 +33,8 @@ const STATE_MAP = {
     SUCCESS: 'success',
     RUNNING: 'pending',
     QUEUED: 'pending',
-    PENDING: 'pending'
+    PENDING: 'pending',
+    FAILURE: 'failure'
 };
 const DESCRIPTION_MAP = {
     SUCCESS: 'Everything looks good!',
@@ -41,7 +42,7 @@ const DESCRIPTION_MAP = {
     ABORTED: 'Aborted mid-flight',
     RUNNING: 'Testing your code...',
     QUEUED: 'Looking for a place to park...',
-    PENDING: 'Looks good but incomplete.'
+    PENDING: 'Parked it as Pending...'
 };
 const PERMITTED_RELEASE_EVENT = [
     'published'
