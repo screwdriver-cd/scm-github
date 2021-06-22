@@ -31,17 +31,17 @@ const POLLING_INTERVAL = 0.2;
 const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
     SUCCESS: 'success',
-    RUNNING: 'pending',
-    QUEUED: 'pending',
+    // RUNNING: 'pending',
+    // QUEUED: 'pending',
     PENDING: 'pending',
     FAILURE: 'failure'
 };
 const DESCRIPTION_MAP = {
     SUCCESS: 'Everything looks good!',
     FAILURE: 'Did not work as expected.',
-    ABORTED: 'Aborted mid-flight',
-    RUNNING: 'Testing your code...',
-    QUEUED: 'Looking for a place to park...',
+    // ABORTED: 'Aborted mid-flight',
+    // RUNNING: 'Testing your code...',
+    // QUEUED: 'Looking for a place to park...',
     PENDING: 'Parked it as Pending...'
 };
 const PERMITTED_RELEASE_EVENT = [
