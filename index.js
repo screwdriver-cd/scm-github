@@ -120,6 +120,7 @@ class GithubScm extends Scm {
      * @param  {String}  [config.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
      * @param  {String}  [config.username=sd-buildbot]           GitHub username for checkout
      * @param  {String}  [config.email=dev-null@screwdriver.cd]  GitHub user email for checkout
+     * @param  {Object}  [options.readOnly={}]       Read-only SCM instance config with: enabled, username, accessToken, cloneType
      * @param  {Boolean} [config.https=false]        Is the Screwdriver API running over HTTPS
      * @param  {String}  config.oauthClientId        OAuth Client ID provided by GitHub application
      * @param  {String}  config.oauthClientSecret    OAuth Client Secret provided by GitHub application
@@ -139,6 +140,12 @@ class GithubScm extends Scm {
             email: joi.string().optional().default('dev-null@screwdriver.cd'),
             commentUserToken: joi.string().optional().description('Token for PR comments'),
             autoDeployKeyGeneration: joi.boolean().optional().default(false),
+            readOnly: joi.object().keys({
+                enabled: joi.boolean().optional(),
+                username: joi.string().optional(),
+                accessToken: joi.string().optional(),
+                cloneType: joi.string().valid('https', 'ssh').optional().default('https')
+            }).optional().default({}),
             https: joi.boolean().optional().default(false),
             oauthClientId: joi.string().required(),
             oauthClientSecret: joi.string().required(),
@@ -555,11 +562,22 @@ class GithubScm extends Scm {
 
         // Export environment variables
         command.push('echo Exporting environment variables');
-        command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-            `then export SCM_URL=${sshCheckoutUrl}; ` +
-            'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-            `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
-            `else export SCM_URL=https://${checkoutUrl}; fi`);
+        // Use read-only clone type
+        if (hoek.reach(this.config, 'readOnly.enabled')) {
+            if (hoek.reach(this.config, 'readOnly.cloneType') === 'ssh') {
+                command.push(`export SCM_URL=${sshCheckoutUrl}`);
+            } else {
+                command.push('if [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                    `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                    `else export SCM_URL=https://${checkoutUrl}; fi`);
+            }
+        } else {
+            command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                `then export SCM_URL=${sshCheckoutUrl}; ` +
+                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                `else export SCM_URL=https://${checkoutUrl}; fi`);
+        }
         command.push('export GIT_URL=$SCM_URL.git');
         // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
         command.push('export GIT_MERGE_AUTOEDIT=no');
