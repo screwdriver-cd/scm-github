@@ -797,6 +797,42 @@ describe('index', function () {
                 })
         );
 
+        it('promises to update commit status on pending', () => {
+            config.buildStatus = 'PENDING';
+
+            return scm.updateCommitStatus(config)
+                .then((result) => {
+                    assert.deepEqual(result, data);
+
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id',
+                        { id: '14052' }
+                    );
+                    assert.calledWith(githubMock.repos.createCommitStatus, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models',
+                        sha: config.sha,
+                        state: 'pending',
+                        description: 'Parked it as Pending...',
+                        context: 'Screwdriver/675/main',
+                        target_url: 'https://foo.bar'
+                    });
+                });
+        });
+
+        it('returns an error when update commit status to queued', () => {
+            const errMsg = '"buildStatus" must be one of [PENDING, SUCCESS, FAILURE]';
+
+            config.buildStatus = 'QUEUED';
+
+            return scm.updateCommitStatus(config)
+                .then(() => {
+                    assert.fail('This should not fail the test');
+                })
+                .catch((error) => {
+                    assert.strictEqual(error.message, errMsg);
+                });
+        });
+
         it('promises to update commit status on success with custom context', () => {
             config.context = 'findbugs';
             config.description = '923 issues found. Previous count: 914 issues.';
