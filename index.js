@@ -286,8 +286,8 @@ class GithubScm extends Scm {
         try {
             const pullRequestInfo = await this.getPrInfo({ scmUri, token, prNum });
 
-            if (pullRequestInfo.mergeable) {
-                return { success: true, pullRequestInfo };
+            if (pullRequestInfo.mergeable !== null) {
+                return { success: pullRequestInfo.mergeable, pullRequestInfo };
             }
             if (count >= POLLING_MAX_ATTEMPT - 1) {
                 logger.warn(`Computing mergerbility did not finish. scmUri: ${scmUri}, prNum: ${prNum}`);
