@@ -286,7 +286,7 @@ class GithubScm extends Scm {
         try {
             const pullRequestInfo = await this.getPrInfo({ scmUri, token, prNum });
 
-            if (pullRequestInfo.mergeable !== null) {
+            if (pullRequestInfo.mergeable !== null && pullRequestInfo.mergeable !== undefined) {
                 return { success: pullRequestInfo.mergeable, pullRequestInfo };
             }
             if (count >= POLLING_MAX_ATTEMPT - 1) {
