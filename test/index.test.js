@@ -115,7 +115,8 @@ describe('index', function() {
             oauthClientId: 'abcdefg',
             oauthClientSecret: 'hijklmno',
             secret: 'somesecret',
-            commentUserToken: 'sometoken'
+            commentUserToken: 'sometoken',
+            gheHost: 'github.com'
         });
     });
 
@@ -720,6 +721,33 @@ describe('index', function() {
                         assert.deepEqual(error, testError);
 
                         assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '23498' });
+                    }
+                );
+        });
+
+        it('rejects when scm settings is mismatch', () => {
+            const scmUriNotMatch = 'notmatching.com:23498:targetBranch';
+            const [scmHost] = scmUriNotMatch.split(':');
+            const loginContext = scm.getScmContexts();
+            const loginHost = loginContext[0].split(':')[1];
+
+            const testError = new Error(
+                `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${loginHost}`
+            );
+
+            githubMock.request.rejects(testError);
+
+            return scm
+                .lookupScmUri({
+                    scmUri: scmUriNotMatch,
+                    token: 'sometoken'
+                })
+                .then(
+                    () => {
+                        assert.fail('This should not fail the test');
+                    },
+                    error => {
+                        assert.strictEqual(error.message, testError.message);
                     }
                 );
         });
@@ -1859,6 +1887,20 @@ jobs:
                 }
             });
 
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: 'internal-ghe.mycompany.com'
+            });
+
             return scm
                 .decorateCommit({
                     scmUri,
@@ -1907,6 +1949,20 @@ jobs:
             });
             githubMock.users.getByUsername.resolves();
 
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: 'internal-ghe.mycompany.com'
+            });
+
             return scm
                 .decorateCommit({
                     scmUri,
@@ -1945,6 +2001,20 @@ jobs:
             const testError = new Error('theErrIexpect');
 
             githubMock.repos.getCommit.rejects(testError);
+
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: 'internal-ghe.mycompany.com'
+            });
 
             return scm
                 .decorateCommit({
@@ -2119,6 +2189,9 @@ jobs:
                     'github:github.com': {
                         clientId: 'abcdefg',
                         clientSecret: 'hijklmno',
+                        config: {
+                            uri: 'https://github.com'
+                        },
                         forceHttps: false,
                         isSecure: false,
                         provider: 'github',

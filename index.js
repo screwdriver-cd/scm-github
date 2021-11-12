@@ -227,6 +227,11 @@ class GithubScm extends Scm {
             privateRepo = scmRepo.privateRepo || false;
         } else {
             try {
+                if (scmHost !== this.config.gheHost) {
+                    throw new Error(
+                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`
+                    );
+                }
                 // https://github.com/octokit/rest.js/issues/163
                 const repo = await this.breaker.runCommand({
                     scopeType: 'request',
