@@ -676,6 +676,47 @@ describe('index', function() {
                 });
         });
 
+        it('looks up a repo by github.com as default for open source using', () => {
+            const testResponse = {
+                full_name: 'screwdriver-cd/models',
+                private: false
+            };
+
+            githubMock.request.resolves({ data: testResponse });
+
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: undefined
+            });
+
+            return scm
+                .lookupScmUri({
+                    scmUri,
+                    token: 'sometoken'
+                })
+                .then(repoData => {
+                    assert.deepEqual(repoData, {
+                        branch: 'targetBranch',
+                        host: 'github.com',
+                        repo: 'models',
+                        owner: 'screwdriver-cd',
+                        rootDir: '',
+                        privateRepo: false
+                    });
+
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '23498' });
+                });
+        });
+
         it('looks up a repo by SCM URI with rootDir', () => {
             const testResponse = {
                 full_name: 'screwdriver-cd/models',

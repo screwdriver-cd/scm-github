@@ -227,7 +227,9 @@ class GithubScm extends Scm {
             privateRepo = scmRepo.privateRepo || false;
         } else {
             try {
-                if (scmHost !== this.config.gheHost) {
+                const myHost = this.config.gheHost || 'github.com';
+
+                if (scmHost !== myHost) {
                     throw new Error(
                         `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`
                     );
