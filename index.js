@@ -598,7 +598,7 @@ class GithubScm extends Scm {
         const command = [];
 
         command.push(
-            "export SD_GIT_WRAPPER=\"$(if [ `uname` = 'Darwin' ]; " +
+            "export SD_GIT_WRAPPER=\"$(if [[ `uname` = 'Darwin' || $SD_HAB_ENABLED ]]; " +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/git'; fi)\""
         );
