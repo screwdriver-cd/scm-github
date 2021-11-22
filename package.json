@@ -5,15 +5,15 @@
   "main": "index.js",
   "scripts": {
     "pretest": "eslint .",
-    "test": "mocha --recursive",
-    "semantic-release": "semantic-release pre && npm publish && semantic-release post"
+    "test": "nyc --report-dir ./artifacts/coverage --reporter=lcov mocha --reporter mocha-multi-reporters --reporter-options configFile=./mocha.config.json --recursive --timeout 4000 --retries 1 --exit --allow-uncaught true --color true",
+    "semantic-release": "./node_modules/.bin/semantic-release"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:screwdriver-cd/scm-github.git"
+    "url": "git+https://github.com/screwdriver-cd/scm-github.git"
   },
   "homepage": "https://github.com/screwdriver-cd/scm-github",
-  "bugs": "https://github.com/screwdriver-cd/scm-github/issues",
+  "bugs": "https://github.com/screwdriver-cd/screwdriver/issues",
   "keywords": [
     "screwdriver",
     "yahoo"
@@ -32,28 +32,31 @@
     "Tiffany Kyi <tiffanykyi@gmail.com>"
   ],
   "devDependencies": {
-    "chai": "^3.5.0",
-    "eslint": "^4.19.1",
-    "eslint-config-screwdriver": "^3.0.1",
-    "mocha": "^8.1.2",
+    "chai": "^4.2.0",
+    "eslint": "^7.5.0",
+    "eslint-config-screwdriver": "^5.0.1",
+    "mocha": "^8.4.0",
+    "mocha-multi-reporters": "^1.5.1",
+    "mocha-sonarqube-reporter": "^1.0.2",
     "mockery": "^2.0.0",
-    "sinon": "^7.5.0"
+    "nyc": "^15.0.0",
+    "sinon": "^9.0.0"
   },
   "dependencies": {
-    "@hapi/hoek": "^9.0.4",
-    "@octokit/rest": "^18.0.0",
-    "@octokit/webhooks": "^7.6.2",
-    "circuit-fuses": "^4.0.4",
-    "joi": "^17.2.1",
-    "screwdriver-data-schema": "^20.0.0",
-    "screwdriver-logger": "^1.0.0",
-    "screwdriver-scm-base": "^7.0.0",
+    "@hapi/hoek": "^9.2.0",
+    "@octokit/rest": "^18.6.7",
+    "@octokit/webhooks": "^7.24.3",
+    "circuit-fuses": "^4.0.6",
+    "joi": "^17.4.0",
+    "screwdriver-data-schema": "^21.6.1",
+    "screwdriver-logger": "^1.0.2",
+    "screwdriver-scm-base": "^7.2.1",
     "ssh-keygen": "^0.5.0"
   },
   "release": {
-    "debug": false,
-    "verifyConditions": {
-      "path": "./node_modules/semantic-release/src/lib/plugin-noop.js"
-    }
+    "branches": [
+      "master"
+    ],
+    "debug": false
   }
 }

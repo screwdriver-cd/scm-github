@@ -1,5 +1,5 @@
 # scm-github
-[![Version][npm-image]][npm-url] ![Downloads][downloads-image] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] [![Dependency Status][daviddm-image]][daviddm-url] ![License][license-image]
+[![Version][npm-image]][npm-url] ![Downloads][downloads-image] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] ![License][license-image]
 
 > This scm plugin extends the [scm-base], and provides methods to fetch and update data in github.
 
@@ -23,6 +23,7 @@ The class has a variety of knobs to tweak when interacting with GitHub.
 | config.https | Boolean | false | Is the Screwdriver API running over HTTPS |
 | config.oauthClientId | String | | OAuth Client ID provided by GitHub application |
 | config.oauthClientSecret | String | | OAuth Client Secret provided by GitHub application |
+| config.readOnly | Object | {} | Config with readOnly info: enabled, username, accessToken, cloneType |
 | config.fusebox | Object | {} | [Circuit Breaker configuration][circuitbreaker] |
 | config.secret | String | | Secret to validate the signature of webhook events |
 | config.privateRepo | Boolean | false | Request 'repo' scope, which allows read/write access for public & private repos
@@ -65,6 +66,4 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 [issues-url]: https://github.com/screwdriver-cd/screwdriver/issues
 [status-image]: https://cd.screwdriver.cd/pipelines/8/badge
 [status-url]: https://cd.screwdriver.cd/pipelines/8
-[daviddm-image]: https://david-dm.org/screwdriver-cd/scm-github.svg?theme=shields.io
-[daviddm-url]: https://david-dm.org/screwdriver-cd/scm-github
 [scm-base]: https://github.com/screwdriver-cd/scm-base

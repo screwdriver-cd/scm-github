@@ -5,3 +5,7 @@ npm-debug.log
 .*.swp
 .nyc_output
 package-lock.json
+jwt.pem
+jwt.pub
+keys_rsa
+keys_rsa.pub

@@ -19,6 +19,7 @@ const DEFAULT_AUTHOR = {
     username: 'n/a',
     url: 'https://cd.screwdriver.cd/'
 };
+const MATCH_COMPONENT_ROOTDIR_NAME = 5;
 const MATCH_COMPONENT_BRANCH_NAME = 4;
 const MATCH_COMPONENT_REPO_NAME = 3;
 const MATCH_COMPONENT_USER_NAME = 2;
@@ -30,19 +31,15 @@ const POLLING_INTERVAL = 0.2;
 const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
     SUCCESS: 'success',
-    RUNNING: 'pending',
-    QUEUED: 'pending'
+    PENDING: 'pending',
+    FAILURE: 'failure'
 };
 const DESCRIPTION_MAP = {
     SUCCESS: 'Everything looks good!',
     FAILURE: 'Did not work as expected.',
-    ABORTED: 'Aborted mid-flight',
-    RUNNING: 'Testing your code...',
-    QUEUED: 'Looking for a place to park...'
+    PENDING: 'Parked it as Pending...'
 };
-const PERMITTED_RELEASE_EVENT = [
-    'published'
-];
+const PERMITTED_RELEASE_EVENT = ['published'];
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
@@ -55,10 +52,11 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
  * Get repo information
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
- * @return {Object}              An object with the user, repo, host, and branch
+ * @param  {String}  [rootDir]   Root dir of the pipeline
+ * @return {Object}              An object with the user, repo, host, branch, and rootDir
  */
-function getInfo(scmUrl) {
-    const matched = (schema.config.regex.CHECKOUT_URL).exec(scmUrl);
+function getInfo(scmUrl, rootDir) {
+    const matched = schema.config.regex.CHECKOUT_URL.exec(scmUrl);
 
     // Check if regex did not pass
     if (!matched) {
@@ -66,12 +64,14 @@ function getInfo(scmUrl) {
     }
 
     const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
+    const rootDirFromScmUrl = matched[MATCH_COMPONENT_ROOTDIR_NAME];
 
     return {
         owner: matched[MATCH_COMPONENT_USER_NAME],
         repo: matched[MATCH_COMPONENT_REPO_NAME],
         host: matched[MATCH_COMPONENT_HOST_NAME],
-        branch: branch ? branch.slice(1) : undefined
+        branch: branch ? branch.slice(1) : undefined,
+        rootDir: rootDir || (rootDirFromScmUrl ? rootDirFromScmUrl.slice(1) : undefined)
     };
 }
 
@@ -88,20 +88,25 @@ class GithubScm extends Scm {
      * @param  {Function}    callback             Callback function from github API
      */
     _githubCommand(options, callback) {
-        const config = Object.assign({ auth: `token ${options.token}` }, this.octokitConfig);
+        const config = { auth: `token ${options.token}`, ...this.octokitConfig };
         const octokit = new Octokit(config);
         const scopeType = options.scopeType || 'repos';
 
         if (scopeType === 'request' || scopeType === 'paginate') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
-            octokit[scopeType](options.route, options.params).then(function cb() { // Use "function" (not "arrow function") for getting "arguments"
-                callback(null, ...arguments);
-            }).catch(err => callback(err));
+            octokit[scopeType](options.route, options.params)
+                .then(function cb() {
+                    // Use "function" (not "arrow function") for getting "arguments"
+                    callback(null, ...arguments);
+                })
+                .catch(err => callback(err));
         } else {
-            octokit[scopeType][options.action](options.params).then(function cb() {
-                callback(null, ...arguments);
-            }).catch(err => callback(err));
+            octokit[scopeType][options.action](options.params)
+                .then(function cb() {
+                    callback(null, ...arguments);
+                })
+                .catch(err => callback(err));
         }
     }
 
@@ -114,6 +119,7 @@ class GithubScm extends Scm {
      * @param  {String}  [config.gheProtocol=https]  If using GitHub Enterprise, the protocol to use
      * @param  {String}  [config.username=sd-buildbot]           GitHub username for checkout
      * @param  {String}  [config.email=dev-null@screwdriver.cd]  GitHub user email for checkout
+     * @param  {Object}  [options.readOnly={}]       Read-only SCM instance config with: enabled, username, accessToken, cloneType
      * @param  {Boolean} [config.https=false]        Is the Screwdriver API running over HTTPS
      * @param  {String}  config.oauthClientId        OAuth Client ID provided by GitHub application
      * @param  {String}  config.oauthClientSecret    OAuth Client Secret provided by GitHub application
@@ -125,26 +131,70 @@ class GithubScm extends Scm {
         super();
 
         // Validate configuration
-        this.config = joi.attempt(config, joi.object().keys({
-            privateRepo: joi.boolean().optional().default(false),
-            gheProtocol: joi.string().optional().default('https'),
-            gheHost: joi.string().optional().description('GitHub Enterpise host'),
-            username: joi.string().optional().default('sd-buildbot'),
-            email: joi.string().optional().default('dev-null@screwdriver.cd'),
-            commentUserToken: joi.string().optional().description('Token for PR comments'),
-            autoDeployKeyGeneration: joi.boolean().optional().default(false),
-            https: joi.boolean().optional().default(false),
-            oauthClientId: joi.string().required(),
-            oauthClientSecret: joi.string().required(),
-            fusebox: joi.object().default({}),
-            secret: joi.string().required()
-        }).unknown(true), 'Invalid config for GitHub');
+        this.config = joi.attempt(
+            config,
+            joi
+                .object()
+                .keys({
+                    privateRepo: joi
+                        .boolean()
+                        .optional()
+                        .default(false),
+                    gheProtocol: joi
+                        .string()
+                        .optional()
+                        .default('https'),
+                    gheHost: joi
+                        .string()
+                        .optional()
+                        .description('GitHub Enterpise host'),
+                    username: joi
+                        .string()
+                        .optional()
+                        .default('sd-buildbot'),
+                    email: joi
+                        .string()
+                        .optional()
+                        .default('dev-null@screwdriver.cd'),
+                    commentUserToken: joi
+                        .string()
+                        .optional()
+                        .description('Token for PR comments'),
+                    autoDeployKeyGeneration: joi
+                        .boolean()
+                        .optional()
+                        .default(false),
+                    readOnly: joi
+                        .object()
+                        .keys({
+                            enabled: joi.boolean().optional(),
+                            username: joi.string().optional(),
+                            accessToken: joi.string().optional(),
+                            cloneType: joi
+                                .string()
+                                .valid('https', 'ssh')
+                                .optional()
+                                .default('https')
+                        })
+                        .optional()
+                        .default({}),
+                    https: joi
+                        .boolean()
+                        .optional()
+                        .default(false),
+                    oauthClientId: joi.string().required(),
+                    oauthClientSecret: joi.string().required(),
+                    fusebox: joi.object().default({}),
+                    secret: joi.string().required()
+                })
+                .unknown(true),
+            'Invalid config for GitHub'
+        );
 
         this.octokitConfig = {};
 
         if (this.config.gheHost) {
-            this.octokitConfig.baseUrl =
-                `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
+            this.octokitConfig.baseUrl = `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
         }
 
         // eslint-disable-next-line no-underscore-dangle
@@ -170,11 +220,20 @@ class GithubScm extends Scm {
 
         let repoFullName;
         let defaultBranch;
+        let privateRepo;
 
         if (scmRepo) {
             repoFullName = scmRepo.name;
+            privateRepo = scmRepo.privateRepo || false;
         } else {
             try {
+                const myHost = this.config.gheHost || 'github.com';
+
+                if (scmHost !== myHost) {
+                    throw new Error(
+                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`
+                    );
+                }
                 // https://github.com/octokit/rest.js/issues/163
                 const repo = await this.breaker.runCommand({
                     scopeType: 'request',
@@ -185,6 +244,7 @@ class GithubScm extends Scm {
 
                 repoFullName = repo.data.full_name;
                 defaultBranch = repo.data.default_branch;
+                privateRepo = repo.data.private;
             } catch (err) {
                 logger.error('Failed to lookupScmUri: ', err);
                 throw err;
@@ -198,7 +258,8 @@ class GithubScm extends Scm {
             host: scmHost,
             repo: repoName,
             owner: repoOwner,
-            rootDir: rootDir || ''
+            rootDir: rootDir || '',
+            privateRepo
         };
     }
 
@@ -212,7 +273,7 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     promiseToWait(timeToWait) {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
             setTimeout(() => resolve(), timeToWait * 1000);
         });
     }
@@ -232,11 +293,11 @@ class GithubScm extends Scm {
         try {
             const pullRequestInfo = await this.getPrInfo({ scmUri, token, prNum });
 
-            if (pullRequestInfo.mergeable) {
-                return { success: true, pullRequestInfo };
-            } else if (count >= POLLING_MAX_ATTEMPT - 1) {
-                logger.warn('Computing mergerbility did not finish. '
-                    + `scmUri: ${scmUri}, prNum: ${prNum}`);
+            if (pullRequestInfo.mergeable !== null && pullRequestInfo.mergeable !== undefined) {
+                return { success: pullRequestInfo.mergeable, pullRequestInfo };
+            }
+            if (count >= POLLING_MAX_ATTEMPT - 1) {
+                logger.warn(`Computing mergerbility did not finish. scmUri: ${scmUri}, prNum: ${prNum}`);
 
                 return { success: false, pullRequestInfo };
             }
@@ -323,21 +384,24 @@ class GithubScm extends Scm {
             const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
             const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
 
-            keygen({
-                location,
-                comment,
-                password,
-                read: true,
-                format
-            }, (err, keyPair) => {
-                if (err) {
-                    logger.error('Failed to create keys: ', err);
+            keygen(
+                {
+                    location,
+                    comment,
+                    password,
+                    read: true,
+                    format
+                },
+                (err, keyPair) => {
+                    if (err) {
+                        logger.error('Failed to create keys: ', err);
 
-                    return reject(err);
+                        return reject(err);
+                    }
+
+                    return resolve(keyPair);
                 }
-
-                return resolve(keyPair);
-            });
+            );
         });
     }
 
@@ -375,6 +439,20 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Get the webhook events mapping of screwdriver events and scm events
+     * @method _getWebhookEventsMapping
+     * @return {Object}     Returns a mapping of the events
+     */
+    _getWebhookEventsMapping() {
+        return {
+            pr: 'pull_request',
+            release: 'release',
+            tag: 'create',
+            commit: 'push'
+        };
+    }
+
+    /**
      * Look up a webhook from a repo
      * @async  _findWebhook
      * @param  {Object}     config
@@ -397,9 +475,7 @@ class GithubScm extends Scm {
                 }
             });
 
-            const screwdriverHook = hooks.data.find(hook =>
-                hoek.reach(hook, 'config.url') === config.url
-            );
+            const screwdriverHook = hooks.data.find(hook => hoek.reach(hook, 'config.url') === config.url);
 
             if (!screwdriverHook && hooks.data.length === WEBHOOK_PAGE_SIZE) {
                 config.page += 1;
@@ -422,13 +498,14 @@ class GithubScm extends Scm {
      * @param  {Object}     config.scmInfo      Information about the repo
      * @param  {String}     config.token        Admin token for repo
      * @param  {String}     config.url          Payload destination url for webhook notifications
+     * @param  {String}     config.actions      Actions for the webhook events
      * @return {Promise}                        Resolves when complete
      */
     async _createWebhook(config) {
         let action = 'createWebhook';
         const params = {
             active: true,
-            events: ['push', 'pull_request', 'create', 'release'],
+            events: config.actions.length === 0 ? ['push', 'pull_request', 'create', 'release'] : config.actions,
             owner: config.scmInfo.owner,
             repo: config.scmInfo.repo,
             name: 'web',
@@ -465,6 +542,7 @@ class GithubScm extends Scm {
      * @param  {String}    config.scmUri      The SCM URI to add the webhook to
      * @param  {String}    config.token       Service token to authenticate with Github
      * @param  {String}    config.webhookUrl  The URL to use for the webhook notifications
+     * @param  {Array}     config.actions     The list of actions to be added for this webhook
      * @return {Promise}                      Resolve means operation completed without failure
      */
     async _addWebhook(config) {
@@ -482,6 +560,7 @@ class GithubScm extends Scm {
         return this._createWebhook({
             hookInfo,
             scmInfo,
+            actions: config.actions,
             token: config.token,
             url: config.webhookUrl
         });
@@ -501,6 +580,7 @@ class GithubScm extends Scm {
      * @param  {String}    [config.rootDir]      Root directory
      * @param  {String}    [config.scmContext]   The scm context name
      * @param  {String}    [config.manifest]     Repo manifest URL (only defined if `screwdriver.cd/repoManifest` annotation is)
+     * @param  {Object}    [config.parentConfig] Config for parent pipeline
      * @return {Promise}                         Resolves to object containing name and checkout commands
      */
     async _getCheckoutCommand(config) {
@@ -517,20 +597,36 @@ class GithubScm extends Scm {
 
         const command = [];
 
-        command.push("export SD_GIT_WRAPPER=\"$(if [[ `uname` = 'Darwin' || $SD_HAB_ENABLED ]]; " +
-            "then echo 'eval'; " +
-            "else echo 'sd-step exec core/git'; fi)\"");
+        command.push(
+            "export SD_GIT_WRAPPER=\"$(if [[ `uname` = 'Darwin' || $SD_HAB_ENABLED ]]; " +
+                "then echo 'eval'; " +
+                "else echo 'sd-step exec core/git'; fi)\""
+        );
 
-        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; ' +
-            'then export SCM_CLONE_TYPE=ssh; fi');
+        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; then export SCM_CLONE_TYPE=ssh; fi');
 
         // Export environment variables
         command.push('echo Exporting environment variables');
-        command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-            `then export SCM_URL=${sshCheckoutUrl}; ` +
-            'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-            `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
-            `else export SCM_URL=https://${checkoutUrl}; fi`);
+        // Use read-only clone type
+        if (hoek.reach(this.config, 'readOnly.enabled')) {
+            if (hoek.reach(this.config, 'readOnly.cloneType') === 'ssh') {
+                command.push(`export SCM_URL=${sshCheckoutUrl}`);
+            } else {
+                command.push(
+                    'if [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                        `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                        `else export SCM_URL=https://${checkoutUrl}; fi`
+                );
+            }
+        } else {
+            command.push(
+                'if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                    `then export SCM_URL=${sshCheckoutUrl}; ` +
+                    'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                    `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                    `else export SCM_URL=https://${checkoutUrl}; fi`
+            );
+        }
         command.push('export GIT_URL=$SCM_URL.git');
         // git 1.7.1 doesn't support --no-edit with merge, this should do same thing
         command.push('export GIT_MERGE_AUTOEDIT=no');
@@ -540,11 +636,13 @@ class GithubScm extends Scm {
         // 2. Store the deploy private key to /tmp/git_key
         // 3. Give it the necessary permissions and set env var to instruct git to use the key
         // 4. Add SCM host as a known host by adding config to ~/.ssh/config
-        command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-        'then ' +
-        'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
-        'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
-        `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`);
+        command.push(
+            'if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                'then ' +
+                'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
+                'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
+                `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`
+        );
 
         // Set config
         command.push('echo Setting user name and user email');
@@ -556,59 +654,64 @@ class GithubScm extends Scm {
         // eslint-disable-next-line max-len
         command.push('if [ ! -z $SD_CHECKOUT_DIR ]; then export SD_CHECKOUT_DIR_FINAL=$SD_CHECKOUT_DIR; fi');
 
-        const shallowCloneCmd = 'else if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; '
-        + 'then export GIT_SHALLOW_CLONE_DEPTH_OPTION='
-        + '"--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'"; '
-        + 'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; '
-        + 'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; '
-        + 'export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH"; fi; '
-        + 'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; '
-        + 'if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; '
-        + 'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; '
-        + '$SD_GIT_WRAPPER '
-        + '"git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH ';
+        const shallowCloneCmd =
+            'else if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; ' +
+            'then export GIT_SHALLOW_CLONE_DEPTH_OPTION=' +
+            '"--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'"; ' +
+            'else if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; ' +
+            'then export GIT_SHALLOW_CLONE_DEPTH=50; fi; ' +
+            'export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH"; fi; ' +
+            'export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch"; ' +
+            'if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; ' +
+            'then export GIT_SHALLOW_CLONE_BRANCH=""; fi; ' +
+            '$SD_GIT_WRAPPER ' +
+            '"git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH ';
 
         // Checkout config pipeline if this is a child pipeline
         if (config.parentConfig) {
-            const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/`
-                + `${config.parentConfig.repo}`; // URL for https
-            const parentSshCheckoutUrl = `git@${config.parentConfig.host}:`
-                + `${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
+            const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for https
+            const parentSshCheckoutUrl = `git@${config.parentConfig.host}:${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
             const parentBranch = config.parentConfig.branch;
             const externalConfigDir = '$SD_ROOT_DIR/config';
 
-            command.push('if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-                `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
-                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-                'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@'
-                    + `${parentCheckoutUrl}; ` +
-                `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`);
+            command.push(
+                'if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
+                    `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
+                    'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                    'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@' +
+                    `${parentCheckoutUrl}; ` +
+                    `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`
+            );
 
             command.push(`export SD_CONFIG_DIR=${externalConfigDir}`);
 
             // Git clone
             command.push(`echo 'Cloning external config repo ${parentCheckoutUrl}'`);
-            command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
-                  + 'then $SD_GIT_WRAPPER '
-                  + `"git clone --recursive --quiet --progress --branch '${parentBranch}' `
-                  + '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}`
-                  + `--recursive --quiet --progress --branch '${parentBranch}' `
-                  + '$CONFIG_URL $SD_CONFIG_DIR"; fi');
+            command.push(
+                `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
+                    'then $SD_GIT_WRAPPER ' +
+                    `"git clone --recursive --quiet --progress --branch '${parentBranch}' ` +
+                    '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}` +
+                    `--recursive --quiet --progress --branch '${parentBranch}' ` +
+                    '$CONFIG_URL $SD_CONFIG_DIR"; fi'
+            );
 
             // Reset to SHA
-            command.push('$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard '
-                + `${config.parentConfig.sha} --"`);
+            command.push(`$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard ${config.parentConfig.sha} --"`);
             command.push(`echo Reset external config repo to ${config.parentConfig.sha}`);
         }
 
         if (config.manifest) {
-            const curlWrapper = '$(if curl --version > /dev/null 2>&1; ' +
+            const curlWrapper =
+                '$(if curl --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/curl'; fi)";
-            const wgetWrapper = '$(if wget --version > /dev/null 2>&1; ' +
+            const wgetWrapper =
+                '$(if wget --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/wget'; fi)";
-            const grepWrapper = '$(if grep --version > /dev/null 2>&1; ' +
+            const grepWrapper =
+                '$(if grep --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/grep'; fi)";
 
@@ -617,41 +720,46 @@ class GithubScm extends Scm {
             const sdRepoReleasesFile = 'sd-repo-releases.html';
             const sdRepoLatestFile = 'sd-repo-latest';
 
-            command.push('echo Checking out code using the repo manifest defined in '
-                + `${config.manifest}`);
+            command.push(`echo Checking out code using the repo manifest defined in ${config.manifest}`);
 
             // Get the repo binary
             command.push(`${curlWrapper} "curl -s ${repoDownloadUrl} > /usr/local/bin/repo"`);
             command.push('chmod a+x /usr/local/bin/repo');
 
             // Get the sd-repo binary and execute it
-            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > `
-              + `${sdRepoReleasesFile}"`);
-            command.push(`${grepWrapper} "grep -E -o `
-              + '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64 '
-              + `${sdRepoReleasesFile} > ${sdRepoLatestFile}"`);
-            command.push(`${wgetWrapper} "wget --base=http://github.com/ -q -i `
-              + `${sdRepoLatestFile} -O /usr/local/bin/sd-repo"`);
+            command.push(`${wgetWrapper} "wget -q -O - ${sdRepoReleasesUrl} > ${sdRepoReleasesFile}"`);
+            command.push(
+                `${grepWrapper} "grep -E -o ` +
+                    '/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64 ' +
+                    `${sdRepoReleasesFile} > ${sdRepoLatestFile}"`
+            );
+            command.push(
+                `${wgetWrapper} "wget --base=http://github.com/ -q -i ` +
+                    `${sdRepoLatestFile} -O /usr/local/bin/sd-repo"`
+            );
             command.push('chmod a+x /usr/local/bin/sd-repo');
-            command.push(`sd-repo -manifestUrl=${config.manifest} `
-                + `-sourceRepo=${config.org}/${config.repo}`);
+            command.push(`sd-repo -manifestUrl=${config.manifest} -sourceRepo=${config.org}/${config.repo}`);
 
             // sourcePath is the file created by `sd-repo` which contains the relative path to the source repository
             const sourcePath = 'sourcePath';
 
             // Export $SD_SOURCE_DIR to source repo path and cd into it
-            command.push(`if [ $(cat ${sourcePath}) != "." ]; `
-                + `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`);
+            command.push(
+                `if [ $(cat ${sourcePath}) != "." ]; ` +
+                    `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`
+            );
             command.push('cd $SD_SOURCE_DIR');
         } else {
             // Git clone
             command.push(`echo 'Cloning ${checkoutUrl}, on branch ${branch}'`);
-            command.push(`${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; '
-                  + 'then $SD_GIT_WRAPPER '
-                  + `"git clone --recursive --quiet --progress --branch '${branch}' `
-                  + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}`
-                  + `--recursive --quiet --progress --branch '${branch}' `
-                  + '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi');
+            command.push(
+                `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
+                    'then $SD_GIT_WRAPPER ' +
+                    `"git clone --recursive --quiet --progress --branch '${branch}' ` +
+                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}` +
+                    `--recursive --quiet --progress --branch '${branch}' ` +
+                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
+            );
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard '${checkoutRef}' --"`);
             command.push(`echo 'Reset to ${checkoutRef}'`);
@@ -677,6 +785,7 @@ class GithubScm extends Scm {
 
             command.push(`echo 'Checking out the PR branch ${config.prBranchName}'`);
             command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
+            command.push(`$SD_GIT_WRAPPER "git merge ${branch}"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH='origin/${branch}'`);
@@ -770,9 +879,7 @@ class GithubScm extends Scm {
         } catch (err) {
             // Suspended user
             if (err.message.match(/suspend/i)) {
-                logger.info(
-                    `User's account suspended for ${config.scmUri}, ` +
-                    'it will be removed from pipeline admins.');
+                logger.info(`User's account suspended for ${config.scmUri}, it will be removed from pipeline admins.`);
 
                 return { admin: false, push: false, pull: false };
             }
@@ -807,8 +914,8 @@ class GithubScm extends Scm {
                     org: config.organization
                 }
             });
-            const role = permission.data.role;
-            const state = permission.data.state;
+            const { role } = permission.data;
+            const { state } = permission.data;
 
             if (state !== 'active') {
                 return result;
@@ -907,7 +1014,8 @@ class GithubScm extends Scm {
                 });
 
                 return tagObj.data.object.sha;
-            } else if (refObj.data.object.type === 'commit') {
+            }
+            if (refObj.data.object.type === 'commit') {
                 // commit or lightweight tag
                 return refObj.data.object.sha;
             }
@@ -933,14 +1041,14 @@ class GithubScm extends Scm {
      * @param  {String}   config.description  Status description
      * @return {Promise}                      Resolves when operation completed
      */
-    async _updateCommitStatus({ scmUri, sha, buildStatus, token, jobName, url,
-        pipelineId, context, description }) {
+    async _updateCommitStatus({ scmUri, sha, buildStatus, token, jobName, url, pipelineId, context, description }) {
         const { owner, repo } = await this.lookupScmUri({
             scmUri,
             token
         });
-        const statusTitle = context ? `Screwdriver/${pipelineId}/${context}` :
-            `Screwdriver/${pipelineId}/${jobName.replace(/^PR-\d+/g, 'PR')}`; // (e.g. Screwdriver/12/PR:main)
+        const statusTitle = context
+            ? `Screwdriver/${pipelineId}/${context}`
+            : `Screwdriver/${pipelineId}/${jobName.replace(/^PR-\d+/g, 'PR')}`; // (e.g. Screwdriver/12/PR:main)
         const params = {
             context: statusTitle,
             description: description || DESCRIPTION_MAP[buildStatus],
@@ -1124,8 +1232,8 @@ class GithubScm extends Scm {
             const authorName = hoek.reach(commit, 'data.commit.author.name');
             const committerLogin = hoek.reach(commit, 'data.committer.login');
             const committerName = hoek.reach(commit, 'data.commit.committer.name');
-            let author = Object.assign({}, DEFAULT_AUTHOR);
-            let committer = Object.assign({}, DEFAULT_AUTHOR);
+            let author = { ...DEFAULT_AUTHOR };
+            let committer = { ...DEFAULT_AUTHOR };
 
             if (authorLogin) {
                 author = await this.decorateAuthor({
@@ -1182,7 +1290,7 @@ class GithubScm extends Scm {
             lookupConfig.scmRepo = scmRepo;
         }
 
-        const { host, owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
+        const { host, owner, repo, branch, rootDir, privateRepo } = await this.lookupScmUri(lookupConfig);
 
         const baseUrl = `${host}/${owner}/${repo}/tree/${branch}`;
 
@@ -1190,7 +1298,8 @@ class GithubScm extends Scm {
             branch,
             name: `${owner}/${repo}`,
             url: `https://${rootDir ? Path.join(baseUrl, rootDir) : baseUrl}`,
-            rootDir: rootDir || ''
+            rootDir: rootDir || '',
+            private: privateRepo
         };
     }
 
@@ -1264,9 +1373,9 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
+        const deleted = hoek.reach(webhookPayload, 'deleted');
 
-        const checkoutSshHost = this.config.gheHost
-            ? this.config.gheHost : 'github.com';
+        const checkoutSshHost = this.config.gheHost ? this.config.gheHost : 'github.com';
         const regexMatchArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
         if (!regexMatchArray || regexMatchArray[1] !== checkoutSshHost) {
@@ -1281,117 +1390,120 @@ class GithubScm extends Scm {
         }
 
         switch (type) {
-        case 'pull_request': {
-            let action = hoek.reach(webhookPayload, 'action');
-            const prNum = hoek.reach(webhookPayload, 'pull_request.number');
-            const prTitle = hoek.reach(webhookPayload, 'pull_request.title');
-            const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
-            const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
-            const prSource = baseSource === headSource ? 'branch' : 'fork';
-            const ref = `pull/${prNum}/merge`;
+            case 'pull_request': {
+                let action = hoek.reach(webhookPayload, 'action');
+                const prNum = hoek.reach(webhookPayload, 'pull_request.number');
+                const prTitle = hoek.reach(webhookPayload, 'pull_request.title');
+                const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
+                const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
+                const prSource = baseSource === headSource ? 'branch' : 'fork';
+                const ref = `pull/${prNum}/merge`;
 
-            // Possible actions
-            // "opened", "closed", "reopened", "synchronize",
-            // "assigned", "unassigned", "labeled", "unlabeled", "edited"
-            if (!['opened', 'reopened', 'synchronize', 'closed'].includes(action)) {
+                // Possible actions
+                // "opened", "closed", "reopened", "synchronize",
+                // "assigned", "unassigned", "labeled", "unlabeled", "edited"
+                if (!['opened', 'reopened', 'synchronize', 'closed'].includes(action)) {
+                    return null;
+                }
+
+                if (action === 'synchronize') {
+                    action = 'synchronized';
+                }
+
+                return {
+                    action,
+                    branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
+                    checkoutUrl,
+                    prNum,
+                    prTitle,
+                    prRef: ref,
+                    ref,
+                    prSource,
+                    sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
+                    type: 'pr',
+                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    hookId,
+                    scmContext: scmContexts[0]
+                };
+            }
+            case 'push': {
+                const ref = hoek.reach(webhookPayload, 'ref');
+
+                // repository tag pushed
+                if (ref.startsWith('refs/tags/')) {
+                    return null;
+                }
+
+                if (Array.isArray(commits)) {
+                    commits.forEach(commit => {
+                        commitAuthors.push(commit.author.name);
+                    });
+                }
+
+                if (deleted) {
+                    return null;
+                }
+
+                return {
+                    action: 'push',
+                    branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
+                    checkoutUrl,
+                    sha: hoek.reach(webhookPayload, 'after'),
+                    type: 'repo',
+                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    commitAuthors,
+                    lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
+                    hookId,
+                    scmContext: scmContexts[0],
+                    ref: hoek.reach(webhookPayload, 'ref')
+                };
+            }
+            case 'release': {
+                const action = hoek.reach(webhookPayload, 'action');
+
+                if (!PERMITTED_RELEASE_EVENT.includes(action)) {
+                    return null;
+                }
+
+                return {
+                    action: 'release',
+                    branch: hoek.reach(webhookPayload, 'repository.default_branch'),
+                    checkoutUrl,
+                    type: 'repo',
+                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    hookId,
+                    scmContext: scmContexts[0],
+                    ref: hoek.reach(webhookPayload, 'release.tag_name'),
+                    releaseId: hoek.reach(webhookPayload, 'release.id').toString(),
+                    releaseName: hoek.reach(webhookPayload, 'release.name') || '',
+                    releaseAuthor: hoek.reach(webhookPayload, 'release.author.login') || ''
+                };
+            }
+            case 'create': {
+                const refType = hoek.reach(webhookPayload, 'ref_type');
+
+                if (refType !== 'tag') {
+                    logger.info('%s event of %s is not available yet in scm-github plugin', type, refType);
+
+                    return null;
+                }
+
+                return {
+                    action: 'tag',
+                    branch: hoek.reach(webhookPayload, 'repository.default_branch'),
+                    checkoutUrl,
+                    type: 'repo',
+                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    hookId,
+                    scmContext: scmContexts[0],
+                    ref: hoek.reach(webhookPayload, 'ref')
+                };
+            }
+
+            default:
+                logger.info('%s event is not available yet in scm-github plugin', type);
+
                 return null;
-            }
-
-            if (action === 'synchronize') {
-                action = 'synchronized';
-            }
-
-            return {
-                action,
-                branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
-                checkoutUrl,
-                prNum,
-                prTitle,
-                prRef: ref,
-                ref,
-                prSource,
-                sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
-                type: 'pr',
-                username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId,
-                scmContext: scmContexts[0]
-            };
-        }
-        case 'push': {
-            const ref = hoek.reach(webhookPayload, 'ref');
-
-            // repository tag pushed
-            if (ref.startsWith('refs/tags/')) {
-                return null;
-            }
-
-            if (Array.isArray(commits)) {
-                commits.forEach((commit) => {
-                    commitAuthors.push(commit.author.name);
-                });
-            }
-
-            return {
-                action: 'push',
-                branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
-                checkoutUrl,
-                sha: hoek.reach(webhookPayload, 'after'),
-                type: 'repo',
-                username: hoek.reach(webhookPayload, 'sender.login'),
-                commitAuthors,
-                lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
-                hookId,
-                scmContext: scmContexts[0],
-                ref: hoek.reach(webhookPayload, 'ref')
-            };
-        }
-        case 'release': {
-            const action = hoek.reach(webhookPayload, 'action');
-
-            if (!PERMITTED_RELEASE_EVENT.includes(action)) {
-                return null;
-            }
-
-            return {
-                action: 'release',
-                branch: hoek.reach(webhookPayload, 'release.target_commitish'),
-                checkoutUrl,
-                type: 'repo',
-                username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId,
-                scmContext: scmContexts[0],
-                ref: hoek.reach(webhookPayload, 'release.tag_name'),
-                releaseId: hoek.reach(webhookPayload, 'release.id').toString(),
-                releaseName: hoek.reach(webhookPayload, 'release.name') || '',
-                releaseAuthor: hoek.reach(webhookPayload, 'release.author.login') || ''
-            };
-        }
-        case 'create': {
-            const refType = hoek.reach(webhookPayload, 'ref_type');
-
-            if (refType !== 'tag') {
-                logger.info('%s event of %s is not available yet in scm-github plugin',
-                    type, refType);
-
-                return null;
-            }
-
-            return {
-                action: 'tag',
-                branch: hoek.reach(webhookPayload, 'repository.default_branch'),
-                checkoutUrl,
-                type: 'repo',
-                username: hoek.reach(webhookPayload, 'sender.login'),
-                hookId,
-                scmContext: scmContexts[0],
-                ref: hoek.reach(webhookPayload, 'ref')
-            };
-        }
-
-        default:
-            logger.info('%s event is not available yet in scm-github plugin', type);
-
-            return null;
         }
     }
 
@@ -1405,23 +1517,23 @@ class GithubScm extends Scm {
      * @param  {String}     config.checkoutUrl  The checkoutUrl to parse
      * @param  {String}     [config.rootDir]    The root directory
      * @param  {String}     config.token        The token used to authenticate to the SCM service
-     * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName'
+     * @return {Promise}                        Resolves to an ID of 'serviceName:repoId:branchName:rootDir'
      */
-    async _parseUrl(config) {
-        const { checkoutUrl, rootDir, token } = config;
-        const scmInfo = getInfo(checkoutUrl);
+    async _parseUrl({ checkoutUrl, rootDir, token }) {
+        const scmInfo = getInfo(checkoutUrl, rootDir);
+        const { host, branch, rootDir: sourceDir } = scmInfo;
         const myHost = this.config.gheHost || 'github.com';
 
-        if (scmInfo.host !== myHost) {
+        if (host !== myHost) {
             const message = 'This checkoutUrl is not supported for your current login host.';
 
             throw new Error(message);
         }
 
         const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
-        const scmUri = `${scmInfo.host}:${repoId}:${scmInfo.branch || defaultBranch}`;
+        const scmUri = `${host}:${repoId}:${branch || defaultBranch}`;
 
-        return rootDir ? `${scmUri}:${rootDir}` : scmUri;
+        return sourceDir ? `${scmUri}:${sourceDir}` : scmUri;
     }
 
     /**
@@ -1433,9 +1545,7 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
-        const cookie = this.config.gheHost
-            ? `github-${this.config.gheHost}`
-            : 'github-github.com';
+        const cookie = this.config.gheHost ? `github-${this.config.gheHost}` : 'github-github.com';
         const bellConfig = {
             provider: 'github',
             cookie,
@@ -1488,9 +1598,8 @@ class GithubScm extends Scm {
                     repo: scmInfo.repo
                 }
             });
-            const prSource = pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id
-                ? 'branch'
-                : 'fork';
+            const prSource =
+                pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id ? 'branch' : 'fork';
 
             return {
                 name: `PR-${pullRequestInfo.data.number}`,
@@ -1531,13 +1640,11 @@ class GithubScm extends Scm {
         const prComments = await this.prComments(scmInfo, prNum, token);
 
         if (prComments) {
-            const botComment = prComments.comments.find(commentObj =>
-                commentObj.user.login === this.config.username);
+            const botComment = prComments.comments.find(commentObj => commentObj.user.login === this.config.username);
 
             if (botComment) {
                 try {
-                    const pullRequestComment = await this.editPrComment(
-                        botComment.id, scmInfo, comment);
+                    const pullRequestComment = await this.editPrComment(botComment.id, scmInfo, comment);
 
                     return {
                         commentId: `${pullRequestComment.data.id}`,
@@ -1583,9 +1690,7 @@ class GithubScm extends Scm {
      * @return {Array}          Array of scm contexts
      */
     _getScmContexts() {
-        const contextName = this.config.gheHost
-            ? [`github:${this.config.gheHost}`]
-            : ['github:github.com'];
+        const contextName = this.config.gheHost ? [`github:${this.config.gheHost}`] : ['github:github.com'];
 
         return contextName;
     }
@@ -1665,79 +1770,88 @@ class GithubScm extends Scm {
             scmInfo,
             page: 1,
             token: config.token
-        }).catch((err) => {
+        }).catch(err => {
             logger.error('Failed to getBranchList: ', err);
             throw err;
         });
     }
 
     /**
-    * Open a pull request on the repository with given file change
-    *
-    * @method _openPr
-    * @param  {Object}     config                  Configuration
-    * @param  {String}     config.checkoutUrl      Checkout url to the repo
-    * @param  {String}     config.token            Service token to authenticate with the SCM service
-    * @param  {String}     config.files            Files to open pull request with
-    * @param  {String}     config.title            Pull request title
-    * @param  {String}     config.message          Pull request message
-    * @param  {String}     [config.scmContext]     The scm context name
-    * @return {Promise}                            Resolves when operation completed without failure
-    */
+     * Open a pull request on the repository with given file change
+     *
+     * @method _openPr
+     * @param  {Object}     config                  Configuration
+     * @param  {String}     config.checkoutUrl      Checkout url to the repo
+     * @param  {String}     config.token            Service token to authenticate with the SCM service
+     * @param  {String}     config.files            Files to open pull request with
+     * @param  {String}     config.title            Pull request title
+     * @param  {String}     config.message          Pull request message
+     * @param  {String}     [config.scmContext]     The scm context name
+     * @return {Promise}                            Resolves when operation completed without failure
+     */
     async _openPr(config) {
         const { checkoutUrl, token, files, title, message } = config;
         const [, , owner, repo, branch] = checkoutUrl.match(CHECKOUT_URL_REGEX);
         const newBranch = title.replace(/ /g, '_');
 
-        return this.breaker.runCommand({
-            action: 'getBranch',
-            scopeType: 'repos',
-            token,
-            params: {
-                owner,
-                repo,
-                branch: branch.slice(1)
-            }
-        })
-            .then(baseBranch => this.breaker.runCommand({
-                action: 'createRef',
-                scopeType: 'git',
+        return this.breaker
+            .runCommand({
+                action: 'getBranch',
+                scopeType: 'repos',
                 token,
                 params: {
                     owner,
                     repo,
-                    ref: `refs/heads/${newBranch}`,
-                    sha: baseBranch.data.commit.sha
+                    branch: branch.slice(1)
                 }
-            }))
-            .then(() => Promise.all(files.map(file =>
+            })
+            .then(baseBranch =>
                 this.breaker.runCommand({
-                    action: 'createOrUpdateFileContents',
-                    scopeType: 'repos',
+                    action: 'createRef',
+                    scopeType: 'git',
                     token,
                     params: {
                         owner,
                         repo,
-                        path: file.name,
-                        branch: newBranch,
-                        message,
-                        content: Buffer.from(file.content).toString('base64')
+                        ref: `refs/heads/${newBranch}`,
+                        sha: baseBranch.data.commit.sha
                     }
-                }))
-            ))
-            .then(() => this.breaker.runCommand({
-                action: 'create',
-                scopeType: 'pulls',
-                token,
-                params: {
-                    owner,
-                    repo,
-                    title,
-                    head: `${owner}:${newBranch}`,
-                    base: branch.slice(1)
-                }
-            }))
-            .catch((err) => {
+                })
+            )
+            .then(() =>
+                Promise.all(
+                    files.map(file =>
+                        this.breaker.runCommand({
+                            action: 'createOrUpdateFileContents',
+                            scopeType: 'repos',
+                            token,
+                            params: {
+                                owner,
+                                repo,
+                                path: file.name,
+                                branch: newBranch,
+                                message,
+                                content: Buffer.from(file.content).toString('base64')
+                            }
+                        })
+                    )
+                )
+            )
+            .then(() =>
+                this.breaker.runCommand({
+                    action: 'create',
+                    scopeType: 'pulls',
+                    token,
+                    params: {
+                        owner,
+                        repo,
+                        title,
+                        head: `${owner}:${newBranch}`,
+                        base: branch.slice(1)
+                    }
+                })
+            )
+            .catch(err => {
                 logger.error('Failed to openPr: ', err);
                 throw err;
             });
