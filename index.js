@@ -598,6 +598,7 @@ class GithubScm extends Scm {
         const command = [];
 
         command.push(
+            // eslint-disable-next-line no-template-curly-in-string
             "export SD_GIT_WRAPPER=\"$(if [[ `uname` = 'Darwin' || ${SD_HAB_ENABLED:-false} = 'false' ]]; " +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/git'; fi)\""
