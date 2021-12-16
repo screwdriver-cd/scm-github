@@ -13,11 +13,13 @@ const testPayloadPushTag = require('./data/github.push.tag.json');
 const testPayloadRelease = require('./data/github.release.json');
 const testPayloadReleaseBadAction = require('./data/github.release.badAction.json');
 const testPayloadTag = require('./data/github.tag.json');
-const testPayloadPushBadHead = require('./data/github.push.badHead.json');
 const testPayloadSync = require('./data/github.pull_request.synchronize.json');
 const testPayloadBadAction = require('./data/github.pull_request.badAction.json');
 const testPayloadPing = require('./data/github.ping.json');
 const testPayloadPingBadSshHost = require('./data/github.ping.badSshHost.json');
+const testWebhookConfigOpen = require('./data/webhookConfig.pull_request.opened.json');
+const testWebhookConfigPushBadHead = require('./data/webhookConfig.push.badHead.json');
+const testWebhookConfigPush = require('./data/webhookConfig.push.json');
 const testCommands = require('./data/commands.json');
 const testReadOnlyCommandsSsh = require('./data/readOnlyCommandsSsh.json');
 const testReadOnlyCommandsHttps = require('./data/readOnlyCommandsHttps.json');
@@ -1251,7 +1253,7 @@ jobs:
                 .getChangedFiles({
                     type,
                     token,
-                    payload: testPayloadPush
+                    webhookConfig: testWebhookConfigPush
                 })
                 .then(result => {
                     assert.deepEqual(result, ['README.md', 'package.json', 'screwdriver.yaml']);
@@ -1267,7 +1269,7 @@ jobs:
                 .getChangedFiles({
                     type: 'pr',
                     token,
-                    payload: null,
+                    webhookConfig: null,
                     scmUri: 'github.com:28476:master',
                     prNum: 1
                 })
@@ -1283,7 +1285,7 @@ jobs:
                 .getChangedFiles({
                     type,
                     token,
-                    payload: testPayloadOpen
+                    webhookConfig: testWebhookConfigOpen
                 })
                 .then(result => {
                     assert.deepEqual(result, []);
@@ -1297,7 +1299,7 @@ jobs:
                 .getChangedFiles({
                     type,
                     token,
-                    payload: testPayloadPushBadHead
+                    webhookConfig: testWebhookConfigPushBadHead
                 })
                 .then(result => {
                     assert.deepEqual(result, []);
@@ -1457,7 +1459,10 @@ jobs:
                     lastCommitMessage: 'lastcommitmessage',
                     hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
                     scmContext: 'github:github.com',
-                    ref: 'refs/heads/master'
+                    ref: 'refs/heads/master',
+                    addedFiles: ['README.md'],
+                    modifiedFiles: ['README.md', 'package.json'],
+                    removedFiles: ['screwdriver.yaml']
                 });
             });
         });
