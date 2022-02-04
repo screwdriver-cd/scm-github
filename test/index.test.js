@@ -1,6 +1,6 @@
 'use strict';
 
-const { assert } = require('chai');
+const { assert, AssertionError } = require('chai');
 const mockery = require('mockery');
 const sinon = require('sinon');
 
@@ -174,14 +174,85 @@ describe('index', function() {
             });
         });
 
-        it('runs octokit.request when scopeType is request', () => {
-            githubMock.request.resolves({ data: {} });
+        it('runs octokit.request when scopeType is request', done => {
+            githubMock.request.resolves({
+                data: {},
+                status: 200
+            });
             dummyOption.scopeType = 'request';
             dummyOption.route = 'GET /dummy';
             dummyOption.params = { id: 1234 };
             scm = new GithubScm(config);
-            scm._githubCommand(dummyOption, () => {
+
+            scm._githubCommand(dummyOption, (err, response) => {
+                if (err instanceof AssertionError) {
+                    done(err);
+                }
                 assert.calledWith(githubMock.request, dummyOption.route, { id: dummyOption.params.id });
+                assert.strictEqual(response.statusCode, 200);
+                assert.isNull(err);
+                done();
+            });
+        });
+
+        it('fail octokit.request when scopeType is request', done => {
+            githubMock.request.rejects({
+                data: {},
+                status: 500
+            });
+            dummyOption.scopeType = 'request';
+            dummyOption.route = 'GET /dummy';
+            dummyOption.params = {};
+            scm = new GithubScm(config);
+
+            scm._githubCommand(dummyOption, err => {
+                try {
+                    assert.strictEqual(err.statusCode, 500);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
+            });
+        });
+
+        it('runs octokit.issues when scopeType is issue', done => {
+            githubMock.issues.createComment.resolves({
+                data: {},
+                status: 200
+            });
+            dummyOption.scopeType = 'issues';
+            dummyOption.action = 'createComment';
+            dummyOption.params = { issue_number: 1234 };
+            scm = new GithubScm(config);
+
+            scm._githubCommand(dummyOption, (err, response) => {
+                if (err instanceof AssertionError) {
+                    done(err);
+                }
+                assert.calledWith(githubMock.issues.createComment, { issue_number: dummyOption.params.issue_number });
+                assert.strictEqual(response.statusCode, 200);
+                assert.isNull(err);
+                done();
+            });
+        });
+
+        it('fail octokit.issues when scopeType is issue', done => {
+            githubMock.issues.createComment.rejects({
+                data: {},
+                status: 500
+            });
+            dummyOption.scopeType = 'issues';
+            dummyOption.action = 'createComment';
+            dummyOption.params = {};
+            scm = new GithubScm(config);
+
+            scm._githubCommand(dummyOption, err => {
+                try {
+                    assert.strictEqual(err.statusCode, 500);
+                    done();
+                } catch (e) {
+                    done(e);
+                }
             });
         });
     });
@@ -468,6 +539,7 @@ describe('index', function() {
                 .then(() => assert.fail('This should not fail the test'))
                 .catch(actual => {
                     assert.deepEqual(actual.message, err);
+                    assert.strictEqual(actual.statusCode, 500);
                 });
         });
 
@@ -768,21 +840,13 @@ describe('index', function() {
                 );
         });
 
-        it('rejects when scm settings is mismatch', () => {
-            const scmUriNotMatch = 'notmatching.com:23498:targetBranch';
-            const [scmHost] = scmUriNotMatch.split(':');
-            const loginContext = scm.getScmContexts();
-            const loginHost = loginContext[0].split(':')[1];
-
-            const testError = new Error(
-                `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${loginHost}`
-            );
-
-            githubMock.request.rejects(testError);
+        it('return 403 when scm settings is mismatch', () => {
+            const scmHost = 'notmatching.com';
+            const loginHost = 'github.com';
 
             return scm
                 .lookupScmUri({
-                    scmUri: scmUriNotMatch,
+                    scmUri: `${scmHost}:1234`,
                     token: 'sometoken'
                 })
                 .then(
@@ -790,7 +854,11 @@ describe('index', function() {
                         assert.fail('This should not fail the test');
                     },
                     error => {
-                        assert.strictEqual(error.message, testError.message);
+                        assert.strictEqual(
+                            error.message,
+                            `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${loginHost}`
+                        );
+                        assert.strictEqual(error.statusCode, 403);
                     }
                 );
         });
@@ -1001,6 +1069,7 @@ describe('index', function() {
                 })
                 .catch(error => {
                     assert.deepEqual(error, err);
+                    assert.strictEqual(error.statusCode, 500);
 
                     assert.calledWith(githubMock.repos.createCommitStatus, {
                         owner: 'screwdriver-cd',
@@ -1205,6 +1274,7 @@ jobs:
                 },
                 err => {
                     assert.strictEqual(err.message, expectedErrorMessage);
+                    assert.strictEqual(err.statusCode, 500);
 
                     assert.calledWith(githubMock.repos.getContent, {
                         owner: 'screwdriver-cd',
@@ -1238,6 +1308,71 @@ jobs:
 
                     assert.deepEqual(error, err);
                     assert.strictEqual(scm.breaker.getTotalRequests(), 2);
+                    assert.strictEqual(error.statusCode, 403);
+                });
+        });
+    });
+
+    describe('_getRepoInfo', () => {
+        const scmInfo = {
+            owner: 'owner-getRepoInfo',
+            repo: 'repo-getRepoInfo',
+            host: 'host-getRepoInfo',
+            branch: 'branch-getRepoInfo'
+        };
+        const token = 'token-getRepoInfo';
+        const checkoutUrl = 'url-getRepoInfo';
+
+        it('returns repository id and default branch', () => {
+            const repositoryInfo = {
+                repoId: 1234,
+                defaultBranch: 'test-branch'
+            };
+
+            githubMock.repos.get.resolves({
+                data: {
+                    id: repositoryInfo.repoId,
+                    default_branch: repositoryInfo.defaultBranch
+                }
+            });
+
+            return scm._getRepoInfo(scmInfo, token, checkoutUrl).then(result => {
+                assert.calledWith(githubMock.repos.get, scmInfo);
+                assert.deepEqual(result, repositoryInfo);
+            });
+        });
+
+        it('throws 404 error when scm does not exit', () => {
+            const error = new Error();
+
+            error.status = 404;
+            githubMock.repos.get.rejects(error);
+
+            return scm
+                ._getRepoInfo(scmInfo, token, checkoutUrl)
+                .then(() => {
+                    assert.fail('This should not fail the test');
+                })
+                .catch(err => {
+                    assert.strictEqual(err.message, `Cannot find repository ${checkoutUrl}`);
+                    assert.strictEqual(err.statusCode, 404);
+                });
+        });
+
+        it('throws 500 error when scm throws error', () => {
+            const error = new Error('error message');
+
+            error.status = 500;
+            githubMock.repos.get.rejects(error);
+
+            return scm
+                ._getRepoInfo(scmInfo, token, checkoutUrl)
+                .then(() => {
+                    assert.fail('This should not fail the test');
+                })
+                .catch(err => {
+                    assert.strictEqual(err.message, 'error message');
+                    assert.strictEqual(err.statusCode, 500);
                 });
         });
     });
@@ -1615,6 +1750,7 @@ jobs:
                 })
                 .catch(err => {
                     assert.equal(err.message, 'Invalid x-hub-signature');
+                    assert.strictEqual(err.statusCode, 500);
                 });
         });
     });
@@ -1754,13 +1890,15 @@ jobs:
                     },
                     err => {
                         assert.match(err.message, 'Cannot find repository');
+                        assert.strictEqual(err.statusCode, 404);
                     }
                 );
         });
 
         it('rejects when failing to communicate with github', () => {
-            const expectedError = 'errorCommunicatingWithGithub';
+            const expectedError = new Error('errorCommunicatingWithGithub');
 
+            expectedError.status = 500;
             githubMock.repos.get.rejects(expectedError);
 
             return scm
@@ -1773,7 +1911,8 @@ jobs:
                         assert.fail('This should not fail the test');
                     },
                     err => {
-                        assert.deepEqual(err.message, expectedError);
+                        assert.deepEqual(err.message, expectedError.message);
+                        assert.strictEqual(err.statusCode, 500);
                         assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
                         assert.calledWith(
                             githubMock.repos.get,
@@ -1801,6 +1940,7 @@ jobs:
                     },
                     err => {
                         assert.match(err.message, message);
+                        assert.strictEqual(err.statusCode, 400);
                     }
                 );
         });
