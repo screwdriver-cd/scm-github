@@ -95,18 +95,26 @@ class GithubScm extends Scm {
         if (scopeType === 'request' || scopeType === 'paginate') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
+            // octokit return response code as `response.status`, but screwdriver usually use `response.statusCode`
             octokit[scopeType](options.route, options.params)
-                .then(function cb() {
-                    // Use "function" (not "arrow function") for getting "arguments"
-                    callback(null, ...arguments);
+                .then(response => {
+                    response.statusCode = response.status;
+                    callback(null, response);
                 })
-                .catch(err => callback(err));
+                .catch(err => {
+                    err.statusCode = err.status;
+                    callback(err);
+                });
         } else {
             octokit[scopeType][options.action](options.params)
-                .then(function cb() {
-                    callback(null, ...arguments);
+                .then(response => {
+                    response.statusCode = response.status;
+                    callback(null, response);
                 })
-                .catch(err => callback(err));
+                .catch(err => {
+                    err.statusCode = err.status;
+                    callback(err);
+                });
         }
     }
 
@@ -200,7 +208,7 @@ class GithubScm extends Scm {
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
             // Do not retry when there is a 4XX error
-            shouldRetry: err => err && err.status && !(err.status >= 400 && err.status < 500),
+            shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
             breaker: this.config.fusebox.breaker
         });
@@ -1069,7 +1077,7 @@ class GithubScm extends Scm {
 
             return status ? status.data : undefined;
         } catch (err) {
-            if (err.status !== 422) {
+            if (err.statusCode !== 422) {
                 logger.error('Failed to updateCommitStatus: ', err);
                 throw err;
             }
@@ -1115,14 +1123,14 @@ class GithubScm extends Scm {
             });
 
             if (file.data.type !== 'file') {
-                throw new Error(`Path (${fullPath}) does not point to file`);
+                throwError(`Path (${fullPath}) does not point to file`);
             }
 
             return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
             logger.error('Failed to getFile: ', err);
 
-            if (err.status === 404) {
+            if (err.statusCode === 404) {
                 // Returns an empty file if there is no screwdriver.yaml
                 return '';
             }
@@ -1164,8 +1172,8 @@ class GithubScm extends Scm {
 
             return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
         } catch (err) {
-            if (err.status === 404) {
-                throw new Error(`Cannot find repository ${checkoutUrl}`);
+            if (err.statusCode === 404) {
+                throwError(`Cannot find repository ${checkoutUrl}`, 404);
             }
 
             logger.error('Failed to getRepoId: ', err);
