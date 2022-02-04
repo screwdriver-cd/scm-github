@@ -49,6 +49,19 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
 };
 
 /**
+ * Throw error with error code
+ * @param {Number} errorCode   Error code
+ * @param {String} errorReason Error message
+ * @throws {Error}             Throws error
+ */
+function throwError(errorReason, errorCode = 500) {
+    const err = new Error(errorReason);
+
+    err.statusCode = errorCode;
+    throw err;
+}
+
+/**
  * Get repo information
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
@@ -60,7 +73,7 @@ function getInfo(scmUrl, rootDir) {
 
     // Check if regex did not pass
     if (!matched) {
-        throw new Error(`Invalid scmUrl: ${scmUrl}`);
+        throwError(`Invalid scmUrl: ${scmUrl}`, 400);
     }
 
     const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
@@ -95,18 +108,26 @@ class GithubScm extends Scm {
         if (scopeType === 'request' || scopeType === 'paginate') {
             // for deprecation of 'octokit.repos.getById({id})'
             // ref: https://github.com/octokit/rest.js/releases/tag/v16.0.1
+            // octokit return response code as `response.status`, but screwdriver usually use `response.statusCode`
             octokit[scopeType](options.route, options.params)
-                .then(function cb() {
-                    // Use "function" (not "arrow function") for getting "arguments"
-                    callback(null, ...arguments);
+                .then(response => {
+                    response.statusCode = response.status;
+                    callback(null, response);
                 })
-                .catch(err => callback(err));
+                .catch(err => {
+                    err.statusCode = err.status;
+                    callback(err);
+                });
         } else {
             octokit[scopeType][options.action](options.params)
-                .then(function cb() {
-                    callback(null, ...arguments);
+                .then(response => {
+                    response.statusCode = response.status;
+                    callback(null, response);
                 })
-                .catch(err => callback(err));
+                .catch(err => {
+                    err.statusCode = err.status;
+                    callback(err);
+                });
         }
     }
 
@@ -200,7 +221,7 @@ class GithubScm extends Scm {
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
             // Do not retry when there is a 4XX error
-            shouldRetry: err => err && err.status && !(err.status >= 400 && err.status < 500),
+            shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
             breaker: this.config.fusebox.breaker
         });
@@ -230,8 +251,9 @@ class GithubScm extends Scm {
                 const myHost = this.config.gheHost || 'github.com';
 
                 if (scmHost !== myHost) {
-                    throw new Error(
-                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`
+                    throwError(
+                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`,
+                        403
                     );
                 }
                 // https://github.com/octokit/rest.js/issues/163
@@ -1020,7 +1042,8 @@ class GithubScm extends Scm {
                 // commit or lightweight tag
                 return refObj.data.object.sha;
             }
-            throw new Error(`Cannot handle ${refObj.data.object.type} type`);
+
+            return throwError(`Cannot handle ${refObj.data.object.type} type`);
         } catch (err) {
             logger.error('Failed to getCommitRefSha: ', err);
             throw err;
@@ -1069,7 +1092,7 @@ class GithubScm extends Scm {
 
             return status ? status.data : undefined;
         } catch (err) {
-            if (err.status !== 422) {
+            if (err.statusCode !== 422) {
                 logger.error('Failed to updateCommitStatus: ', err);
                 throw err;
             }
@@ -1115,14 +1138,14 @@ class GithubScm extends Scm {
             });
 
             if (file.data.type !== 'file') {
-                throw new Error(`Path (${fullPath}) does not point to file`);
+                throwError(`Path (${fullPath}) does not point to file`);
             }
 
             return Buffer.from(file.data.content, file.data.encoding).toString();
         } catch (err) {
             logger.error('Failed to getFile: ', err);
 
-            if (err.status === 404) {
+            if (err.statusCode === 404) {
                 // Returns an empty file if there is no screwdriver.yaml
                 return '';
             }
@@ -1164,12 +1187,12 @@ class GithubScm extends Scm {
 
             return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
         } catch (err) {
-            if (err.status === 404) {
-                throw new Error(`Cannot find repository ${checkoutUrl}`);
+            if (err.statusCode === 404) {
+                throwError(`Cannot find repository ${checkoutUrl}`, 404);
             }
 
             logger.error('Failed to getRepoId: ', err);
-            throw new Error(err);
+            throw err;
         }
     }
 
@@ -1387,7 +1410,7 @@ class GithubScm extends Scm {
 
         // eslint-disable-next-line no-underscore-dangle
         if (!verify(this.config.secret, webhookPayload, signature)) {
-            throw new Error('Invalid x-hub-signature');
+            throwError('Invalid x-hub-signature');
         }
 
         switch (type) {
@@ -1529,9 +1552,7 @@ class GithubScm extends Scm {
         const myHost = this.config.gheHost || 'github.com';
 
         if (host !== myHost) {
-            const message = 'This checkoutUrl is not supported for your current login host.';
-
-            throw new Error(message);
+            throwError('This checkoutUrl is not supported for your current login host.', 400);
         }
 
         const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
