@@ -49,6 +49,19 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
 };
 
 /**
+ * Throw error with error code
+ * @param {Number} errorCode   Error code
+ * @param {String} errorReason Error message
+ * @throws {Error}             Throws error
+ */
+function throwError(errorReason, errorCode = 500) {
+    const err = new Error(errorReason);
+
+    err.statusCode = errorCode;
+    throw err;
+}
+
+/**
  * Get repo information
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
@@ -60,7 +73,7 @@ function getInfo(scmUrl, rootDir) {
 
     // Check if regex did not pass
     if (!matched) {
-        throw new Error(`Invalid scmUrl: ${scmUrl}`);
+        throwError(`Invalid scmUrl: ${scmUrl}`, 400);
     }
 
     const branch = matched[MATCH_COMPONENT_BRANCH_NAME];
@@ -238,8 +251,9 @@ class GithubScm extends Scm {
                 const myHost = this.config.gheHost || 'github.com';
 
                 if (scmHost !== myHost) {
-                    throw new Error(
-                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`
+                    throwError(
+                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`,
+                        403
                     );
                 }
                 // https://github.com/octokit/rest.js/issues/163
@@ -1028,7 +1042,8 @@ class GithubScm extends Scm {
                 // commit or lightweight tag
                 return refObj.data.object.sha;
             }
-            throw new Error(`Cannot handle ${refObj.data.object.type} type`);
+
+            return throwError(`Cannot handle ${refObj.data.object.type} type`);
         } catch (err) {
             logger.error('Failed to getCommitRefSha: ', err);
             throw err;
@@ -1177,7 +1192,7 @@ class GithubScm extends Scm {
             }
 
             logger.error('Failed to getRepoId: ', err);
-            throw new Error(err);
+            throw err;
         }
     }
 
@@ -1395,7 +1410,7 @@ class GithubScm extends Scm {
 
         // eslint-disable-next-line no-underscore-dangle
         if (!verify(this.config.secret, webhookPayload, signature)) {
-            throw new Error('Invalid x-hub-signature');
+            throwError('Invalid x-hub-signature');
         }
 
         switch (type) {
@@ -1537,9 +1552,7 @@ class GithubScm extends Scm {
         const myHost = this.config.gheHost || 'github.com';
 
         if (host !== myHost) {
-            const message = 'This checkoutUrl is not supported for your current login host.';
-
-            throw new Error(message);
+            throwError('This checkoutUrl is not supported for your current login host.', 400);
         }
 
         const { repoId, defaultBranch } = await this._getRepoInfo(scmInfo, token, checkoutUrl);
