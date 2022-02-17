@@ -786,11 +786,6 @@ class GithubScm extends Scm {
             // Reset to SHA
             command.push(`$SD_GIT_WRAPPER "git reset --hard '${checkoutRef}' --"`);
             command.push(`echo 'Reset to ${checkoutRef}'`);
-
-            // cd into rootDir after cloning
-            if (config.rootDir) {
-                command.push(`cd ${config.rootDir}`);
-            }
         }
 
         // For pull requests
@@ -818,6 +813,10 @@ class GithubScm extends Scm {
             // Init & Update submodule only when sd-repo is not used
             command.push('$SD_GIT_WRAPPER "git submodule init"');
             command.push('$SD_GIT_WRAPPER "git submodule update --recursive"');
+            // cd into rootDir after merging
+            if (config.rootDir) {
+                command.push(`cd ${config.rootDir}`);
+            }
         }
 
         return {
