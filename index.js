@@ -47,6 +47,7 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEYS_PASSWORD: '',
     DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
 };
+const DEFAULT_BRANCH = 'main';
 
 /**
  * Throw error with error code
@@ -66,7 +67,7 @@ function throwError(errorReason, errorCode = 500) {
  * @method getInfo
  * @param  {String}  scmUrl      scmUrl of the repo
  * @param  {String}  [rootDir]   Root dir of the pipeline
- * @return {Object}              An object with the user, repo, host, branch, and rootDir
+ * @return {Object}              An object with the owner, repo, host, branch, and rootDir
  */
 function getInfo(scmUrl, rootDir) {
     const matched = schema.config.regex.CHECKOUT_URL.exec(scmUrl);
@@ -1112,17 +1113,29 @@ class GithubScm extends Scm {
      * @return {Promise}                      Resolves to string containing contents of file
      */
     async _getFile({ scmUri, path, token, ref, scmRepo }) {
-        const lookupConfig = {
-            scmUri,
-            token
-        };
+        let fullPath = path;
+        let owner;
+        let repo;
+        let branch;
+        let rootDir;
 
-        if (scmRepo) {
-            lookupConfig.scmRepo = scmRepo;
+        // If full path to a file is provided, e.g. git@github.com:screwdriver-cd/scm-github.git:path/to/a/file.yaml
+        if (CHECKOUT_URL_REGEX.test(path)) {
+            ({ owner, repo, branch, rootDir } = getInfo(fullPath));
+            fullPath = rootDir;
+        } else {
+            const lookupConfig = {
+                scmUri,
+                token
+            };
+
+            if (scmRepo) {
+                lookupConfig.scmRepo = scmRepo;
+            }
+
+            ({ owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig));
+            fullPath = rootDir ? Path.join(rootDir, path) : path;
         }
-
-        const { owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig);
-        const fullPath = rootDir ? Path.join(rootDir, path) : path;
 
         try {
             const file = await this.breaker.runCommand({
@@ -1132,7 +1145,7 @@ class GithubScm extends Scm {
                     owner,
                     repo,
                     path: fullPath,
-                    ref: ref || branch
+                    ref: ref || branch || DEFAULT_BRANCH
                 }
             });
 
