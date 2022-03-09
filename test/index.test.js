@@ -1244,6 +1244,26 @@ jobs:
                 });
         });
 
+        it('promises to get content when only full path is passed', () => {
+            githubMock.repos.getContent.resolves({ data: returnData });
+
+            return scm
+                .getFile({
+                    scmUri: 'github.com:146:master:src/app/component',
+                    path: 'git@github.com:screwdriver-cd/scm-github.git:path/to/a/file.yaml',
+                    token: 'somerandomtoken'
+                })
+                .then(data => {
+                    assert.deepEqual(data, expectedYaml);
+                    assert.calledWith(githubMock.repos.getContent, {
+                        owner: 'screwdriver-cd',
+                        repo: 'scm-github',
+                        path: 'path/to/a/file.yaml',
+                        ref: 'main'
+                    });
+                });
+        });
+
         it('promises to get empty content when file is not found', () => {
             const err = new Error('githubError');
 
