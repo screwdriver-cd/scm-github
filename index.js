@@ -630,7 +630,6 @@ class GithubScm extends Scm {
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
         const singleQuoteEscapedBranch = escapeForSingleQuoteEnclosure(branch);
         const doubleQuoteEscapedBranch = escapeForDoubleQuoteEnclosure(singleQuoteEscapedBranch);
-        const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
         const gitConfigString = `
         Host ${ghHost}
@@ -805,9 +804,15 @@ class GithubScm extends Scm {
                     `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
             );
+
             // Reset to SHA
-            command.push(`$SD_GIT_WRAPPER "git reset --hard '${checkoutRef}' --"`);
-            command.push(`echo 'Reset to ${checkoutRef}'`);
+            if (config.prRef) {
+                command.push(`$SD_GIT_WRAPPER "git reset --hard '${doubleQuoteEscapedBranch}' --"`);
+                command.push(`echo 'Reset to ${singleQuoteEscapedBranch}'`);
+            } else {
+                command.push(`$SD_GIT_WRAPPER "git reset --hard '${config.sha}' --"`);
+                command.push(`echo 'Reset to ${config.sha}'`);
+            }
         }
 
         // For pull requests
@@ -816,18 +821,18 @@ class GithubScm extends Scm {
             const prRef = config.prRef.replace('merge', `head:${LOCAL_BRANCH_NAME}`);
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
             const prBranch = config.prBranchName;
-            const escapedPrBranch = prBranch.replace(/'/g, `'"'"'`);
+            const singleQuoteEscapedPrBranch = escapeForSingleQuoteEnclosure(prBranch);
 
             // Fetch a pull request
             command.push(`echo 'Fetching PR ${prRef}'`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
 
             command.push(`export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`);
-            command.push(`export PR_BRANCH_NAME='${baseRepo}/${escapedPrBranch}'`);
+            command.push(`export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`);
 
-            command.push(`echo 'Checking out the PR branch ${escapedPrBranch}'`);
+            command.push(`echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}'`);
             command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
-            command.push(`$SD_GIT_WRAPPER "git merge ${doubleQuoteEscapedBranch}"`);
+            command.push(`$SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
             command.push(`export GIT_BRANCH='origin/${singleQuoteEscapedBranch}'`);
