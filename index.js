@@ -50,6 +50,24 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
 const DEFAULT_BRANCH = 'main';
 
 /**
+ * Escape quotes (single quote) for single quote enclosure
+ * @param {String} command escape command
+ * @returns {String}
+ */
+function escapeForSingleQuoteEnclosure(command) {
+    return command.replace(/'/g, `'"'"'`);
+}
+
+/**
+ * Escape quotes (double or back quote) for double quote enclosure
+ * @param {String} command escape command
+ * @returns {String}
+ */
+function escapeForDoubleQuoteEnclosure(command) {
+    return command.replace(/"/g, '\\"').replace(/`/g, '\\`');
+}
+
+/**
  * Throw error with error code
  * @param {Number} errorCode   Error code
  * @param {String} errorReason Error message
@@ -610,7 +628,8 @@ class GithubScm extends Scm {
         const checkoutUrl = `${config.host}/${config.org}/${config.repo}`; // URL for https
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
-        const checkoutRef = config.prRef ? branch : config.sha; // if PR, use pipeline branch
+        const singleQuoteEscapedBranch = escapeForSingleQuoteEnclosure(branch);
+        const doubleQuoteEscapedBranch = escapeForDoubleQuoteEnclosure(singleQuoteEscapedBranch);
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
         const gitConfigString = `
         Host ${ghHost}
@@ -696,6 +715,7 @@ class GithubScm extends Scm {
             const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for https
             const parentSshCheckoutUrl = `git@${config.parentConfig.host}:${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
             const parentBranch = config.parentConfig.branch;
+            const escapedParentBranch = escapeForDoubleQuoteEnclosure(escapeForSingleQuoteEnclosure(parentBranch));
             const externalConfigDir = '$SD_ROOT_DIR/config';
 
             command.push(
@@ -714,9 +734,9 @@ class GithubScm extends Scm {
             command.push(
                 `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${parentBranch}' ` +
+                    `"git clone --recursive --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${parentBranch}' ` +
+                    `--recursive --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; fi'
             );
 
@@ -775,18 +795,24 @@ class GithubScm extends Scm {
             command.push('cd $SD_SOURCE_DIR');
         } else {
             // Git clone
-            command.push(`echo 'Cloning ${checkoutUrl}, on branch ${branch}'`);
+            command.push(`echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}'`);
             command.push(
                 `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${branch}' ` +
+                    `"git clone --recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${branch}' ` +
+                    `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
             );
+
             // Reset to SHA
-            command.push(`$SD_GIT_WRAPPER "git reset --hard '${checkoutRef}' --"`);
-            command.push(`echo 'Reset to ${checkoutRef}'`);
+            if (config.prRef) {
+                command.push(`$SD_GIT_WRAPPER "git reset --hard '${doubleQuoteEscapedBranch}' --"`);
+                command.push(`echo 'Reset to ${singleQuoteEscapedBranch}'`);
+            } else {
+                command.push(`$SD_GIT_WRAPPER "git reset --hard '${config.sha}' --"`);
+                command.push(`echo 'Reset to ${config.sha}'`);
+            }
         }
 
         // For pull requests
@@ -794,20 +820,22 @@ class GithubScm extends Scm {
             const LOCAL_BRANCH_NAME = 'pr';
             const prRef = config.prRef.replace('merge', `head:${LOCAL_BRANCH_NAME}`);
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
+            const prBranch = config.prBranchName;
+            const singleQuoteEscapedPrBranch = escapeForSingleQuoteEnclosure(prBranch);
 
             // Fetch a pull request
             command.push(`echo 'Fetching PR ${prRef}'`);
             command.push(`$SD_GIT_WRAPPER "git fetch origin ${prRef}"`);
 
-            command.push(`export PR_BASE_BRANCH_NAME='${branch}'`);
-            command.push(`export PR_BRANCH_NAME='${baseRepo}/${config.prBranchName}'`);
+            command.push(`export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`);
+            command.push(`export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`);
 
-            command.push(`echo 'Checking out the PR branch ${config.prBranchName}'`);
+            command.push(`echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}'`);
             command.push(`$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`);
-            command.push(`$SD_GIT_WRAPPER "git merge ${branch}"`);
+            command.push(`$SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'"`);
             command.push(`export GIT_BRANCH=origin/refs/${prRef}`);
         } else {
-            command.push(`export GIT_BRANCH='origin/${branch}'`);
+            command.push(`export GIT_BRANCH='origin/${singleQuoteEscapedBranch}'`);
         }
 
         if (!config.manifest) {
