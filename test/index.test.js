@@ -2815,10 +2815,14 @@ jobs:
     describe('_addPrComment', () => {
         const scmUri = 'github.com:111:branchName';
         const comment = 'this was a great PR';
+        const jobName = 'main';
+        const pipelineId = '123456';
         const config = {
             scmUri,
             token: 'token',
             prNum: 1,
+            jobName,
+            pipelineId,
             comment
         };
 

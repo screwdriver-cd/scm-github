@@ -1696,7 +1696,7 @@ class GithubScm extends Scm {
      * @param  {String}     config.token       Service token to authenticate with Github
      * @return {Promise}                       Resolves when complete
      */
-    async _addPrComment({ comment, prNum, scmUri, token }) {
+    async _addPrComment({ comment, jobName, prNum, scmUri, token, pipelineId }) {
         const scmInfo = await this.lookupScmUri({
             scmUri,
             token
@@ -1705,7 +1705,14 @@ class GithubScm extends Scm {
         const prComments = await this.prComments(scmInfo, prNum, token);
 
         if (prComments) {
-            const botComment = prComments.comments.find(commentObj => commentObj.user.login === this.config.username);
+            const botComment = prComments.comments.find(
+                commentObj =>
+                    commentObj.user.login === this.config.username &&
+                    commentObj.body.split(/\n/)[0].match(/^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/) &&
+                    commentObj.body.split(/\n/)[0].match(/^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/)[1] ===
+                        pipelineId.toString() &&
+                    commentObj.body.split(/\n/)[0].match(/^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/)[2] === jobName
+            );
 
             if (botComment) {
                 try {
