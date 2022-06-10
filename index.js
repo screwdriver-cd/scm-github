@@ -11,6 +11,7 @@ const joi = require('joi');
 const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
+const PR_COMMENTS_REGEX = /^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/;
 const Scm = require('screwdriver-scm-base');
 const logger = require('screwdriver-logger');
 const DEFAULT_AUTHOR = {
@@ -1696,7 +1697,7 @@ class GithubScm extends Scm {
      * @param  {String}     config.token       Service token to authenticate with Github
      * @return {Promise}                       Resolves when complete
      */
-    async _addPrComment({ comment, prNum, scmUri, token }) {
+    async _addPrComment({ comment, jobName, prNum, scmUri, token, pipelineId }) {
         const scmInfo = await this.lookupScmUri({
             scmUri,
             token
@@ -1705,7 +1706,13 @@ class GithubScm extends Scm {
         const prComments = await this.prComments(scmInfo, prNum, token);
 
         if (prComments) {
-            const botComment = prComments.comments.find(commentObj => commentObj.user.login === this.config.username);
+            const botComment = prComments.comments.find(
+                commentObj =>
+                    commentObj.user.login === this.config.username &&
+                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX) &&
+                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[1] === pipelineId.toString() &&
+                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[2] === jobName
+            );
 
             if (botComment) {
                 try {
