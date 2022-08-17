@@ -877,7 +877,8 @@ class GithubScm extends Scm {
                 params: {
                     owner,
                     repo,
-                    state: 'open'
+                    state: 'open',
+                    per_page: 100
                 }
             });
 

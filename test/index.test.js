@@ -2683,7 +2683,8 @@ jobs:
                 assert.calledWith(githubMock.pulls.list, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    state: 'open'
+                    state: 'open',
+                    per_page: 100
                 });
             });
         });
