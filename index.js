@@ -751,11 +751,16 @@ class GithubScm extends Scm {
                 '$(if curl --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
                 "else echo 'sd-step exec core/curl'; fi)";
+            const grepWrapper =
+                '$(if grep --version > /dev/null 2>&1; ' +
+                "then echo 'eval'; " +
+                "else echo 'sd-step exec core/grep'; fi)";
 
             const repoDownloadUrl = 'https://storage.googleapis.com/git-repo-downloads/repo';
             const sdRepoReleasesUrl = 'https://api.github.com/repos/screwdriver-cd/sd-repo/releases/latest';
             const sdRepoDownloadUrl =
                 'https://github.com/screwdriver-cd/sd-repo/releases/download/v[0-9.]*/sd-repo_linux_amd64';
+            const sdRepoReleasesFile = 'sd-repo-releases.html';
             const sdRepoLatestFile = 'sd-repo-latest';
 
             command.push(`echo Checking out code using the repo manifest defined in ${config.manifest}`);
@@ -765,8 +770,9 @@ class GithubScm extends Scm {
             command.push('chmod a+x /usr/local/bin/repo');
 
             // Get the sd-repo binary and execute it
+            command.push(`${curlWrapper} "curl -s ${sdRepoReleasesUrl} > ${sdRepoReleasesFile}"`);
             command.push(
-                `${curlWrapper} "curl -s ${sdRepoReleasesUrl} > | grep -E -o ${sdRepoDownloadUrl} > ${sdRepoLatestFile}"`
+                `${grepWrapper} "grep -E -o '${sdRepoDownloadUrl}' ${sdRepoReleasesFile} > ${sdRepoLatestFile}"`
             );
             command.push(`${curlWrapper} "curl -Ls $(cat ${sdRepoLatestFile}) > /usr/local/bin/sd-repo"`);
             command.push('chmod a+x /usr/local/bin/sd-repo');
