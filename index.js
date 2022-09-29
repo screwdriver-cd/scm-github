@@ -238,6 +238,19 @@ class GithubScm extends Scm {
             this.octokitConfig.baseUrl = `${this.config.gheProtocol}://${this.config.gheHost}/api/v3`;
         }
 
+        let breakerOption = this.config.fusebox.breaker;
+
+        if (breakerOption) {
+            breakerOption.errorFn = function(err) {
+                return !(err.statusCode >= 400 && err.statusCode < 500);
+            };
+        } else {
+            breakerOption = {
+                errorFn(err) {
+                    return !(err.statusCode >= 400 && err.statusCode < 500);
+                }
+            };
+        }
         // eslint-disable-next-line no-underscore-dangle
         this.breaker = new Breaker(this._githubCommand.bind(this), {
             // Do not retry when there is a 4XX error
