@@ -256,7 +256,7 @@ class GithubScm extends Scm {
             // Do not retry when there is a 4XX error
             shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
-            breaker: this.config.fusebox.breaker
+            breaker: breakerOption
         });
     }
 
