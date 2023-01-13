@@ -35,6 +35,7 @@ const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
 const testPrGet = require('./data/github.pull_request.get.json');
 const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
+const testPrGetNoForkRepo = require('./data/github.pull_request.get.noForkRepo.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
 
 sinon.assert.expose(assert, {
@@ -2782,6 +2783,33 @@ jobs:
                     prSource: 'branch'
                 });
                 assert.notCalled(githubMock.request);
+                assert.calledWith(githubMock.pulls.get, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    pull_number: 1
+                });
+            });
+        });
+
+        it('returns a pull request for no fork repo', () => {
+            githubMock.pulls.get.resolves({ data: testPrGetNoForkRepo });
+
+            return scm._getPrInfo(config).then(data => {
+                assert.deepEqual(data, {
+                    name: 'PR-1',
+                    ref: 'pull/1/merge',
+                    sha,
+                    url: 'https://github.com/octocat/Hello-World/pull/1',
+                    username: 'octocat',
+                    title: 'new-feature',
+                    createTime: '2011-01-26T19:01:12Z',
+                    userProfile: 'https://github.com/octocat',
+                    prBranchName: 'new-topic',
+                    baseBranch: 'master',
+                    mergeable: null,
+                    prSource: 'fork'
+                });
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
                 assert.calledWith(githubMock.pulls.get, {
                     owner: 'repoOwner',
                     repo: 'repoName',
