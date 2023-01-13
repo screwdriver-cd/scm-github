@@ -1667,8 +1667,15 @@ class GithubScm extends Scm {
                     repo: scmInfo.repo
                 }
             });
-            const prSource =
-                pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id ? 'branch' : 'fork';
+            let prSource = 'fork';
+
+            if (
+                pullRequestInfo.data.head.repo &&
+                pullRequestInfo.data.base.repo &&
+                pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id
+            ) {
+                prSource = 'branch';
+            }
 
             return {
                 name: `PR-${pullRequestInfo.data.number}`,
