@@ -1718,8 +1718,10 @@ class GithubScm extends Scm {
         const prCommentData = [];
 
         for (const comment of comments) {
+            let botComment;
+
             if (prComments) {
-                const botComment = prComments.comments.find(
+                botComment = prComments.comments.find(
                     commentObj =>
                         commentObj.user.login === this.config.username &&
                         commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX) &&
@@ -1728,42 +1730,42 @@ class GithubScm extends Scm {
                         commentObj.body.split(/\n/)[3].match(PR_COMMENTS_KEYWORD_REGEX) &&
                         commentObj.body.split(/\n/)[3].match(PR_COMMENTS_KEYWORD_REGEX)[1] === comment.keyWord
                 );
-
-                if (botComment) {
-                    try {
-                        const pullRequestComment = await this.editPrComment(botComment.id, scmInfo, comment.text);
-
-                        prCommentData.push({
-                            commentId: `${pullRequestComment.data.id}`,
-                            createTime: `${pullRequestComment.data.created_at}`,
-                            username: pullRequestComment.data.user.login
-                        });
-                    } catch (err) {
-                        logger.error('Failed to addPRComment: ', err);
-                    }
-                }
             }
 
-            try {
-                const pullRequestComment = await this.breaker.runCommand({
-                    action: 'createComment',
-                    scopeType: 'issues',
-                    token: this.config.commentUserToken, // need to use a token with public_repo permissions
-                    params: {
-                        body: comment,
-                        issue_number: prNum,
-                        owner: scmInfo.owner,
-                        repo: scmInfo.repo
-                    }
-                });
+            if (botComment) {
+                try {
+                    const pullRequestComment = await this.editPrComment(botComment.id, scmInfo, comment.text);
 
-                prCommentData.push({
-                    commentId: `${pullRequestComment.data.id}`,
-                    createTime: `${pullRequestComment.data.created_at}`,
-                    username: pullRequestComment.data.user.login
-                });
-            } catch (err) {
-                logger.error('Failed to addPRComment: ', err);
+                    prCommentData.push({
+                        commentId: `${pullRequestComment.data.id}`,
+                        createTime: `${pullRequestComment.data.created_at}`,
+                        username: pullRequestComment.data.user.login
+                    });
+                } catch (err) {
+                    logger.error('Failed to addPRComment: ', err);
+                }
+            } else {
+                try {
+                    const pullRequestComment = await this.breaker.runCommand({
+                        action: 'createComment',
+                        scopeType: 'issues',
+                        token: this.config.commentUserToken, // need to use a token with public_repo permissions
+                        params: {
+                            body: comment,
+                            issue_number: prNum,
+                            owner: scmInfo.owner,
+                            repo: scmInfo.repo
+                        }
+                    });
+
+                    prCommentData.push({
+                        commentId: `${pullRequestComment.data.id}`,
+                        createTime: `${pullRequestComment.data.created_at}`,
+                        username: pullRequestComment.data.user.login
+                    });
+                } catch (err) {
+                    logger.error('Failed to addPRComment: ', err);
+                }
             }
         }
 

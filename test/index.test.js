@@ -2844,10 +2844,10 @@ jobs:
         });
     });
 
-    describe.only('_addPrComment', () => {
+    describe('_addPrComment', () => {
         const scmUri = 'github.com:111:branchName';
         const comments = [{ text: 'this was a great PR', keyWord: 'foo' }];
-        const jobName = 'main';
+        const jobName = 'PR-1:main';
         const pipelineId = '123456';
         const config = {
             scmUri,
@@ -2933,7 +2933,7 @@ jobs:
             });
         });
 
-        it.only('edits multiple comments', () => {
+        it('edits multiple comments', () => {
             const multipleComments = [
                 { text: 'this was a great PR', keyWord: 'foo' },
                 { text: 'this was not a great PR', keyWord: 'bar' }
@@ -2965,18 +2965,19 @@ jobs:
                 ]);
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
                 assert.calledTwice(githubMock.issues.updateComment);
-                assert.calledWith(githubMock.issues.updateComment.firstCall, {
+                assert.calledWithMatch(githubMock.issues.updateComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    issue_number: 1,
-                    body: multipleComments[0]
+                    comment_id: 1,
+                    body: multipleComments[0].text
                 });
-                assert.calledWith(githubMock.issues.updateComment.secondCall, {
+                assert.calledWithMatch(githubMock.issues.updateComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
-                    issue_number: 1,
-                    body: multipleComments[1]
+                    comment_id: 1,
+                    body: multipleComments[1].text
                 });
+                assert.notCalled(githubMock.issues.createComment);
             });
         });
 
