@@ -37,6 +37,7 @@ const testPrGet = require('./data/github.pull_request.get.json');
 const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMergeable.json');
 const testPrGetNoForkRepo = require('./data/github.pull_request.get.noForkRepo.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
+const testPrListComment = require('./data/github.pull_request.listComment.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -62,7 +63,9 @@ describe('index', function() {
     beforeEach(() => {
         githubMock = {
             issues: {
-                createComment: sinon.stub()
+                createComment: sinon.stub(),
+                updateComment: sinon.stub(),
+                listComments: sinon.stub()
             },
             pulls: {
                 create: sinon.stub(),
@@ -2841,9 +2844,9 @@ jobs:
         });
     });
 
-    describe('_addPrComment', () => {
+    describe.only('_addPrComment', () => {
         const scmUri = 'github.com:111:branchName';
-        const comment = 'this was a great PR';
+        const comments = [{ text: 'this was a great PR', keyWord: 'foo' }];
         const jobName = 'main';
         const pipelineId = '123456';
         const config = {
@@ -2852,7 +2855,7 @@ jobs:
             prNum: 1,
             jobName,
             pipelineId,
-            comment
+            comments
         };
 
         beforeEach(() => {
@@ -2867,17 +2870,112 @@ jobs:
             githubMock.issues.createComment.resolves({ data: testPrCreateComment });
 
             return scm._addPrComment(config).then(data => {
-                assert.deepEqual(data, {
-                    commentId: '1',
-                    createTime: '2011-04-14T16:00:49Z',
-                    username: 'octocat'
-                });
+                assert.deepEqual(data, [
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    }
+                ]);
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
                 assert.calledWith(githubMock.issues.createComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     issue_number: 1,
-                    body: comment
+                    body: comments[0]
+                });
+            });
+        });
+
+        it('creates multiple comments', () => {
+            const multipleComments = [
+                { text: 'this was a great PR', keyWord: 'foo' },
+                { text: 'this was not a great PR', keyWord: 'bar' }
+            ];
+            const configWithMultiComment = {
+                scmUri,
+                token: 'token',
+                prNum: 1,
+                jobName,
+                pipelineId,
+                comments: multipleComments
+            };
+
+            githubMock.issues.createComment.resolves({ data: testPrCreateComment });
+
+            return scm._addPrComment(configWithMultiComment).then(data => {
+                assert.deepEqual(data, [
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    },
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    }
+                ]);
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledTwice(githubMock.issues.createComment);
+                assert.calledWith(githubMock.issues.createComment.firstCall, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    issue_number: 1,
+                    body: multipleComments[0]
+                });
+                assert.calledWith(githubMock.issues.createComment.secondCall, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    issue_number: 1,
+                    body: multipleComments[1]
+                });
+            });
+        });
+
+        it.only('edits multiple comments', () => {
+            const multipleComments = [
+                { text: 'this was a great PR', keyWord: 'foo' },
+                { text: 'this was not a great PR', keyWord: 'bar' }
+            ];
+            const configWithMultiComment = {
+                scmUri,
+                token: 'token',
+                prNum: 1,
+                jobName,
+                pipelineId,
+                comments: multipleComments
+            };
+
+            githubMock.issues.updateComment.resolves({ data: testPrCreateComment });
+            githubMock.issues.listComments.resolves({ data: testPrListComment });
+
+            return scm._addPrComment(configWithMultiComment).then(data => {
+                assert.deepEqual(data, [
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    },
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    }
+                ]);
+                assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledTwice(githubMock.issues.updateComment);
+                assert.calledWith(githubMock.issues.updateComment.firstCall, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    issue_number: 1,
+                    body: multipleComments[0]
+                });
+                assert.calledWith(githubMock.issues.updateComment.secondCall, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    issue_number: 1,
+                    body: multipleComments[1]
                 });
             });
         });
@@ -2901,7 +2999,7 @@ jobs:
             return scm
                 ._addPrComment(config)
                 .then(data => {
-                    assert.isNull(data);
+                    assert.isEmpty(data);
                 })
                 .catch(err => {
                     assert.deepEqual(err, testError);
