@@ -2846,7 +2846,7 @@ jobs:
 
     describe('_addPrComment', () => {
         const scmUri = 'github.com:111:branchName';
-        const comments = [{ text: 'this was a great PR', keyWord: 'foo' }];
+        const comments = [{ text: 'this was a great PR' }];
         const jobName = 'PR-1:main';
         const pipelineId = '123456';
         const config = {
