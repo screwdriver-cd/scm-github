@@ -12,6 +12,7 @@ const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const PR_COMMENTS_REGEX = /^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/;
+const PR_COMMENTS_KEYWORD_REGEX = /^__(.*)__.*$/;
 const Scm = require('screwdriver-scm-base');
 const logger = require('screwdriver-logger');
 const DEFAULT_AUTHOR = {
@@ -1701,69 +1702,75 @@ class GithubScm extends Scm {
      * Add a PR comment
      * @async  _addPrComment
      * @param  {Object}     config
-     * @param  {String}     config.comment     The PR comment
+     * @param  {Array}      config.comments    The PR comments
      * @param  {Integer}    config.prNum       The PR number
      * @param  {String}     config.scmUri      The SCM URI
      * @param  {String}     config.token       Service token to authenticate with Github
      * @return {Promise}                       Resolves when complete
      */
-    async _addPrComment({ comment, jobName, prNum, scmUri, token, pipelineId }) {
+    async _addPrComment({ comments, jobName, prNum, scmUri, token, pipelineId }) {
         const scmInfo = await this.lookupScmUri({
             scmUri,
             token
         });
 
         const prComments = await this.prComments(scmInfo, prNum, token);
+        const prCommentData = [];
 
-        if (prComments) {
-            const botComment = prComments.comments.find(
-                commentObj =>
-                    commentObj.user.login === this.config.username &&
-                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX) &&
-                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[1] === pipelineId.toString() &&
-                    commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[2] === jobName
-            );
+        for (const comment of comments) {
+            let botComment;
+
+            if (prComments) {
+                botComment = prComments.comments.find(
+                    commentObj =>
+                        commentObj.user.login === this.config.username &&
+                        commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX) &&
+                        commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[1] === pipelineId.toString() &&
+                        commentObj.body.split(/\n/)[0].match(PR_COMMENTS_REGEX)[2] === jobName &&
+                        (!comment.keyword ||
+                            (commentObj.body.split(/\n/)[3].match(PR_COMMENTS_KEYWORD_REGEX) &&
+                                commentObj.body.split(/\n/)[3].match(PR_COMMENTS_KEYWORD_REGEX)[1] === comment.keyword))
+                );
+            }
 
             if (botComment) {
                 try {
-                    const pullRequestComment = await this.editPrComment(botComment.id, scmInfo, comment);
+                    const pullRequestComment = await this.editPrComment(botComment.id, scmInfo, comment.text);
 
-                    return {
+                    prCommentData.push({
                         commentId: `${pullRequestComment.data.id}`,
                         createTime: `${pullRequestComment.data.created_at}`,
                         username: pullRequestComment.data.user.login
-                    };
+                    });
                 } catch (err) {
                     logger.error('Failed to addPRComment: ', err);
+                }
+            } else {
+                try {
+                    const pullRequestComment = await this.breaker.runCommand({
+                        action: 'createComment',
+                        scopeType: 'issues',
+                        token: this.config.commentUserToken, // need to use a token with public_repo permissions
+                        params: {
+                            body: comment,
+                            issue_number: prNum,
+                            owner: scmInfo.owner,
+                            repo: scmInfo.repo
+                        }
+                    });
 
-                    return null;
+                    prCommentData.push({
+                        commentId: `${pullRequestComment.data.id}`,
+                        createTime: `${pullRequestComment.data.created_at}`,
+                        username: pullRequestComment.data.user.login
+                    });
+                } catch (err) {
+                    logger.error('Failed to addPRComment: ', err);
                 }
             }
         }
 
-        try {
-            const pullRequestComment = await this.breaker.runCommand({
-                action: 'createComment',
-                scopeType: 'issues',
-                token: this.config.commentUserToken, // need to use a token with public_repo permissions
-                params: {
-                    body: comment,
-                    issue_number: prNum,
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo
-                }
-            });
-
-            return {
-                commentId: `${pullRequestComment.data.id}`,
-                createTime: `${pullRequestComment.data.created_at}`,
-                username: pullRequestComment.data.user.login
-            };
-        } catch (err) {
-            logger.error('Failed to addPRComment: ', err);
-
-            return null;
-        }
+        return prCommentData;
     }
 
     /**
