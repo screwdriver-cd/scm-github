@@ -1752,7 +1752,7 @@ class GithubScm extends Scm {
                         scopeType: 'issues',
                         token: this.config.commentUserToken, // need to use a token with public_repo permissions
                         params: {
-                            body: comment,
+                            body: comment.text,
                             issue_number: prNum,
                             owner: scmInfo.owner,
                             repo: scmInfo.repo

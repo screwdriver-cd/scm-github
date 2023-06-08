@@ -2882,7 +2882,7 @@ jobs:
                     owner: 'repoOwner',
                     repo: 'repoName',
                     issue_number: 1,
-                    body: comments[0]
+                    body: comments[0].text
                 });
             });
         });
@@ -2922,13 +2922,13 @@ jobs:
                     owner: 'repoOwner',
                     repo: 'repoName',
                     issue_number: 1,
-                    body: multipleComments[0]
+                    body: multipleComments[0].text
                 });
                 assert.calledWith(githubMock.issues.createComment.secondCall, {
                     owner: 'repoOwner',
                     repo: 'repoName',
                     issue_number: 1,
-                    body: multipleComments[1]
+                    body: multipleComments[1].text
                 });
             });
         });
