@@ -1260,6 +1260,7 @@ class GithubScm extends Scm {
             const name = user.data.name || user.data.login;
 
             return {
+                id: user.data.id,
                 avatar: user.data.avatar_url,
                 name,
                 username: user.data.login,
