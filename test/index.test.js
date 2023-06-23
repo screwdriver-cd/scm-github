@@ -2010,7 +2010,7 @@ jobs:
                 })
                 .then(data => {
                     assert.deepEqual(data, {
-                        id: 2042,
+                        id: '2042',
                         avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
                         name: 'Klark Cent',
                         url: `https://github.com/${username}`,
@@ -2041,7 +2041,7 @@ jobs:
                 })
                 .then(data => {
                     assert.deepEqual(data, {
-                        id: 2042,
+                        id: '2042',
                         avatar: 'https://avatars.githubusercontent.com/u/2042?v=3',
                         name: username,
                         url: `https://github.com/${username}`,
@@ -2141,7 +2141,7 @@ jobs:
                 .then(data => {
                     assert.deepEqual(data, {
                         author: {
-                            id: 1234567,
+                            id: '1234567',
                             avatar: 'https://avatars.githubusercontent.com/u/1234567?v=3',
                             name: 'Batman Wayne',
                             url: 'https://internal-ghe.mycompany.com/notbrucewayne',
