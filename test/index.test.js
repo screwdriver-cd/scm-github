@@ -2273,7 +2273,7 @@ jobs:
 
     describe('decorateUrl', () => {
         it('decorates a scm uri', () => {
-            const scmUri = 'github.com:102498:boat';
+            const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗';
 
             githubMock.request.resolves({
                 data: {
@@ -2289,9 +2289,11 @@ jobs:
                 })
                 .then(data => {
                     assert.deepEqual(data, {
-                        branch: 'boat',
+                        branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
                         name: 'iAm/theCaptain',
-                        url: 'https://github.com/iAm/theCaptain/tree/boat',
+                        url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                            'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗'
+                        )}`,
                         rootDir: '',
                         private: false
                     });
@@ -2300,7 +2302,7 @@ jobs:
         });
 
         it('decorates a scm uri with rootDir', () => {
-            const scmUri = 'github.com:102498:boat:src/app/component';
+            const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗:src/app/component';
 
             githubMock.request.resolves({
                 data: {
@@ -2316,9 +2318,11 @@ jobs:
                 })
                 .then(data => {
                     assert.deepEqual(data, {
-                        branch: 'boat',
+                        branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
                         name: 'iAm/theCaptain',
-                        url: 'https://github.com/iAm/theCaptain/tree/boat/src/app/component',
+                        url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                            'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗/src/app/component'
+                        )}`,
                         rootDir: 'src/app/component',
                         private: false
                     });
@@ -2327,10 +2331,12 @@ jobs:
         });
 
         it('decorates a scm uri without querying github when scmRepo is passed', () => {
-            const scmUri = 'github.com:102498:boat';
+            const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗';
             const scmRepo = {
-                branch: 'boat',
-                url: 'https://github.com/iAm/theCaptain/tree/boat',
+                branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
+                url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                    'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗'
+                )}`,
                 name: 'iAm/theCaptain'
             };
 
@@ -2342,9 +2348,11 @@ jobs:
                 })
                 .then(data => {
                     assert.deepEqual(data, {
-                        branch: 'boat',
+                        branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
                         name: 'iAm/theCaptain',
-                        url: 'https://github.com/iAm/theCaptain/tree/boat',
+                        url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                            'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗'
+                        )}`,
                         rootDir: '',
                         private: false
                     });

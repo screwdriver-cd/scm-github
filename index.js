@@ -70,6 +70,15 @@ function escapeForDoubleQuoteEnclosure(command) {
 }
 
 /**
+ * Escape dollar for double quote enclosure
+ * @param {String} command escape command
+ * @returns {String}
+ */
+function escapeDollarForDoubleQuoteEnclosure(command) {
+    return command.replace(/\$/g, '\\$');
+}
+
+/**
  * Throw error with error code
  * @param {Number} errorCode   Error code
  * @param {String} errorReason Error message
@@ -640,7 +649,9 @@ class GithubScm extends Scm {
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
         const singleQuoteEscapedBranch = escapeForSingleQuoteEnclosure(branch);
-        const doubleQuoteEscapedBranch = escapeForDoubleQuoteEnclosure(singleQuoteEscapedBranch);
+        const doubleQuoteEscapedBranch = escapeForDoubleQuoteEnclosure(
+            escapeDollarForDoubleQuoteEnclosure(singleQuoteEscapedBranch)
+        );
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
         const gitConfigString = `
         Host ${ghHost}
@@ -1019,7 +1030,7 @@ class GithubScm extends Scm {
                 action: 'getBranch',
                 token: config.token,
                 params: {
-                    branch: scmInfo.branch.replace(/#/g, '%23'),
+                    branch: scmInfo.branch,
                     owner: scmInfo.owner,
                     repo: scmInfo.repo
                 }
@@ -1362,12 +1373,16 @@ class GithubScm extends Scm {
 
         const { host, owner, repo, branch, rootDir, privateRepo } = await this.lookupScmUri(lookupConfig);
 
-        const baseUrl = `${host}/${owner}/${repo}/tree/${branch}`;
+        const baseUrl = `${host}/${owner}/${repo}/tree/`;
+        const encodedUrl = `https://${Path.join(
+            baseUrl,
+            encodeURIComponent(rootDir ? Path.join(branch, rootDir) : branch)
+        )}`;
 
         return {
             branch,
             name: `${owner}/${repo}`,
-            url: `https://${rootDir ? Path.join(baseUrl, rootDir) : baseUrl}`,
+            url: encodedUrl,
             rootDir: rootDir || '',
             private: privateRepo
         };
