@@ -859,7 +859,11 @@ class GithubScm extends Scm {
             command.push('$SD_GIT_WRAPPER "git submodule update --recursive"');
             // cd into rootDir after merging
             if (config.rootDir) {
-                command.push(`cd ${config.rootDir}`);
+                // Escape single quotes in the root directory path to handle special characters.
+                // The path is then wrapped in single quotes to safely change directories using the 'cd' command.
+                const escapedRootDir = config.rootDir.replace(/'/g, "'\\''");
+
+                command.push(`cd '${escapedRootDir}'`);
             }
         }
 

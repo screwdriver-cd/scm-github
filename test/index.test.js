@@ -30,6 +30,7 @@ const testForkPrCommands = require('./data/forkPrCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
 const testRootDirCommands = require('./data/rootDirCommands.json');
+const testSpecialCharacterRootDirCommands = require('./data/specialCharacterRootDirCommands.json');
 const testCommitBranchCommands = require('./data/commitBranchCommands.json');
 const testChildCommands = require('./data/childCommands.json');
 const testPrFiles = require('./data/github.pull_request.files.json');
@@ -380,6 +381,14 @@ describe('index', function() {
 
             return scm.getCheckoutCommand(config).then(command => {
                 assert.deepEqual(command, testRootDirCommands);
+            });
+        });
+
+        it('promises to get the checkout command when rootDir with special characters is passed in', () => {
+            config.rootDir = '!"#$%&\'()-=|@`{;+]},<.>　🚗';
+
+            return scm.getCheckoutCommand(config).then(command => {
+                assert.deepEqual(command, testSpecialCharacterRootDirCommands);
             });
         });
 
