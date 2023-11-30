@@ -385,7 +385,7 @@ describe('index', function() {
         });
 
         it('promises to get the checkout command when rootDir with special characters is passed in', () => {
-            config.rootDir = '!"#$%&\'()-=|@`{;+]},<.>　🚗';
+            config.rootDir = '!"#$%&\'()-=|@`{:;+]},<.>　🚗';
 
             return scm.getCheckoutCommand(config).then(command => {
                 assert.deepEqual(command, testSpecialCharacterRootDirCommands);

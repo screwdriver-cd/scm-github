@@ -276,7 +276,9 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves to an object containing repository-related information
      */
     async lookupScmUri({ scmUri, scmRepo, token }) {
-        const [scmHost, scmId, scmBranch, rootDir] = scmUri.split(':');
+        const parts = scmUri.split(':');
+        const [scmHost, scmId, scmBranch, ...rootDirParts] = parts;
+        const rootDir = rootDirParts.join(':');
 
         let repoFullName;
         let defaultBranch;
