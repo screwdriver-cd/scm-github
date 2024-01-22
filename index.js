@@ -4,7 +4,7 @@
 
 const Breaker = require('circuit-fuses').breaker;
 const { Octokit } = require('@octokit/rest');
-const { verify } = require('@octokit/webhooks');
+const { verify } = require('@octokit/webhooks-methods');
 const hoek = require('@hapi/hoek');
 const Path = require('path');
 const joi = require('joi');
@@ -1476,7 +1476,7 @@ class GithubScm extends Scm {
         }
 
         // eslint-disable-next-line no-underscore-dangle
-        if (!verify(this.config.secret, webhookPayload, signature)) {
+        if (!(await verify(this.config.secret, JSON.stringify(webhookPayload), signature))) {
             throwError('Invalid x-hub-signature');
         }
 
