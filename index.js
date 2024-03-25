@@ -180,6 +180,7 @@ class GithubScm extends Scm {
      * @param  {Object}  [config.fusebox={}]         Circuit Breaker configuration
      * @param  {String}  config.secret               Secret to validate the signature of webhook events
      * @param  {Boolean} [config.gheCloud=false]     Flag set to true if using Github Enterprise Cloud
+     * @param  {Boolean} [config.gheCloudSlug]       The Github Enterprise Cloud Slug
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
      * @return {GithubScm}
      */
