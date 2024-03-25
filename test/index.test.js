@@ -3360,7 +3360,7 @@ jobs:
         });
     });
 
-    describe.only('_isEnterpriseUser', () => {
+    describe('_isEnterpriseUser', () => {
         const login = 'ai_humanoid';
         const slug = 'EAU';
         const id = 'EAU_1234567';
