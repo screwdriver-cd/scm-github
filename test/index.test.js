@@ -108,8 +108,13 @@ describe('index', function() {
             error: sinon.stub()
         };
 
+        class GithubGqlMock {
+            getEnterpriseUserAccount() {}
+        }
+
         mockery.registerMock('@octokit/rest', githubMockClass);
         mockery.registerMock('screwdriver-logger', winstonMock);
+        mockery.registerMock('screwdriver-scm-github-graphql', GithubGqlMock);
 
         // eslint-disable-next-line global-require
         GithubScm = require('..');
@@ -3352,6 +3357,63 @@ jobs:
             return scm.openPr(openPrConfig).then(assert.fail, (err) => {
                 assert.equal(err, testError);
             });
+        });
+    });
+
+    describe.only('_isEnterpriseUser', () => {
+        const login = 'ai_humanoid';
+        const slug = 'EAU';
+        const id = 'EAU_1234567';
+        const token = 'a_secret_token';
+        let config;
+
+        beforeEach(() => {
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: 'github.com',
+                gheCloud: true,
+
+            });
+
+            sinon.stub(scm.scmGithubGQL, 'getEnterpriseUserAccount').resolves();
+        });
+
+        it('returns true if user is an enterprise user', async () => {
+            config = {
+                login,
+                slug,
+                token
+            };
+
+            scm.scmGithubGQL.getEnterpriseUserAccount.resolves({
+                type: 'EnterpriseUserAccount',
+                login,
+                id
+            })
+
+            const result = await scm._isEnterpriseUser(config);
+
+            assert.strictEqual(result, true);
+            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, config);
+        })
+
+        it('returns false if user is not an enterprise user', async () => {
+            scm.scmGithubGQL.getEnterpriseUserAccount.resolves(null);
+            config.login = 'not_an_enterprise_user';
+
+            const result = await scm._isEnterpriseUser(config);
+
+            assert.strictEqual(result, false);
+            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, config);
         });
     });
 });
