@@ -246,6 +246,7 @@ class GithubScm extends Scm {
                         .boolean()
                         .optional()
                         .default(false),
+                    gheCloudSlug: joi.string().optional(),
                     githubGraphQLUrl: joi
                         .string()
                         .optional()
