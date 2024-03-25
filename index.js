@@ -10,6 +10,8 @@ const Path = require('path');
 const joi = require('joi');
 const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
+const ScmGithubGraphQL = require('screwdriver-scm-github-graphql');
+
 const CHECKOUT_URL_REGEX = schema.config.regex.CHECKOUT_URL;
 const PR_COMMENTS_REGEX = /^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/;
 const PR_COMMENTS_KEYWORD_REGEX = /^__(.*)__.*$/;
@@ -50,6 +52,7 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
 };
 const DEFAULT_BRANCH = 'main';
+const ENTERPRISE_USER = 'EnterpriseUserAccount';
 
 /**
  * Escape quotes (single quote) for single quote enclosure
@@ -176,6 +179,9 @@ class GithubScm extends Scm {
      * @param  {String}  config.oauthClientSecret    OAuth Client Secret provided by GitHub application
      * @param  {Object}  [config.fusebox={}]         Circuit Breaker configuration
      * @param  {String}  config.secret               Secret to validate the signature of webhook events
+     * @param  {Boolean} [config.gheCloud=false]     Flag set to true if using Github Enterprise Cloud
+     * @param  {Boolean} [config.gheCloudSlug]       The Github Enterprise Cloud Slug
+     * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
      * @return {GithubScm}
      */
     constructor(config = {}) {
@@ -236,7 +242,16 @@ class GithubScm extends Scm {
                     oauthClientId: joi.string().required(),
                     oauthClientSecret: joi.string().required(),
                     fusebox: joi.object().default({}),
-                    secret: joi.string().required()
+                    secret: joi.string().required(),
+                    gheCloud: joi
+                        .boolean()
+                        .optional()
+                        .default(false),
+                    gheCloudSlug: joi.string().optional(),
+                    githubGraphQLUrl: joi
+                        .string()
+                        .optional()
+                        .default('https://api.github.com/graphql')
                 })
                 .unknown(true),
             'Invalid config for GitHub'
@@ -264,6 +279,12 @@ class GithubScm extends Scm {
                 }
             }
         });
+
+        this.scmGithubGQL = config.gheCloud
+            ? new ScmGithubGraphQL({
+                  graphqlUrl: this.config.githubGraphQLUrl
+              })
+            : null;
     }
 
     /**
@@ -1966,6 +1987,23 @@ class GithubScm extends Scm {
                 logger.error('Failed to openPr: ', err);
                 throw err;
             });
+    }
+
+    /**
+     * Returns if a user is an enterprise user
+     * @param {Object} config  The configuration object
+     * @param {String} config.token  The token used to authenticate to the SCM
+     * @param {String} config.slug   The slug of the enterprise
+     * @param {String} config.login  The login of the Github user
+     * @returns Boolean
+     */
+    async _isEnterpriseUser(config) {
+        if (!this.scmGithubGQL) {
+            return false;
+        }
+        const user = await this.scmGithubGQL.getEnterpriseUserAccount(config);
+
+        return !!user && user.type === ENTERPRISE_USER;
     }
 }
 
