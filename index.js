@@ -1675,6 +1675,12 @@ class GithubScm extends Scm {
             };
         }
 
+        if (this.config.gheCloud) {
+            const oauthScope = bellConfig.scope;
+
+            bellConfig.scope = oauthScope.concat('read:enterprise', 'read:user');
+        }
+
         return { [scmContext]: bellConfig };
     }
 
@@ -1993,7 +1999,6 @@ class GithubScm extends Scm {
      * Returns if a user is an enterprise user
      * @param {Object} config  The configuration object
      * @param {String} config.token  The token used to authenticate to the SCM
-     * @param {String} config.slug   The slug of the enterprise
      * @param {String} config.login  The login of the Github user
      * @returns Boolean
      */
@@ -2001,6 +2006,9 @@ class GithubScm extends Scm {
         if (!this.scmGithubGQL) {
             return false;
         }
+
+        config.slug = this.config.gheCloudSlug;
+
         const user = await this.scmGithubGQL.getEnterpriseUserAccount(config);
 
         return !!user && user.type === ENTERPRISE_USER;

@@ -2507,6 +2507,30 @@ jobs:
                 });
             });
         });
+
+        it('adds enterprise scope to support GraphQL queries', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug'
+            });
+
+            return scm.getBellConfiguration().then(config => {
+                assert.deepEqual(config, {
+                    'github:github.com': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'hijklmno',
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-github.com',
+                        scope: ['admin:repo_hook', 'read:org', 'repo:status', 'read:enterprise', 'read:user']
+                    }
+                });
+            });
+        });
     });
 
     describe('addWebhook', () => {
@@ -3381,6 +3405,7 @@ jobs:
                 commentUserToken: 'sometoken',
                 gheHost: 'github.com',
                 gheCloud: true,
+                gheCloudSlug: slug
 
             });
 
@@ -3390,7 +3415,6 @@ jobs:
         it('returns true if user is an enterprise user', async () => {
             config = {
                 login,
-                slug,
                 token
             };
 
@@ -3403,7 +3427,10 @@ jobs:
             const result = await scm._isEnterpriseUser(config);
 
             assert.strictEqual(result, true);
-            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, config);
+            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, {
+                ...config,
+                slug
+            });
         })
 
         it('returns false if user is not an enterprise user', async () => {
@@ -3413,7 +3440,10 @@ jobs:
             const result = await scm._isEnterpriseUser(config);
 
             assert.strictEqual(result, false);
-            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, config);
+            assert.calledWith(scm.scmGithubGQL.getEnterpriseUserAccount, {
+                ...config,
+                slug
+            });
         });
     });
 });
