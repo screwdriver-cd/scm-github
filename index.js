@@ -848,7 +848,11 @@ class GithubScm extends Scm {
                 command.push(`$SD_GIT_WRAPPER "git reset --hard '${doubleQuoteEscapedBranch}' --"`);
                 command.push(`echo 'Reset to ${singleQuoteEscapedBranch}'`);
             } else {
-                command.push(`$SD_GIT_WRAPPER "git fetch --depth $GIT_SHALLOW_CLONE_DEPTH origin '${config.sha}'"`);
+                command.push(
+                    'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
+                        `then $SD_GIT_WRAPPER "git fetch origin '${config.sha}'"; ` +
+                        `else $SD_GIT_WRAPPER "git fetch $GIT_SHALLOW_CLONE_DEPTH_OPTION origin '${config.sha}'"; fi`
+                );
                 command.push(`$SD_GIT_WRAPPER "git reset --hard '${config.sha}' --"`);
                 command.push(`echo 'Reset to ${config.sha}'`);
             }
