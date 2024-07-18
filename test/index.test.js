@@ -451,6 +451,33 @@ describe('index', function() {
             });
         });
 
+        it('promises to get the commit sha without prNum when scmRepo is passed', () => {
+            const configWithScmRepo = { ...config };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/screwdriver-cd/models/tree/branch',
+                name: 'screwdriver-cd/models'
+            };
+
+            githubMock.repos.getBranch.resolves({ data: branch });
+            githubMock.request.resolves({
+                data: {
+                    full_name: 'screwdriver-cd/models'
+                }
+            });
+
+            return scm.getCommitSha(configWithScmRepo).then(data => {
+                assert.notCalled(githubMock.request);
+                assert.deepEqual(data, branch.commit.sha);
+                assert.calledWith(githubMock.repos.getBranch, {
+                    owner: 'screwdriver-cd',
+                    repo: 'models',
+                    branch: 'master'
+                });
+            });
+        });
+
         it('promises to get the commit sha with prNum', () => {
             config.prNum = 1;
             githubMock.request.resolves({
@@ -946,6 +973,31 @@ describe('index', function() {
                     target_url: 'https://foo.bar'
                 });
             }));
+
+        it('promises to update commit status on success when scmRepo is passed', () => {
+            const configWithScmRepo = { ...config };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/screwdriver-cd/models/tree/branch',
+                name: 'screwdriver-cd/models'
+            };
+
+            return scm.updateCommitStatus(configWithScmRepo).then(result => {
+                assert.deepEqual(result, data);
+
+                assert.notCalled(githubMock.request);
+                assert.calledWith(githubMock.repos.createCommitStatus, {
+                    owner: 'screwdriver-cd',
+                    repo: 'models',
+                    sha: config.sha,
+                    state: 'success',
+                    description: 'Everything looks good!',
+                    context: 'Screwdriver/675/main',
+                    target_url: 'https://foo.bar'
+                });
+            });
+        });
 
         it('promises to update commit status on pending', () => {
             config.buildStatus = 'PENDING';
@@ -1470,6 +1522,30 @@ jobs:
                 });
         });
 
+        it('returns changed files for any given pr when scmRepo is passed', () => {
+            githubMock.paginate.resolves(testPrFiles);
+            githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm
+                .getChangedFiles({
+                    type: 'pr',
+                    token,
+                    webhookConfig: null,
+                    scmUri: 'github.com:28476:master',
+                    prNum: 1,
+                    scmRepo: {
+                        branch: 'branch',
+                        url: 'https://github.com/iAm/theCaptain/tree/branch',
+                        name: 'iAm/theCaptain'
+                    }
+                })
+                .then(result => {
+                    assert.deepEqual(result, ['README.md', 'folder/folder2/hi']);
+                    assert.notCalled(githubMock.request);
+                });
+        });
+
         it('returns empty array for an event payload that is not type repo or pr', () => {
             type = 'ping';
 
@@ -1550,6 +1626,46 @@ jobs:
                         token,
                         scmUri: 'github.com:28476:master',
                         prNum: 1
+                    },
+                    0
+                )
+                .then(result => {
+                    assert.deepEqual(result, {
+                        success: true,
+                        pullRequestInfo: {
+                            baseBranch: 'master',
+                            createTime: '2011-01-26T19:01:12Z',
+                            mergeable: true,
+                            name: 'PR-1',
+                            prBranchName: 'new-topic',
+                            prSource: 'branch',
+                            ref: 'pull/1/merge',
+                            sha: '6dcb09b5b57875f334f61aebed695e2e4193db5e',
+                            title: 'new-feature',
+                            url: 'https://github.com/octocat/Hello-World/pull/1',
+                            userProfile: 'https://github.com/octocat',
+                            username: 'octocat'
+                        }
+                    });
+                });
+        });
+
+        it('returns mergeable when polling succeded on second time when scmRepo is passed', () => {
+            githubMock.request.resolves({ data: testResponse });
+            githubMock.pulls.get.onFirstCall().resolves({ data: testPrGetNullMergeable });
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            return scm
+                .waitPrMergeability(
+                    {
+                        token,
+                        scmUri: 'github.com:28476:master',
+                        prNum: 1,
+                        scmRepo: {
+                            branch: 'branch',
+                            url: 'https://github.com/octocat/Hello-World/tree/branch',
+                            name: 'octocat/Hello-World'
+                        }
                     },
                     0
                 )
@@ -2183,6 +2299,75 @@ jobs:
                 });
         });
 
+        it('decorates a commit when scmRepo is passed', () => {
+            githubMock.repos.getCommit.resolves({
+                data: {
+                    commit: {
+                        message: 'some commit message that is here'
+                    },
+                    author: {
+                        login: username
+                    },
+                    html_url: 'https://link.to/commitDiff'
+                }
+            });
+
+            scm = new GithubScm({
+                fusebox: {
+                    retry: {
+                        minTimeout: 1
+                    }
+                },
+                readOnly: {},
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                commentUserToken: 'sometoken',
+                gheHost: 'internal-ghe.mycompany.com'
+            });
+
+            return scm
+                .decorateCommit({
+                    scmUri,
+                    sha,
+                    token: 'tokenfordecoratecommit',
+                    scmRepo: {
+                        branch: 'branch',
+                        url: `https://github.com/${repoOwner}/${repoName}/tree/branch`,
+                        name: `${repoOwner}/${repoName}`
+                    }
+                })
+                .then(data => {
+                    assert.deepEqual(data, {
+                        author: {
+                            id: '1234567',
+                            avatar: 'https://avatars.githubusercontent.com/u/1234567?v=3',
+                            name: 'Batman Wayne',
+                            url: 'https://internal-ghe.mycompany.com/notbrucewayne',
+                            username: 'notbrucewayne'
+                        },
+                        committer: {
+                            avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+                            name: 'n/a',
+                            username: 'n/a',
+                            url: 'https://cd.screwdriver.cd/'
+                        },
+                        message: 'some commit message that is here',
+                        url: 'https://link.to/commitDiff'
+                    });
+
+                    assert.notCalled(githubMock.request);
+                    assert.calledWith(githubMock.repos.getCommit, {
+                        owner: repoOwner,
+                        repo: repoName,
+                        ref: sha
+                    });
+                    assert.calledWith(githubMock.users.getByUsername, {
+                        username
+                    });
+                });
+        });
+
         it('defaults author data to empty if author is missing', () => {
             githubMock.repos.getCommit.resolves({
                 data: {
@@ -2578,6 +2763,35 @@ jobs:
             });
         });
 
+        it('add a hook when scmRepo is passed', () => {
+            const configWithScmRepo = { ...webhookConfig };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/dolores/violentdelights/tree/branch',
+                name: 'dolores/violentdelights'
+            };
+
+            githubMock.repos.listWebhooks.resolves({ data: [] });
+            githubMock.repos.createWebhook.resolves({ data: [] });
+
+            return scm.addWebhook(configWithScmRepo).then(() => {
+                assert.notCalled(githubMock.request);
+                assert.calledWith(githubMock.repos.createWebhook, {
+                    active: true,
+                    config: {
+                        content_type: 'json',
+                        secret: 'somesecret',
+                        url: 'https://somewhere.in/the/interwebs'
+                    },
+                    events: webhookConfig.actions,
+                    name: 'web',
+                    owner: 'dolores',
+                    repo: 'violentdelights'
+                });
+            });
+        });
+
         it('updates a pre-existing hook', () => {
             githubMock.repos.updateWebhook.resolves({ data: [] });
 
@@ -2733,6 +2947,72 @@ jobs:
                 ]);
 
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledWith(githubMock.pulls.list, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    state: 'open',
+                    per_page: 100
+                });
+            });
+        });
+
+        it('returns a list of opened pull requests when scmRepo is passed', () => {
+            const configWithScmRepo = { ...config };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/repoOwner/repoName/tree/branch',
+                name: 'repoOwner/repoName'
+            };
+
+            githubMock.pulls.list.resolves({
+                data: [
+                    {
+                        number: 1,
+                        title: 'Test 1',
+                        user: {
+                            login: 'collab1',
+                            html_url: '/collab1'
+                        },
+                        created_at: '2018-10-09T21:35:31Z',
+                        html_url: '/pull/1'
+                    },
+                    {
+                        number: 2,
+                        title: 'Test 2',
+                        user: {
+                            login: 'collab2',
+                            html_url: '/collab2'
+                        },
+                        created_at: '2018-10-10T21:35:31Z',
+                        html_url: '/pull/2'
+                    }
+                ]
+            });
+
+            return scm._getOpenedPRs(configWithScmRepo).then(data => {
+                assert.deepEqual(data, [
+                    {
+                        name: 'PR-1',
+                        ref: 'pull/1/merge',
+                        title: 'Test 1',
+                        username: 'collab1',
+                        createTime: '2018-10-09T21:35:31Z',
+                        userProfile: '/collab1',
+                        url: '/pull/1'
+                    },
+                    {
+                        name: 'PR-2',
+                        ref: 'pull/2/merge',
+                        title: 'Test 2',
+                        username: 'collab2',
+                        createTime: '2018-10-10T21:35:31Z',
+                        userProfile: '/collab2',
+                        url: '/pull/2'
+                    }
+                ]);
+
+                assert.notCalled(githubMock.request);
                 assert.calledWith(githubMock.pulls.list, {
                     owner: 'repoOwner',
                     repo: 'repoName',
@@ -2927,6 +3207,35 @@ jobs:
                     }
                 ]);
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '111' });
+                assert.calledWith(githubMock.issues.createComment, {
+                    owner: 'repoOwner',
+                    repo: 'repoName',
+                    issue_number: 1,
+                    body: comments[0].text
+                });
+            });
+        });
+
+        it('returns some metadata about the comment when scmRepo is passed', () => {
+            const configWithScmRepo = { ...config };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/repoOwner/repoName/tree/branch',
+                name: 'repoOwner/repoName'
+            };
+
+            githubMock.issues.createComment.resolves({ data: testPrCreateComment });
+
+            return scm._addPrComment(configWithScmRepo).then(data => {
+                assert.deepEqual(data, [
+                    {
+                        commentId: '1',
+                        createTime: '2011-04-14T16:00:49Z',
+                        username: 'octocat'
+                    }
+                ]);
+                assert.notCalled(githubMock.request);
                 assert.calledWith(githubMock.issues.createComment, {
                     owner: 'repoOwner',
                     repo: 'repoName',
@@ -3191,6 +3500,30 @@ jobs:
                         per_page: 100
                     });
                     assert.deepEqual(b, [{ name: 'master' }]);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('gets branches when scmRepo is passed', done => {
+            const configWithScmRepo = { ...branchListConfig };
+
+            configWithScmRepo.scmRepo = {
+                branch: 'branch',
+                url: 'https://github.com/dolores/violentdelights/tree/branch',
+                name: 'dolores/violentdelights'
+            };
+
+            scm.getBranchList(configWithScmRepo)
+                .then(b => {
+                    assert.calledWith(githubMock.repos.listBranches, {
+                        owner: 'dolores',
+                        repo: 'violentdelights',
+                        page: 1,
+                        per_page: 100
+                    });
+                    assert.deepEqual(b, [{ name: 'master' }]);
+                    assert.notCalled(githubMock.request);
                     done();
                 })
                 .catch(done);

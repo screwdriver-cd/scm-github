@@ -308,6 +308,7 @@ class GithubScm extends Scm {
         if (scmRepo) {
             repoFullName = scmRepo.name;
             privateRepo = scmRepo.privateRepo || false;
+            defaultBranch = scmRepo.branch;
         } else {
             try {
                 const myHost = this.config.gheHost || 'github.com';
@@ -368,14 +369,15 @@ class GithubScm extends Scm {
      * @param  {Object}   config
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @param  {Object}   [config.scmRepo]  The SCM repository to look up
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
      * @param  {Integer}  count             The polling count
      * @return {Promise}                    Resolves to object containing result of computing mergeability
      *                                      The parameter of success exists for testing
      */
-    async waitPrMergeability({ scmUri, token, prNum }, count) {
+    async waitPrMergeability({ scmUri, token, scmRepo, prNum }, count) {
         try {
-            const pullRequestInfo = await this.getPrInfo({ scmUri, token, prNum });
+            const pullRequestInfo = await this.getPrInfo({ scmUri, token, scmRepo, prNum });
 
             if (pullRequestInfo.mergeable !== null && pullRequestInfo.mergeable !== undefined) {
                 return { success: pullRequestInfo.mergeable, pullRequestInfo };
@@ -392,7 +394,7 @@ class GithubScm extends Scm {
             throw err;
         }
 
-        return this.waitPrMergeability({ scmUri, token, prNum }, count + 1);
+        return this.waitPrMergeability({ scmUri, token, scmRepo, prNum }, count + 1);
     }
 
     /**
@@ -625,15 +627,22 @@ class GithubScm extends Scm {
      * @param  {Object}    config             Config object
      * @param  {String}    config.scmUri      The SCM URI to add the webhook to
      * @param  {String}    config.token       Service token to authenticate with Github
+     * @param  {Object}    [config.scmRepo]   The SCM repo to look up
      * @param  {String}    config.webhookUrl  The URL to use for the webhook notifications
      * @param  {Array}     config.actions     The list of actions to be added for this webhook
      * @return {Promise}                      Resolve means operation completed without failure
      */
     async _addWebhook(config) {
-        const scmInfo = await this.lookupScmUri({
+        const lookupConfig = {
             scmUri: config.scmUri,
             token: config.token
-        });
+        };
+
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
+        }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
         const hookInfo = await this._findWebhook({
             scmInfo,
             url: config.webhookUrl,
@@ -905,15 +914,22 @@ class GithubScm extends Scm {
      * Get a list of names and references of opened PRs
      * @async  _getOpenedPRs
      * @param  {Object}      config
-     * @param  {String}      config.scmUri  The scmUri to get opened PRs from
-     * @param  {String}      config.token   The token used to authenticate with the SCM
-     * @return {Promise}                    Resolves to an array of objects storing opened PR names and refs
+     * @param  {String}      config.scmUri      The scmUri to get opened PRs from
+     * @param  {String}      config.token       The token used to authenticate with the SCM
+     * @param  {Object}      [config.scmRepo]   The SCM repo to look up
+     * @return {Promise}                        Resolves to an array of objects storing opened PR names and refs
      */
-    async _getOpenedPRs({ scmUri, token }) {
-        const { owner, repo } = await this.lookupScmUri({
+    async _getOpenedPRs({ scmUri, token, scmRepo }) {
+        const lookupConfig = {
             scmUri,
             token
-        });
+        };
+
+        if (scmRepo) {
+            lookupConfig.scmRepo = scmRepo;
+        }
+
+        const { owner, repo } = await this.lookupScmUri(lookupConfig);
 
         try {
             const pullRequests = await this.breaker.runCommand({
@@ -1134,6 +1150,7 @@ class GithubScm extends Scm {
      * @param  {String}   config.sha          The sha to apply the status to
      * @param  {String}   config.buildStatus  The build status used for figuring out the commit status to set
      * @param  {String}   config.token        The token used to authenticate to the SCM
+     * @param  {Object}   [config.scmRepo]   The SCM repo to look up
      * @param  {String}   config.jobName      Optional name of the job that finished
      * @param  {String}   config.url          Target url
      * @param  {Number}   config.pipelineId   Pipeline Id
@@ -1141,11 +1158,28 @@ class GithubScm extends Scm {
      * @param  {String}   config.description  Status description
      * @return {Promise}                      Resolves when operation completed
      */
-    async _updateCommitStatus({ scmUri, sha, buildStatus, token, jobName, url, pipelineId, context, description }) {
-        const { owner, repo } = await this.lookupScmUri({
+    async _updateCommitStatus({
+        scmUri,
+        sha,
+        buildStatus,
+        token,
+        scmRepo,
+        jobName,
+        url,
+        pipelineId,
+        context,
+        description
+    }) {
+        const lookupConfig = {
             scmUri,
             token
-        });
+        };
+
+        if (scmRepo) {
+            lookupConfig.scmRepo = scmRepo;
+        }
+
+        const { owner, repo } = await this.lookupScmUri(lookupConfig);
         const statusTitle = context
             ? `Screwdriver/${pipelineId}/${context}`
             : `Screwdriver/${pipelineId}/${jobName.replace(/^PR-\d+/g, 'PR')}`; // (e.g. Screwdriver/12/PR:main)
@@ -1319,16 +1353,23 @@ class GithubScm extends Scm {
      * Decorate the commit based on the repository
      * @async  _decorateCommit
      * @param  {Object}        config
-     * @param  {Object}        config.scmUri SCM URI the commit belongs to
-     * @param  {Object}        config.sha    SHA to decorate data with
-     * @param  {Object}        config.token  Service token to authenticate with Github
-     * @return {Promise}                     Resolves to decorated commit object
+     * @param  {Object}        config.scmUri     SCM URI the commit belongs to
+     * @param  {Object}        config.sha        SHA to decorate data with
+     * @param  {Object}        config.token      Service token to authenticate with Github
+     * @param  {Object}        [config.scmRepo]  The SCM repo to look up
+     * @return {Promise}                         Resolves to decorated commit object
      */
     async _decorateCommit(config) {
-        const scmInfo = await this.lookupScmUri({
+        const lookupConfig = {
             scmUri: config.scmUri,
             token: config.token
-        });
+        };
+
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
+        }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         try {
             const commit = await this.breaker.runCommand({
@@ -1427,16 +1468,26 @@ class GithubScm extends Scm {
      * @param  {String}   config.type               Can be 'pr' or 'repo'
      * @param  {Object}   [config.webhookConfig]    The webhook payload received from the SCM service.
      * @param  {String}   config.token              Service token to authenticate with Github
+     * @param  {Object}   [config.scmRepo]          The SCM repo to look up
      * @param  {String}   [config.scmUri]           The scmUri to get PR info of
      * @param  {Integer}  [config.prNum]            The PR number
      * @return {Promise}                            Resolves to an array of filenames of the changed files
      */
-    async _getChangedFiles({ type, webhookConfig, token, scmUri, prNum }) {
+    async _getChangedFiles({ type, webhookConfig, token, scmRepo, scmUri, prNum }) {
         if (type === 'pr') {
             try {
-                await this.waitPrMergeability({ scmUri, token, prNum }, 0);
+                await this.waitPrMergeability({ scmUri, token, scmRepo, prNum }, 0);
 
-                const scmInfo = await this.lookupScmUri({ scmUri, token });
+                const lookupConfig = {
+                    scmUri,
+                    token
+                };
+
+                if (scmRepo) {
+                    lookupConfig.scmRepo = scmRepo;
+                }
+
+                const scmInfo = await this.lookupScmUri(lookupConfig);
                 const files = await this.breaker.runCommand({
                     scopeType: 'paginate',
                     route: 'GET /repos/:owner/:repo/pulls/:pull_number/files',
@@ -1696,6 +1747,7 @@ class GithubScm extends Scm {
      * @param  {Object}   [config.scmRepo]  The SCM repository to look up
      * @param  {String}   config.scmUri     The scmUri to get PR info of
      * @param  {String}   config.token      The token used to authenticate to the SCM
+     * @param  {Object}    [config.scmRepo] The SCM repo to look up
      * @param  {Integer}  config.prNum      The PR number used to fetch the PR
      * @return {Promise}
      */
@@ -1760,14 +1812,20 @@ class GithubScm extends Scm {
      * @param  {Integer}    config.prNum       The PR number
      * @param  {String}     config.scmUri      The SCM URI
      * @param  {String}     config.token       Service token to authenticate with Github
+     * @param  {Object}    [config.scmRepo]   The SCM repo to look up
      * @return {Promise}                       Resolves when complete
      */
-    async _addPrComment({ comments, jobName, prNum, scmUri, token, pipelineId }) {
-        const scmInfo = await this.lookupScmUri({
+    async _addPrComment({ comments, jobName, prNum, scmUri, token, scmRepo, pipelineId }) {
+        const lookupConfig = {
             scmUri,
             token
-        });
+        };
 
+        if (scmRepo) {
+            lookupConfig.scmRepo = scmRepo;
+        }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
         const prComments = await this.prComments(scmInfo, prNum, token);
         const prCommentData = [];
 
@@ -1901,13 +1959,20 @@ class GithubScm extends Scm {
      * @param  {Object}     config
      * @param  {String}     config.scmUri      The SCM URI to get branch list
      * @param  {String}     config.token       Service token to authenticate with Github
+     * @param  {Object}    [config.scmRepo]   The SCM repo to look up
      * @return {Promise}                       Resolves when complete
      */
     async _getBranchList(config) {
-        const scmInfo = await this.lookupScmUri({
+        const lookupConfig = {
             scmUri: config.scmUri,
             token: config.token
-        });
+        };
+
+        if (config.scmRepo) {
+            lookupConfig.scmRepo = config.scmRepo;
+        }
+
+        const scmInfo = await this.lookupScmUri(lookupConfig);
 
         return this._findBranches({
             scmInfo,
