@@ -109,7 +109,7 @@ describe('index', function () {
         };
 
         class GithubGqlMock {
-            getEnterpriseUserAccount() { }
+            getEnterpriseUserAccount() {}
         }
 
         mockery.registerMock('@octokit/rest', githubMockClass);
@@ -590,9 +590,7 @@ describe('index', function () {
         });
 
         it('throws error when getRef API returned unexpected type', () => {
-            const type = Math.random()
-                .toString(36)
-                .slice(-8);
+            const type = Math.random().toString(36).slice(-8);
             const err = `Cannot handle ${type} type`;
 
             githubMock.git.getRef.resolves({ data: { object: { sha: tagSha, type } } });
@@ -713,7 +711,7 @@ describe('index', function () {
                     assert.calledWith(
                         winstonMock.info,
                         "User's account suspended for github.com:359478:master, " +
-                        'it will be removed from pipeline admins.'
+                            'it will be removed from pipeline admins.'
                     );
                 })
                 .catch(() => {
@@ -2681,12 +2679,12 @@ jobs:
                 assert.deepEqual(config, {
                     'github:example.github.com': {
                         clientId: 'abcdefg',
-                        clientSecret: 'defghijk',                       
+                        clientSecret: 'defghijk',
                         forceHttps: false,
                         isSecure: false,
                         provider: 'github',
                         cookie: 'github-example-github.com',
-                        scope: ['admin:repo_hook', 'read:org', 'repo:status', "read:enterprise", "read:user"]
+                        scope: ['admin:repo_hook', 'read:org', 'repo:status', 'read:enterprise', 'read:user']
                     }
                 });
             });
