@@ -44,7 +44,7 @@ sinon.assert.expose(assert, {
     prefix: ''
 });
 
-describe('index', function() {
+describe('index', function () {
     // Time not important. Only life important
     this.timeout(5000);
 
@@ -109,7 +109,7 @@ describe('index', function() {
         };
 
         class GithubGqlMock {
-            getEnterpriseUserAccount() {}
+            getEnterpriseUserAccount() { }
         }
 
         mockery.registerMock('@octokit/rest', githubMockClass);
@@ -713,7 +713,7 @@ describe('index', function() {
                     assert.calledWith(
                         winstonMock.info,
                         "User's account suspended for github.com:359478:master, " +
-                            'it will be removed from pipeline admins.'
+                        'it will be removed from pipeline admins.'
                     );
                 })
                 .catch(() => {
@@ -2666,6 +2666,32 @@ jobs:
             });
         });
 
+        it('returns configuration for github enterprise cloud', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'defghijk',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            return scm.getBellConfiguration().then(config => {
+                assert.deepEqual(config, {
+                    'github:example.github.com': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'defghijk',                       
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-example-github.com',
+                        scope: ['admin:repo_hook', 'read:org', 'repo:status', "read:enterprise", "read:user"]
+                    }
+                });
+            });
+        });
+
         it('add repo scope to support private repo', () => {
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
@@ -3385,6 +3411,22 @@ jobs:
             const result = scm.getScmContexts();
 
             return assert.deepEqual(result, ['github:github.screwdriver.cd']);
+        });
+
+        it('returns a scmContext for github enterprise cloud', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            const result = scm.getScmContexts();
+
+            return assert.deepEqual(result, ['github:example.github.com']);
         });
     });
 

@@ -181,6 +181,8 @@ class GithubScm extends Scm {
      * @param  {String}  config.secret               Secret to validate the signature of webhook events
      * @param  {Boolean} [config.gheCloud=false]     Flag set to true if using Github Enterprise Cloud
      * @param  {Boolean} [config.gheCloudSlug]       The Github Enterprise Cloud Slug
+     * @param  {Boolean} [config.gheCloudCookie]     The Github Enterprise Cloud Cookie name
+     * @param  {Boolean} [config.gheCloudContext]    The Github Enterprise Cloud scm context
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
      * @return {GithubScm}
      */
@@ -204,7 +206,7 @@ class GithubScm extends Scm {
                     gheHost: joi
                         .string()
                         .optional()
-                        .description('GitHub Enterpise host'),
+                        .description('GitHub Enterprise host'),
                     username: joi
                         .string()
                         .optional()
@@ -248,6 +250,8 @@ class GithubScm extends Scm {
                         .optional()
                         .default(false),
                     gheCloudSlug: joi.string().optional(),
+                    gheCloudCookie: joi.string().optional(),
+                    gheCloudContext: joi.string().optional(),
                     githubGraphQLUrl: joi
                         .string()
                         .optional()
@@ -282,8 +286,8 @@ class GithubScm extends Scm {
 
         this.scmGithubGQL = config.gheCloud
             ? new ScmGithubGraphQL({
-                  graphqlUrl: this.config.githubGraphQLUrl
-              })
+                graphqlUrl: this.config.githubGraphQLUrl
+            })
             : null;
     }
 
@@ -696,8 +700,8 @@ class GithubScm extends Scm {
         command.push(
             // eslint-disable-next-line no-template-curly-in-string
             "export SD_GIT_WRAPPER=\"$(if [ `uname` = 'Darwin' ] || [ ${SD_HAB_ENABLED:-false} = 'false' ]; " +
-                "then echo 'eval'; " +
-                "else echo 'sd-step exec core/git'; fi)\""
+            "then echo 'eval'; " +
+            "else echo 'sd-step exec core/git'; fi)\""
         );
 
         command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; then export SCM_CLONE_TYPE=ssh; fi');
@@ -711,17 +715,17 @@ class GithubScm extends Scm {
             } else {
                 command.push(
                     'if [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-                        `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
-                        `else export SCM_URL=https://${checkoutUrl}; fi`
+                    `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                    `else export SCM_URL=https://${checkoutUrl}; fi`
                 );
             }
         } else {
             command.push(
                 'if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-                    `then export SCM_URL=${sshCheckoutUrl}; ` +
-                    'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-                    `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
-                    `else export SCM_URL=https://${checkoutUrl}; fi`
+                `then export SCM_URL=${sshCheckoutUrl}; ` +
+                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                `then export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl}; ` +
+                `else export SCM_URL=https://${checkoutUrl}; fi`
             );
         }
         command.push('export GIT_URL=$SCM_URL.git');
@@ -735,10 +739,10 @@ class GithubScm extends Scm {
         // 4. Add SCM host as a known host by adding config to ~/.ssh/config
         command.push(
             'if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-                'then ' +
-                'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
-                'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
-                `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`
+            'then ' +
+            'echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key && ' +
+            'chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" && ' +
+            `mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config; fi`
         );
 
         // Set config
@@ -774,11 +778,11 @@ class GithubScm extends Scm {
 
             command.push(
                 'if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; ' +
-                    `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
-                    'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
-                    'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@' +
-                    `${parentCheckoutUrl}; ` +
-                    `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`
+                `then export CONFIG_URL=${parentSshCheckoutUrl}; ` +
+                'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; ' +
+                'then export CONFIG_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@' +
+                `${parentCheckoutUrl}; ` +
+                `else export CONFIG_URL=https://${parentCheckoutUrl}; fi`
             );
 
             command.push(`export SD_CONFIG_DIR=${externalConfigDir}`);
@@ -787,11 +791,11 @@ class GithubScm extends Scm {
             command.push(`echo 'Cloning external config repo ${parentCheckoutUrl}'`);
             command.push(
                 `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
-                    'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${escapedParentBranch}' ` +
-                    '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${escapedParentBranch}' ` +
-                    '$CONFIG_URL $SD_CONFIG_DIR"; fi'
+                'then $SD_GIT_WRAPPER ' +
+                `"git clone --recursive --quiet --progress --branch '${escapedParentBranch}' ` +
+                '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}` +
+                `--recursive --quiet --progress --branch '${escapedParentBranch}' ` +
+                '$CONFIG_URL $SD_CONFIG_DIR"; fi'
             );
 
             // Reset to SHA
@@ -837,7 +841,7 @@ class GithubScm extends Scm {
             // Export $SD_SOURCE_DIR to source repo path and cd into it
             command.push(
                 `if [ $(cat ${sourcePath}) != "." ]; ` +
-                    `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`
+                `then export SD_SOURCE_DIR=$SD_SOURCE_DIR/$(cat ${sourcePath}); fi`
             );
             command.push('cd $SD_SOURCE_DIR');
         } else {
@@ -845,11 +849,11 @@ class GithubScm extends Scm {
             command.push(`echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}'`);
             command.push(
                 `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
-                    'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
-                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
-                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
+                'then $SD_GIT_WRAPPER ' +
+                `"git clone --recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}` +
+                `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
             );
 
             // Reset to SHA
@@ -1709,7 +1713,7 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
-        const cookie = this.config.gheHost ? `github-${this.config.gheHost}` : 'github-github.com';
+        const cookie = this.config.gheHost ? `github-${this.config.gheHost}` : this.config.gheCloudCookie ?? 'github-github.com';
         const bellConfig = {
             provider: 'github',
             cookie,
@@ -1886,7 +1890,11 @@ class GithubScm extends Scm {
      * @return {Array}          Array of scm contexts
      */
     _getScmContexts() {
-        const contextName = this.config.gheHost ? [`github:${this.config.gheHost}`] : ['github:github.com'];
+        let contextName = this.config.gheHost ? [`github:${this.config.gheHost}`] : ['github:github.com'];
+
+        if (this.config.gheCloudContext) {
+            contextName = [this.config.gheCloudContext];
+        }
 
         return contextName;
     }
