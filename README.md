@@ -27,7 +27,12 @@ The class has a variety of knobs to tweak when interacting with GitHub.
 | config.fusebox | Object | {} | [Circuit Breaker configuration][circuitbreaker] |
 | config.secret | String | | Secret to validate the signature of webhook events |
 | config.privateRepo | Boolean | false | Request 'repo' scope, which allows read/write access for public & private repos
-
+| config.gheCloud | Boolean |  false | Flag set to true if using Github Enterprise Cloud |
+| [config.gheCloudSlug] | String | null | The Github Enterprise Cloud Slug |
+| [config.gheCloudCookie] | String| null |   The Github Enterprise Cloud Cookie name |
+| [config.gheCloudContext] | String | null |  The Github Enterprise Cloud scm context |
+| config.githubGraphQLUrl | String  | https://api.github.com/graphql |     GraphQL endpoint for GitHub  |
+    
 ```js
 const scm = new GithubScm({
     oauthClientId: 'abcdef',
