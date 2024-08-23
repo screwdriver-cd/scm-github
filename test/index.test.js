@@ -44,7 +44,7 @@ sinon.assert.expose(assert, {
     prefix: ''
 });
 
-describe('index', function() {
+describe('index', function () {
     // Time not important. Only life important
     this.timeout(5000);
 
@@ -590,9 +590,7 @@ describe('index', function() {
         });
 
         it('throws error when getRef API returned unexpected type', () => {
-            const type = Math.random()
-                .toString(36)
-                .slice(-8);
+            const type = Math.random().toString(36).slice(-8);
             const err = `Cannot handle ${type} type`;
 
             githubMock.git.getRef.resolves({ data: { object: { sha: tagSha, type } } });
@@ -2666,6 +2664,32 @@ jobs:
             });
         });
 
+        it('returns configuration for github enterprise cloud', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'defghijk',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            return scm.getBellConfiguration().then(config => {
+                assert.deepEqual(config, {
+                    'github:example.github.com': {
+                        clientId: 'abcdefg',
+                        clientSecret: 'defghijk',
+                        forceHttps: false,
+                        isSecure: false,
+                        provider: 'github',
+                        cookie: 'github-example-github.com',
+                        scope: ['admin:repo_hook', 'read:org', 'repo:status', 'read:enterprise', 'read:user']
+                    }
+                });
+            });
+        });
+
         it('add repo scope to support private repo', () => {
             scm = new GithubScm({
                 oauthClientId: 'abcdefg',
@@ -3385,6 +3409,22 @@ jobs:
             const result = scm.getScmContexts();
 
             return assert.deepEqual(result, ['github:github.screwdriver.cd']);
+        });
+
+        it('returns a scmContext for github enterprise cloud', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            const result = scm.getScmContexts();
+
+            return assert.deepEqual(result, ['github:example.github.com']);
         });
     });
 

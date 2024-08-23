@@ -181,6 +181,8 @@ class GithubScm extends Scm {
      * @param  {String}  config.secret               Secret to validate the signature of webhook events
      * @param  {Boolean} [config.gheCloud=false]     Flag set to true if using Github Enterprise Cloud
      * @param  {Boolean} [config.gheCloudSlug]       The Github Enterprise Cloud Slug
+     * @param  {Boolean} [config.gheCloudCookie]     The Github Enterprise Cloud Cookie name
+     * @param  {Boolean} [config.gheCloudContext]    The Github Enterprise Cloud scm context
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
      * @return {GithubScm}
      */
@@ -193,65 +195,33 @@ class GithubScm extends Scm {
             joi
                 .object()
                 .keys({
-                    privateRepo: joi
-                        .boolean()
-                        .optional()
-                        .default(false),
-                    gheProtocol: joi
-                        .string()
-                        .optional()
-                        .default('https'),
-                    gheHost: joi
-                        .string()
-                        .optional()
-                        .description('GitHub Enterpise host'),
-                    username: joi
-                        .string()
-                        .optional()
-                        .default('sd-buildbot'),
-                    email: joi
-                        .string()
-                        .optional()
-                        .default('dev-null@screwdriver.cd'),
-                    commentUserToken: joi
-                        .string()
-                        .optional()
-                        .description('Token for PR comments'),
-                    autoDeployKeyGeneration: joi
-                        .boolean()
-                        .optional()
-                        .default(false),
+                    privateRepo: joi.boolean().optional().default(false),
+                    gheProtocol: joi.string().optional().default('https'),
+                    gheHost: joi.string().optional().description('GitHub Enterprise host'),
+                    username: joi.string().optional().default('sd-buildbot'),
+                    email: joi.string().optional().default('dev-null@screwdriver.cd'),
+                    commentUserToken: joi.string().optional().description('Token for PR comments'),
+                    autoDeployKeyGeneration: joi.boolean().optional().default(false),
                     readOnly: joi
                         .object()
                         .keys({
                             enabled: joi.boolean().optional(),
                             username: joi.string().optional(),
                             accessToken: joi.string().optional(),
-                            cloneType: joi
-                                .string()
-                                .valid('https', 'ssh')
-                                .optional()
-                                .default('https')
+                            cloneType: joi.string().valid('https', 'ssh').optional().default('https')
                         })
                         .optional()
                         .default({}),
-                    https: joi
-                        .boolean()
-                        .optional()
-                        .default(false),
+                    https: joi.boolean().optional().default(false),
                     oauthClientId: joi.string().required(),
                     oauthClientSecret: joi.string().required(),
                     fusebox: joi.object().default({}),
                     secret: joi.string().required(),
-                    gheCloud: joi
-                        .boolean()
-                        .optional()
-                        .default(false),
+                    gheCloud: joi.boolean().optional().default(false),
                     gheCloudSlug: joi.string().optional(),
-                    githubGraphQLUrl: joi
-                        .string()
-                        .optional()
-                        .default('https://api.github.com/graphql')
+                    gheCloudCookie: joi.string().optional(),
+                    gheCloudContext: joi.string().optional(),
+                    githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql')
                 })
                 .unknown(true),
             'Invalid config for GitHub'
@@ -786,10 +756,12 @@ class GithubScm extends Scm {
             // Git clone
             command.push(`echo 'Cloning external config repo ${parentCheckoutUrl}'`);
             command.push(
-                `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
+                `${
+                    'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
                     `"git clone --recursive --quiet --progress --branch '${escapedParentBranch}' ` +
-                    '$CONFIG_URL $SD_CONFIG_DIR"; '}${shallowCloneCmd}` +
+                    '$CONFIG_URL $SD_CONFIG_DIR"; '
+                }${shallowCloneCmd}` +
                     `--recursive --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; fi'
             );
@@ -844,10 +816,12 @@ class GithubScm extends Scm {
             // Git clone
             command.push(`echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}'`);
             command.push(
-                `${'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
+                `${
+                    'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
                     `"git clone --recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
-                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '}${shallowCloneCmd}` +
+                    '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '
+                }${shallowCloneCmd}` +
                     `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
             );
@@ -1709,7 +1683,12 @@ class GithubScm extends Scm {
         const scmContexts = this._getScmContexts();
         const scmContext = scmContexts[0];
         const scope = ['admin:repo_hook', 'read:org', 'repo:status'];
-        const cookie = this.config.gheHost ? `github-${this.config.gheHost}` : 'github-github.com';
+        let cookie = this.config.gheHost ? `github-${this.config.gheHost}` : 'github-github.com';
+
+        if (this.config.gheCloudCookie) {
+            cookie = this.config.gheCloudCookie;
+        }
+
         const bellConfig = {
             provider: 'github',
             cookie,
@@ -1886,7 +1865,11 @@ class GithubScm extends Scm {
      * @return {Array}          Array of scm contexts
      */
     _getScmContexts() {
-        const contextName = this.config.gheHost ? [`github:${this.config.gheHost}`] : ['github:github.com'];
+        let contextName = this.config.gheHost ? [`github:${this.config.gheHost}`] : ['github:github.com'];
+
+        if (this.config.gheCloudContext) {
+            contextName = [this.config.gheCloudContext];
+        }
 
         return contextName;
     }
