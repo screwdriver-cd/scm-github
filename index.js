@@ -1513,6 +1513,7 @@ class GithubScm extends Scm {
         const hookId = payloadHeaders['x-github-delivery'];
         const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
         const scmContexts = this._getScmContexts();
+        const scmContext = scmContexts[0];
         const commitAuthors = [];
         const commits = hoek.reach(webhookPayload, 'commits');
         const deleted = hoek.reach(webhookPayload, 'deleted');
@@ -1524,6 +1525,17 @@ class GithubScm extends Scm {
             logger.info(`Incorrect checkout SshHost: ${checkoutUrl}`);
 
             return null;
+        }
+
+        // additional check for github enterprise cloud hooks
+        if (this.config.gheCloud) {
+            const enterpriseSlug = hoek.reach(webhookPayload, 'enterprise.slug');
+
+            if (this.config.gheCloudSlug !== enterpriseSlug) {
+                logger.info(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`);
+
+                return null;
+            }
         }
 
         // eslint-disable-next-line no-underscore-dangle
@@ -1565,7 +1577,7 @@ class GithubScm extends Scm {
                     type: 'pr',
                     username: hoek.reach(webhookPayload, 'sender.login'),
                     hookId,
-                    scmContext: scmContexts[0]
+                    scmContext
                 };
             }
             case 'push': {
@@ -1596,7 +1608,7 @@ class GithubScm extends Scm {
                     commitAuthors,
                     lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
                     hookId,
-                    scmContext: scmContexts[0],
+                    scmContext,
                     ref: hoek.reach(webhookPayload, 'ref'),
                     addedFiles: hoek.reach(webhookPayload, 'head_commit.added', { default: [] }),
                     modifiedFiles: hoek.reach(webhookPayload, 'head_commit.modified', { default: [] }),
@@ -1617,7 +1629,7 @@ class GithubScm extends Scm {
                     type: 'repo',
                     username: hoek.reach(webhookPayload, 'sender.login'),
                     hookId,
-                    scmContext: scmContexts[0],
+                    scmContext,
                     ref: hoek.reach(webhookPayload, 'release.tag_name'),
                     releaseId: hoek.reach(webhookPayload, 'release.id').toString(),
                     releaseName: hoek.reach(webhookPayload, 'release.name') || '',
@@ -1640,7 +1652,7 @@ class GithubScm extends Scm {
                     type: 'repo',
                     username: hoek.reach(webhookPayload, 'sender.login'),
                     hookId,
-                    scmContext: scmContexts[0],
+                    scmContext,
                     ref: hoek.reach(webhookPayload, 'ref')
                 };
             }

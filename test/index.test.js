@@ -39,6 +39,7 @@ const testPrGetNullMergeable = require('./data/github.pull_request.get.nullMerge
 const testPrGetNoForkRepo = require('./data/github.pull_request.get.noForkRepo.json');
 const testPrCreateComment = require('./data/github.pull_request.createComment.json');
 const testPrListComment = require('./data/github.pull_request.listComment.json');
+const testPrOpenedEnterpriseCloud = require('./data/github.pull_request.opened-cloud.json');
 
 sinon.assert.expose(assert, {
     prefix: ''
@@ -1773,6 +1774,27 @@ jobs:
             });
         });
 
+        it('parses a payload for a pull request event from github enterprise cloud', () => {
+            testHeaders['x-hub-signature'] = 'sha1=2918c043a3550c7e455cf2b028832746cb0ff777';
+            const scmGHEC = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'defghijk',
+                gheCloud: true,
+                gheCloudSlug: 'ghec-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            return scmGHEC.parseHook(testHeaders, testPrOpenedEnterpriseCloud).then(result => {
+                assert.deepEqual(result, {
+                    ...commonPullRequestParse,
+                    action: 'opened',
+                    scmContext: 'github:example.github.com'
+                });
+            });
+        });
+
         it('parses a payload for a delete event payload', () => {
             testHeaders['x-github-event'] = 'push';
             testHeaders['x-hub-signature'] = 'sha1=f2589b49939e662188aed20967779a3e500149af';
@@ -1853,6 +1875,29 @@ jobs:
             testHeaders['x-hub-signature'] = 'sha1=4fe5c8f4a7e4b76a4bd46b4693e87dadf9bec110';
 
             return scm.parseHook(testHeaders, testPayloadBadAction).then(result => {
+                assert.isNull(result);
+            });
+        });
+
+        it('resolves null for a pull request payload from incorrect ghe enterprise cloud', () => {
+            const scmGHEC = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'defghijk',
+                gheCloud: true,
+                gheCloudSlug: 'ghe-slug',
+                gheCloudCookie: 'github-example-github.com',
+                gheCloudContext: 'github:example.github.com',
+                secret: 'somesecret'
+            });
+
+            const testPayloadPrBadSlug = Object.assign(JSON.parse(JSON.stringify(testPrOpenedEnterpriseCloud)), {
+                enterprise: {
+                    id: 1234,
+                    slug: 'bad-slug'
+                }
+            });
+
+            return scmGHEC.parseHook(testHeaders, testPayloadPrBadSlug).then(result => {
                 assert.isNull(result);
             });
         });
