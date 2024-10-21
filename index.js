@@ -1522,9 +1522,7 @@ class GithubScm extends Scm {
         const regexMatchArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
         if (!regexMatchArray || regexMatchArray[1] !== checkoutSshHost) {
-            logger.info(`Incorrect checkout SshHost: ${checkoutUrl}`);
-
-            return null;
+            throwError(`Incorrect checkout SshHost: ${checkoutUrl}`, 400);
         }
 
         // additional check for github enterprise cloud hooks
@@ -1532,15 +1530,13 @@ class GithubScm extends Scm {
             const enterpriseSlug = hoek.reach(webhookPayload, 'enterprise.slug');
 
             if (this.config.gheCloudSlug !== enterpriseSlug) {
-                logger.info(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`);
-
-                return null;
+                throwError(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`, 400);
             }
         }
 
         // eslint-disable-next-line no-underscore-dangle
         if (!(await verify(this.config.secret, JSON.stringify(webhookPayload), signature))) {
-            throwError('Invalid x-hub-signature');
+            throwError('Invalid x-hub-signature', 400);
         }
 
         switch (type) {
@@ -1900,9 +1896,9 @@ class GithubScm extends Scm {
      */
     async _canHandleWebhook(headers, payload) {
         try {
-            const result = await this._parseHook(headers, payload);
+            await this._parseHook(headers, payload);
 
-            return result !== null;
+            return true;
         } catch (err) {
             logger.error('Failed to run canHandleWebhook', err);
 

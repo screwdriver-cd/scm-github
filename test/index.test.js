@@ -1879,7 +1879,7 @@ jobs:
             });
         });
 
-        it('resolves null for a pull request payload from incorrect ghe enterprise cloud', () => {
+        it('rejects for a pull request payload from incorrect ghe enterprise cloud', () => {
             const scmGHEC = new GithubScm({
                 oauthClientId: 'abcdefg',
                 oauthClientSecret: 'defghijk',
@@ -1897,9 +1897,15 @@ jobs:
                 }
             });
 
-            return scmGHEC.parseHook(testHeaders, testPayloadPrBadSlug).then(result => {
-                assert.isNull(result);
-            });
+            return scmGHEC
+                .parseHook(testHeaders, testPayloadPrBadSlug)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.include(err.message, 'Skipping incorrect scm context for hook parsing');
+                    assert.strictEqual(err.statusCode, 400);
+                });
         });
 
         it('parses a payload for a pull request event payload', () => {
@@ -1951,9 +1957,15 @@ jobs:
         it('rejects when ssh host is not valid', () => {
             testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
 
-            return scm.parseHook(testHeaders, testPayloadPingBadSshHost).then(result => {
-                assert.isNull(result);
-            });
+            return scm
+                .parseHook(testHeaders, testPayloadPingBadSshHost)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.include(err.message, 'Incorrect checkout SshHost');
+                    assert.strictEqual(err.statusCode, 400);
+                });
         });
 
         it('rejects when signature is not valid', () => {
@@ -1966,7 +1978,7 @@ jobs:
                 })
                 .catch(err => {
                     assert.equal(err.message, 'Invalid x-hub-signature');
-                    assert.strictEqual(err.statusCode, 500);
+                    assert.strictEqual(err.statusCode, 400);
                 });
         });
     });
@@ -3524,11 +3536,11 @@ jobs:
             });
         });
 
-        it('returns false when the github event is not valid', () => {
+        it('returns true when the github event is not valid', () => {
             testHeaders['x-github-event'] = 'REEEEEEEE';
 
             return scm.canHandleWebhook(testHeaders, testPayloadPush).then(result => {
-                assert.strictEqual(result, false);
+                assert.strictEqual(result, true);
             });
         });
 
