@@ -672,6 +672,13 @@ class GithubScm extends Scm {
 
         command.push('if [ ! -z $SD_SCM_DEPLOY_KEY ]; then export SCM_CLONE_TYPE=ssh; fi');
 
+        // Set recursive option
+        command.push(
+            'if [ ! -z $GIT_RECURSIVE_CLONE ] && [ $GIT_RECURSIVE_CLONE = false ]; ' +
+                `then export GIT_RECURSIVE_OPTION=""; ` +
+                `else export GIT_RECURSIVE_OPTION="--recursive"; fi`
+        );
+
         // Export environment variables
         command.push('echo Exporting environment variables');
         // Use read-only clone type
@@ -759,10 +766,10 @@ class GithubScm extends Scm {
                 `${
                     'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${escapedParentBranch}' ` +
+                    `"git clone $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; '
                 }${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${escapedParentBranch}' ` +
+                    `$GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; fi'
             );
 
@@ -819,10 +826,10 @@ class GithubScm extends Scm {
                 `${
                     'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone --recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                    `"git clone $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '
                 }${shallowCloneCmd}` +
-                    `--recursive --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                    `$GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
             );
 
@@ -866,8 +873,12 @@ class GithubScm extends Scm {
 
         if (!config.manifest) {
             // Init & Update submodule only when sd-repo is not used
-            command.push('$SD_GIT_WRAPPER "git submodule init"');
-            command.push('$SD_GIT_WRAPPER "git submodule update --recursive"');
+            command.push(
+                'if [ ! -z $GIT_RECURSIVE_CLONE ] && [ $GIT_RECURSIVE_CLONE = false ]; ' +
+                    `then $SD_GIT_WRAPPER "git submodule init"; ` +
+                    `else $SD_GIT_WRAPPER "git submodule update --init --recursive"; fi`
+            );
+
             // cd into rootDir after merging
             if (config.rootDir) {
                 // Escape single quotes in the root directory path to handle special characters.
