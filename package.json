@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@hapi/hoek": "^10.0.1",
-    "@octokit/rest": "^20.0.2",
+    "@octokit/rest": "^21.1.1",
     "@octokit/webhooks-methods": "^4.0.0",
     "circuit-fuses": "^5.0.0",
     "joi": "^17.7.0",
