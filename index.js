@@ -1557,6 +1557,7 @@ class GithubScm extends Scm {
                 const prTitle = hoek.reach(webhookPayload, 'pull_request.title');
                 const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
                 const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
+                const prMerged = hoek.reach(webhookPayload, 'pull_request.merged');
                 const prSource = baseSource === headSource ? 'branch' : 'fork';
                 const ref = `pull/${prNum}/merge`;
 
@@ -1584,7 +1585,8 @@ class GithubScm extends Scm {
                     type: 'pr',
                     username: hoek.reach(webhookPayload, 'sender.login'),
                     hookId,
-                    scmContext
+                    scmContext,
+                    prMerged
                 };
             }
             case 'push': {
