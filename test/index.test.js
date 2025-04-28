@@ -1741,7 +1741,8 @@ jobs:
                 type: 'pr',
                 username: 'baxterthehacker2',
                 hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
-                scmContext: 'github:github.com'
+                scmContext: 'github:github.com',
+                prMerged: false
             };
 
             testHeaders = {
