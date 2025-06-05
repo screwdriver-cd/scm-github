@@ -681,7 +681,7 @@ class GithubScm extends Scm {
 
         // Set sparse option
         command.push(
-            'if [ ! -z "$GIT_SPARSE_CHECKOUT" ]; ' +
+            'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ]; ' +
                 `then export GIT_SPARSE_OPTION="--no-checkout";` +
                 `else export GIT_SPARSE_OPTION=""; fi`
         );
@@ -782,8 +782,8 @@ class GithubScm extends Scm {
 
             // Sparse Checkout
             command.push(
-                'if [ ! -z "$GIT_SPARSE_CHECKOUT" ];' +
-                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT" && ' +
+                'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];' +
+                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && ' +
                     '$SD_GIT_WRAPPER "git checkout"; fi'
             );
 
@@ -849,8 +849,8 @@ class GithubScm extends Scm {
 
             // Sparse Checkout
             command.push(
-                'if [ ! -z "$GIT_SPARSE_CHECKOUT" ];' +
-                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT" && ' +
+                'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];' +
+                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && ' +
                     '$SD_GIT_WRAPPER "git checkout"; fi'
             );
 
