@@ -679,6 +679,13 @@ class GithubScm extends Scm {
                 `else export GIT_RECURSIVE_OPTION="--recursive"; fi`
         );
 
+        // Set sparse option
+        command.push(
+            'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ]; ' +
+                `then export GIT_SPARSE_OPTION="--no-checkout";` +
+                `else export GIT_SPARSE_OPTION=""; fi`
+        );
+
         // Export environment variables
         command.push('echo Exporting environment variables');
         // Use read-only clone type
@@ -766,11 +773,18 @@ class GithubScm extends Scm {
                 `${
                     'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
+                    `"git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; '
                 }${shallowCloneCmd}` +
-                    `$GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
+                    `$GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' ` +
                     '$CONFIG_URL $SD_CONFIG_DIR"; fi'
+            );
+
+            // Sparse Checkout
+            command.push(
+                'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];' +
+                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && ' +
+                    '$SD_GIT_WRAPPER "git checkout"; fi'
             );
 
             // Reset to SHA
@@ -826,11 +840,18 @@ class GithubScm extends Scm {
                 `${
                     'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; ' +
                     'then $SD_GIT_WRAPPER ' +
-                    `"git clone $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                    `"git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; '
                 }${shallowCloneCmd}` +
-                    `$GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
+                    `$GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' ` +
                     '$SCM_URL $SD_CHECKOUT_DIR_FINAL"; fi'
+            );
+
+            // Sparse Checkout
+            command.push(
+                'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];' +
+                    'then $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && ' +
+                    '$SD_GIT_WRAPPER "git checkout"; fi'
             );
 
             // Reset to SHA
