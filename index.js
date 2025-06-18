@@ -1782,9 +1782,9 @@ class GithubScm extends Scm {
             lookupConfig.scmRepo = config.scmRepo;
         }
 
-        const scmInfo = await this.lookupScmUri(lookupConfig);
-
         try {
+            const scmInfo = await this.lookupScmUri(lookupConfig);
+
             const pullRequestInfo = await this.breaker.runCommand({
                 action: 'get',
                 scopeType: 'pulls',
