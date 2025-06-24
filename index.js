@@ -707,20 +707,18 @@ class GithubScm extends Scm {
                 command.push(`export SCM_URL=${sshCheckoutUrl}`);
             } else {
                 command.push(
-                    [
+                    trimIndentJoin([
                         'if [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ]; then',
                         `    export SCM_URL=https://$SCM_USERNAME:$SCM_ACCESS_TOKEN@${checkoutUrl};`,
                         'else',
                         `    export SCM_URL=https://${checkoutUrl};`,
                         'fi'
-                    ]
-                        .map(s => s.trim())
-                        .join(' ')
+                    ])
                 );
             }
         } else {
             command.push(
-                [
+                trimIndentJoin([
                     'if [ ! -z $SCM_CLONE_TYPE ] && [ $SCM_CLONE_TYPE = ssh ]; then',
                     `    export SCM_URL=${sshCheckoutUrl};`,
                     'elif [ ! -z $SCM_USERNAME ] && [ ! -z $SCM_ACCESS_TOKEN ];',
@@ -728,9 +726,7 @@ class GithubScm extends Scm {
                     'else',
                     `    export SCM_URL=https://${checkoutUrl};`,
                     'fi'
-                ]
-                    .map(s => s.trim())
-                    .join(' ')
+                ])
             );
         }
 
