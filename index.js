@@ -964,7 +964,7 @@ class GithubScm extends Scm {
                         `    mkdir -p ${escapedRootDir};`,
                         'fi'
                     ]),
-                    `cd '${escapedRootDir}';`
+                    `cd '${escapedRootDir}'`
                 );
             }
         }
