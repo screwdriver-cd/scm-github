@@ -749,7 +749,7 @@ class GithubScm extends Scm {
             // Set config
             'echo Setting user name and user email',
             trimIndentJoin([
-                'if [ $SD_SKIP_REPOSITORY_CLONE = true ] && ! command -v git >/dev/null 2>&1; then',
+                'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ] && ! command -v git >/dev/null 2>&1; then',
                 `    echo 'Skipping git config';`,
                 'else',
                 `    $SD_GIT_WRAPPER "git config --global user.name ${this.config.username}";`,
@@ -786,7 +786,7 @@ class GithubScm extends Scm {
                 // Git clone
                 `export SD_CONFIG_DIR=${externalConfigDir}`,
                 trimIndentJoin([
-                    'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
                     `    echo 'Skipping cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
                     'else',
                     `    echo 'Cloning external config repo ${parentCheckoutUrl}';`,
@@ -865,7 +865,7 @@ class GithubScm extends Scm {
             command.push(
                 trimIndentJoin([
                     // Git clone
-                    'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
                     `    echo 'Skipping cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
                     'else',
                     `    echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
@@ -922,15 +922,17 @@ class GithubScm extends Scm {
                 `export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`,
                 `export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`,
                 `export GIT_BRANCH=origin/refs/${prRef}`,
-                'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
-                `    echo 'Skipping fetching PR ${prRef}';`,
-                'else',
-                `    echo 'Fetching PR ${prRef}';`,
-                `    $SD_GIT_WRAPPER "git fetch origin ${prRef}";`,
-                `    echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}';`,
-                `    $SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}";`,
-                `    $SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'";`,
-                'fi'
+                trimIndentJoin([
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    `    echo 'Skipping fetching PR ${prRef}';`,
+                    'else',
+                    `    echo 'Fetching PR ${prRef}';`,
+                    `    $SD_GIT_WRAPPER "git fetch origin ${prRef}";`,
+                    `    echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}';`,
+                    `    $SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}";`,
+                    `    $SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'";`,
+                    'fi'
+                ])
             );
         } else {
             command.push(`export GIT_BRANCH='origin/${singleQuoteEscapedBranch}'`);
@@ -940,7 +942,7 @@ class GithubScm extends Scm {
             // Init & Update submodule only when sd-repo is not used
             command.push(
                 trimIndentJoin([
-                    'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
                     `    echo 'Skipping submodule init and update';`,
                     'else',
                     '    if [ ! -z $GIT_RECURSIVE_CLONE ] && [ $GIT_RECURSIVE_CLONE = false ]; then',
@@ -960,7 +962,7 @@ class GithubScm extends Scm {
 
                 command.push(
                     trimIndentJoin([
-                        'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                        'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
                         `    mkdir -p ${escapedRootDir};`,
                         'fi'
                     ]),
