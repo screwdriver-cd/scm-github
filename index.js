@@ -908,16 +908,14 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(
-                ...[
-                    `echo 'Fetching PR ${prRef}'`,
-                    `$SD_GIT_WRAPPER "git fetch origin ${prRef}"`,
-                    `export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`,
-                    `export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`,
-                    `echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}'`,
-                    `$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`,
-                    `$SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'"`,
-                    `export GIT_BRANCH=origin/refs/${prRef}`
-                ]
+                `echo 'Fetching PR ${prRef}'`,
+                `$SD_GIT_WRAPPER "git fetch origin ${prRef}"`,
+                `export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`,
+                `export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`,
+                `echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}'`,
+                `$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`,
+                `$SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'"`,
+                `export GIT_BRANCH=origin/refs/${prRef}`
             );
         } else {
             command.push(`export GIT_BRANCH='origin/${singleQuoteEscapedBranch}'`);
