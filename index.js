@@ -923,7 +923,7 @@ class GithubScm extends Scm {
                 `export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`,
                 `export GIT_BRANCH=origin/refs/${prRef}`,
                 'if [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
-                `    echo 'Skipping cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
+                `    echo 'Skipping fetching PR ${prRef}';`,
                 'else',
                 `    echo 'Fetching PR ${prRef}';`,
                 `    $SD_GIT_WRAPPER "git fetch origin ${prRef}";`,
