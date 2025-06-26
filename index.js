@@ -692,7 +692,8 @@ class GithubScm extends Scm {
             // Set sparse option
             trimIndentJoin([
                 'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ]; then',
-                '    export GIT_SPARSE_OPTION="--no-checkout";else',
+                '    export GIT_SPARSE_OPTION="--no-checkout";',
+                'else',
                 '    export GIT_SPARSE_OPTION="";',
                 'fi'
             ])
@@ -746,9 +747,15 @@ class GithubScm extends Scm {
                 'fi'
             ]),
             // Set config
-            'echo Setting user name and user email',
-            `$SD_GIT_WRAPPER "git config --global user.name ${this.config.username}"`,
-            `$SD_GIT_WRAPPER "git config --global user.email ${this.config.email}"`,
+            trimIndentJoin([
+                'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ] && ! $SD_GIT_WRAPPER "git -v" >/dev/null 2>&1; then',
+                `    echo 'Skipping git config';`,
+                'else',
+                '    echo "Setting user name and user email";',
+                `    $SD_GIT_WRAPPER "git config --global user.name ${this.config.username}";`,
+                `    $SD_GIT_WRAPPER "git config --global user.email ${this.config.email}";`,
+                'fi'
+            ]),
             // Set final checkout dir, default to SD_SOURCE_DIR for backward compatibility
             'export SD_CHECKOUT_DIR_FINAL=$SD_SOURCE_DIR',
             trimIndentJoin([
@@ -778,35 +785,37 @@ class GithubScm extends Scm {
                 ]),
                 // Git clone
                 `export SD_CONFIG_DIR=${externalConfigDir}`,
-                `echo 'Cloning external config repo ${parentCheckoutUrl}'`,
                 trimIndentJoin([
-                    'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
-                    `    $SD_GIT_WRAPPER "git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' $CONFIG_URL $SD_CONFIG_DIR";`,
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    `    echo 'Skipping cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
                     'else',
-                    '    if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; then',
-                    '        export GIT_SHALLOW_CLONE_DEPTH_OPTION="--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'";',
+                    `    echo 'Cloning external config repo ${parentCheckoutUrl}';`,
+                    '    if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
+                    `        $SD_GIT_WRAPPER "git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' $CONFIG_URL $SD_CONFIG_DIR";`,
                     '    else',
-                    '        if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; then',
-                    '            export GIT_SHALLOW_CLONE_DEPTH=50;',
+                    '        if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; then',
+                    '            export GIT_SHALLOW_CLONE_DEPTH_OPTION="--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'";',
+                    '        else',
+                    '            if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; then',
+                    '                export GIT_SHALLOW_CLONE_DEPTH=50;',
+                    '            fi;',
+                    '            export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH";',
                     '        fi;',
-                    '        export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH";',
+                    '        export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch";',
+                    '        if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; then',
+                    '            export GIT_SHALLOW_CLONE_BRANCH="";',
+                    '        fi;',
+                    `        $SD_GIT_WRAPPER "git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' $CONFIG_URL $SD_CONFIG_DIR";`,
                     '    fi;',
-                    '    export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch";',
-                    '    if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; then',
-                    '        export GIT_SHALLOW_CLONE_BRANCH="";',
+                    // Sparse Checkout
+                    '    if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ]; then',
+                    '        $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && $SD_GIT_WRAPPER "git checkout";',
                     '    fi;',
-                    `    $SD_GIT_WRAPPER "git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${escapedParentBranch}' $CONFIG_URL $SD_CONFIG_DIR";`,
+                    // Reset to SHA
+                    `    $SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard ${config.parentConfig.sha} --";`,
+                    `    echo Reset external config repo to ${config.parentConfig.sha};`,
                     'fi'
-                ]),
-                // Sparse Checkout
-                trimIndentJoin([
-                    'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];then',
-                    '    $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && $SD_GIT_WRAPPER "git checkout";',
-                    'fi'
-                ]),
-                // Reset to SHA
-                `$SD_GIT_WRAPPER "git -C $SD_CONFIG_DIR reset --hard ${config.parentConfig.sha} --"`,
-                `echo Reset external config repo to ${config.parentConfig.sha}`
+                ])
             );
         }
 
@@ -854,47 +863,49 @@ class GithubScm extends Scm {
             const resetEchoSha = config.prRef ? singleQuoteEscapedBranch : config.sha;
 
             command.push(
-                // Git clone
-                `echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}'`,
                 trimIndentJoin([
-                    'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
-                    `    $SD_GIT_WRAPPER "git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' $SCM_URL $SD_CHECKOUT_DIR_FINAL";`,
+                    // Git clone
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    `    echo 'Skipping cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
                     'else',
-                    '    if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; then',
-                    '        export GIT_SHALLOW_CLONE_DEPTH_OPTION="--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'";',
+                    `    echo 'Cloning ${checkoutUrl}, on branch ${singleQuoteEscapedBranch}';`,
+                    '    if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
+                    `        $SD_GIT_WRAPPER "git clone $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' $SCM_URL $SD_CHECKOUT_DIR_FINAL";`,
                     '    else',
-                    '        if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; then',
-                    '            export GIT_SHALLOW_CLONE_DEPTH=50;',
+                    '        if [ ! -z "$GIT_SHALLOW_CLONE_SINCE" ]; then',
+                    '            export GIT_SHALLOW_CLONE_DEPTH_OPTION="--shallow-since=\'$GIT_SHALLOW_CLONE_SINCE\'";',
+                    '        else',
+                    '            if [ -z $GIT_SHALLOW_CLONE_DEPTH ]; then',
+                    '                export GIT_SHALLOW_CLONE_DEPTH=50;',
+                    '            fi;',
+                    '            export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH";',
                     '        fi;',
-                    '        export GIT_SHALLOW_CLONE_DEPTH_OPTION="--depth=$GIT_SHALLOW_CLONE_DEPTH";',
+                    '        export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch";',
+                    '        if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; then',
+                    '            export GIT_SHALLOW_CLONE_BRANCH="";',
+                    '        fi;',
+                    `        $SD_GIT_WRAPPER "git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' $SCM_URL $SD_CHECKOUT_DIR_FINAL";`,
                     '    fi;',
-                    '    export GIT_SHALLOW_CLONE_BRANCH="--no-single-branch";',
-                    '    if [ "$GIT_SHALLOW_CLONE_SINGLE_BRANCH" = true ]; then',
-                    '        export GIT_SHALLOW_CLONE_BRANCH="";',
+                    // Sparse Checkout
+                    '    if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ]; then',
+                    '        $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && $SD_GIT_WRAPPER "git checkout";',
                     '    fi;',
-                    `    $SD_GIT_WRAPPER "git clone $GIT_SHALLOW_CLONE_DEPTH_OPTION $GIT_SHALLOW_CLONE_BRANCH $GIT_SPARSE_OPTION $GIT_RECURSIVE_OPTION --quiet --progress --branch '${doubleQuoteEscapedBranch}' $SCM_URL $SD_CHECKOUT_DIR_FINAL";`,
+                    // Reset to SHA
+                    ...(!config.prRef
+                        ? [
+                              trimIndentJoin([
+                                  'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
+                                  `    $SD_GIT_WRAPPER "git fetch origin '${config.sha}'";`,
+                                  'else',
+                                  `    $SD_GIT_WRAPPER "git fetch $GIT_SHALLOW_CLONE_DEPTH_OPTION origin '${config.sha}'";`,
+                                  'fi;'
+                              ])
+                          ]
+                        : []),
+                    `    $SD_GIT_WRAPPER "git reset --hard '${resetSha}' --";`,
+                    `    echo 'Reset to ${resetEchoSha}';`,
                     'fi'
-                ]),
-                // Sparse Checkout
-                trimIndentJoin([
-                    'if [ ! -z "$GIT_SPARSE_CHECKOUT_PATH" ];then',
-                    '    $SD_GIT_WRAPPER "git sparse-checkout set $GIT_SPARSE_CHECKOUT_PATH" && $SD_GIT_WRAPPER "git checkout";',
-                    'fi'
-                ]),
-                // Reset to SHA
-                ...(!config.prRef
-                    ? [
-                          trimIndentJoin([
-                              'if [ ! -z $GIT_SHALLOW_CLONE ] && [ $GIT_SHALLOW_CLONE = false ]; then',
-                              `    $SD_GIT_WRAPPER "git fetch origin '${config.sha}'";`,
-                              'else',
-                              `    $SD_GIT_WRAPPER "git fetch $GIT_SHALLOW_CLONE_DEPTH_OPTION origin '${config.sha}'";`,
-                              'fi'
-                          ])
-                      ]
-                    : []),
-                `$SD_GIT_WRAPPER "git reset --hard '${resetSha}' --"`,
-                `echo 'Reset to ${resetEchoSha}'`
+                ])
             );
         }
 
@@ -908,14 +919,20 @@ class GithubScm extends Scm {
 
             // Fetch a pull request
             command.push(
-                `echo 'Fetching PR ${prRef}'`,
-                `$SD_GIT_WRAPPER "git fetch origin ${prRef}"`,
                 `export PR_BASE_BRANCH_NAME='${singleQuoteEscapedBranch}'`,
                 `export PR_BRANCH_NAME='${baseRepo}/${singleQuoteEscapedPrBranch}'`,
-                `echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}'`,
-                `$SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}"`,
-                `$SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'"`,
-                `export GIT_BRANCH=origin/refs/${prRef}`
+                `export GIT_BRANCH=origin/refs/${prRef}`,
+                trimIndentJoin([
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    `    echo 'Skipping fetching PR ${prRef}';`,
+                    'else',
+                    `    echo 'Fetching PR ${prRef}';`,
+                    `    $SD_GIT_WRAPPER "git fetch origin ${prRef}";`,
+                    `    echo 'Checking out the PR branch ${singleQuoteEscapedPrBranch}';`,
+                    `    $SD_GIT_WRAPPER "git checkout ${LOCAL_BRANCH_NAME}";`,
+                    `    $SD_GIT_WRAPPER "git merge '${doubleQuoteEscapedBranch}'";`,
+                    'fi'
+                ])
             );
         } else {
             command.push(`export GIT_BRANCH='origin/${singleQuoteEscapedBranch}'`);
@@ -925,10 +942,14 @@ class GithubScm extends Scm {
             // Init & Update submodule only when sd-repo is not used
             command.push(
                 trimIndentJoin([
-                    'if [ ! -z $GIT_RECURSIVE_CLONE ] && [ $GIT_RECURSIVE_CLONE = false ]; then',
-                    '    $SD_GIT_WRAPPER "git submodule init";',
+                    'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                    `    echo 'Skipping submodule init and update';`,
                     'else',
-                    '    $SD_GIT_WRAPPER "git submodule update --init --recursive";',
+                    '    if [ ! -z $GIT_RECURSIVE_CLONE ] && [ $GIT_RECURSIVE_CLONE = false ]; then',
+                    '        $SD_GIT_WRAPPER "git submodule init";',
+                    '    else',
+                    '        $SD_GIT_WRAPPER "git submodule update --init --recursive";',
+                    '    fi;',
                     'fi'
                 ])
             );
@@ -939,7 +960,14 @@ class GithubScm extends Scm {
                 // The path is then wrapped in single quotes to safely change directories using the 'cd' command.
                 const escapedRootDir = config.rootDir.replace(/'/g, "'\\''");
 
-                command.push(`cd '${escapedRootDir}'`);
+                command.push(
+                    trimIndentJoin([
+                        'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
+                        `    mkdir -p ${escapedRootDir};`,
+                        'fi'
+                    ]),
+                    `cd '${escapedRootDir}'`
+                );
             }
         }
 
