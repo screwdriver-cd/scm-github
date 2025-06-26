@@ -747,11 +747,11 @@ class GithubScm extends Scm {
                 'fi'
             ]),
             // Set config
-            'echo Setting user name and user email',
             trimIndentJoin([
-                'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ] && ! command -v git >/dev/null 2>&1; then',
+                'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ] && ! $SD_GIT_WRAPPER "git -v" >/dev/null 2>&1; then',
                 `    echo 'Skipping git config';`,
                 'else',
+                '    echo "Setting user name and user email";',
                 `    $SD_GIT_WRAPPER "git config --global user.name ${this.config.username}";`,
                 `    $SD_GIT_WRAPPER "git config --global user.email ${this.config.email}";`,
                 'fi'
