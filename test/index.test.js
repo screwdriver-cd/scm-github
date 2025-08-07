@@ -2250,18 +2250,21 @@ jobs:
                     token: 'randomtoken',
                     username
                 })
-                .then(
-                    () => {
-                        assert.fail('This should not fail the test');
-                    },
-                    err => {
-                        assert.deepEqual(err, testError);
-
-                        assert.calledWith(githubMock.users.getByUsername, {
-                            username
-                        });
-                    }
-                );
+                .then(author => {
+                    assert.calledWith(githubMock.users.getByUsername, {
+                        username
+                    });
+                    assert.deepEqual(
+                        {
+                            id: '',
+                            avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
+                            name: username,
+                            username,
+                            url: 'https://cd.screwdriver.cd/'
+                        },
+                        author
+                    );
+                });
         });
     });
 
