@@ -4,6 +4,7 @@ const { assert, AssertionError } = require('chai');
 const mockery = require('mockery');
 const sinon = require('sinon');
 
+const crypto = require('crypto');
 const testPayloadClose = require('./data/github.pull_request.closed.json');
 const testPayloadOpen = require('./data/github.pull_request.opened.json');
 const testPayloadOpenFork = require('./data/github.pull_request.opened-fork.json');
@@ -1755,7 +1756,7 @@ jobs:
         it('parses a payload for a push event payload', () => {
             testHeaders['x-github-event'] = 'push';
 
-            return scm.parseHook(testHeaders, testPayloadPush).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadPush)).then(result => {
                 assert.deepEqual(result, {
                     action: 'push',
                     branch: 'master',
@@ -1775,6 +1776,22 @@ jobs:
             });
         });
 
+        it('parses a payload for a push event payload with Control characters', () => {
+            const payload = { ...testPayloadPush };
+
+            payload.commits = [...payload.commits];
+            payload.commits[0] = { ...payload.commits[0] };
+            payload.commits[0].message = '\u001F';
+            const payloadText = JSON.stringify(payload).replace('\\u001f', '\\u001F');
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'push',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm.parseHook(headers, payloadText);
+        });
+
         it('parses a payload for a pull request event from github enterprise cloud', () => {
             testHeaders['x-hub-signature'] = 'sha1=2918c043a3550c7e455cf2b028832746cb0ff777';
             const scmGHEC = new GithubScm({
@@ -1787,7 +1804,7 @@ jobs:
                 secret: 'somesecret'
             });
 
-            return scmGHEC.parseHook(testHeaders, testPrOpenedEnterpriseCloud).then(result => {
+            return scmGHEC.parseHook(testHeaders, JSON.stringify(testPrOpenedEnterpriseCloud)).then(result => {
                 assert.deepEqual(result, {
                     ...commonPullRequestParse,
                     action: 'opened',
@@ -1800,7 +1817,7 @@ jobs:
             testHeaders['x-github-event'] = 'push';
             testHeaders['x-hub-signature'] = 'sha1=f2589b49939e662188aed20967779a3e500149af';
 
-            return scm.parseHook(testHeaders, testPayloadPushDeleted).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadPushDeleted)).then(result => {
                 assert.equal(result, null);
             });
         });
@@ -1809,7 +1826,7 @@ jobs:
             testHeaders['x-github-event'] = 'release';
             testHeaders['x-hub-signature'] = 'sha1=bb5a13e806648dcd8910a4fdbe07f7ed943cb45a';
 
-            return scm.parseHook(testHeaders, testPayloadRelease).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadRelease)).then(result => {
                 assert.deepEqual(result, {
                     action: 'release',
                     branch: 'master',
@@ -1830,7 +1847,7 @@ jobs:
             testHeaders['x-github-event'] = 'release';
             testHeaders['x-hub-signature'] = 'sha1=0ecd27db793b3a4129705c5314d8511c5d90e33e';
 
-            return scm.parseHook(testHeaders, testPayloadReleaseBadAction).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadReleaseBadAction)).then(result => {
                 assert.isNull(result);
             });
         });
@@ -1839,7 +1856,7 @@ jobs:
             testHeaders['x-github-event'] = 'create';
             testHeaders['x-hub-signature'] = 'sha1=bd5a3a851e9333d871daeaa61b03a742b700addf';
 
-            return scm.parseHook(testHeaders, testPayloadTag).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadTag)).then(result => {
                 assert.deepEqual(result, {
                     action: 'tag',
                     branch: 'master',
@@ -1858,7 +1875,7 @@ jobs:
             testHeaders['x-hub-signature'] = 'sha1=37f2e1af8e0962fa9efc3192a6a22ba08f07c2b5';
             testPayloadTag.ref_type = 'branch';
 
-            return scm.parseHook(testHeaders, testPayloadTag).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadTag)).then(result => {
                 assert.isNull(result);
             });
         });
@@ -1867,7 +1884,7 @@ jobs:
             testHeaders['x-github-event'] = 'push';
             testHeaders['x-hub-signature'] = 'sha1=c3d5ae557c6f37a24d5887f1d642a6674d8f11fb';
 
-            return scm.parseHook(testHeaders, testPayloadPushTag).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadPushTag)).then(result => {
                 assert.isNull(result);
             });
         });
@@ -1875,7 +1892,7 @@ jobs:
         it('resolves null for a pull request payload with an unsupported action', () => {
             testHeaders['x-hub-signature'] = 'sha1=4fe5c8f4a7e4b76a4bd46b4693e87dadf9bec110';
 
-            return scm.parseHook(testHeaders, testPayloadBadAction).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadBadAction)).then(result => {
                 assert.isNull(result);
             });
         });
@@ -1898,8 +1915,13 @@ jobs:
                 }
             });
 
+            const overrideTestHeaders = {
+                ...testHeaders,
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(JSON.stringify(testPayloadPrBadSlug)).digest('hex')}`
+            };
+
             return scmGHEC
-                .parseHook(testHeaders, testPayloadPrBadSlug)
+                .parseHook(overrideTestHeaders, JSON.stringify(testPayloadPrBadSlug))
                 .then(() => {
                     assert.fail('This should not fail the tests');
                 })
@@ -1912,7 +1934,7 @@ jobs:
         it('parses a payload for a pull request event payload', () => {
             testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
-            return scm.parseHook(testHeaders, testPayloadOpen).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadOpen)).then(result => {
                 commonPullRequestParse.action = 'opened';
                 assert.deepEqual(result, commonPullRequestParse);
             });
@@ -1921,7 +1943,7 @@ jobs:
         it('parses a payload for a forked pull request event payload', () => {
             testHeaders['x-hub-signature'] = 'sha1=3b5d95f319ab1cdc8b5753495df12ce74b8075d6';
 
-            return scm.parseHook(testHeaders, testPayloadOpenFork).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadOpenFork)).then(result => {
                 commonPullRequestParse.prSource = 'fork';
                 commonPullRequestParse.action = 'opened';
                 assert.deepEqual(result, commonPullRequestParse);
@@ -1931,7 +1953,7 @@ jobs:
         it('parses a payload for a pull request being closed', () => {
             testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
 
-            return scm.parseHook(testHeaders, testPayloadClose).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadClose)).then(result => {
                 commonPullRequestParse.action = 'closed';
                 assert.deepEqual(result, commonPullRequestParse);
             });
@@ -1940,7 +1962,7 @@ jobs:
         it('parses a payload for a pull request being synchronized', () => {
             testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
 
-            return scm.parseHook(testHeaders, testPayloadSync).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadSync)).then(result => {
                 commonPullRequestParse.action = 'synchronized';
                 assert.deepEqual(result, commonPullRequestParse);
             });
@@ -1950,16 +1972,19 @@ jobs:
             testHeaders['x-github-event'] = 'ping';
             testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
 
-            return scm.parseHook(testHeaders, testPayloadPing).then(result => {
+            return scm.parseHook(testHeaders, JSON.stringify(testPayloadPing)).then(result => {
                 assert.isNull(result);
             });
         });
 
         it('rejects when ssh host is not valid', () => {
-            testHeaders['x-hub-signature'] = 'sha1=1b51a3f9f548fdacab52c0e83f9a63f8cbb4b591';
+            const overrideTestHeaders = {
+                ...testHeaders,
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(JSON.stringify(testPayloadPingBadSshHost)).digest('hex')}`
+            };
 
             return scm
-                .parseHook(testHeaders, testPayloadPingBadSshHost)
+                .parseHook(overrideTestHeaders, JSON.stringify(testPayloadPingBadSshHost))
                 .then(() => {
                     assert.fail('This should not fail the tests');
                 })
@@ -1973,7 +1998,7 @@ jobs:
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
             return scm
-                .parseHook(testHeaders, testPayloadPing)
+                .parseHook(testHeaders, JSON.stringify(testPayloadPing))
                 .then(() => {
                     assert.fail('This should not fail the tests');
                 })
@@ -3503,7 +3528,7 @@ jobs:
         it('returns true for a pull request event payload', () => {
             testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadOpen).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadOpen)).then(result => {
                 assert.strictEqual(result, true);
             });
         });
@@ -3511,7 +3536,7 @@ jobs:
         it('returns true for a pull request being closed', () => {
             testHeaders['x-hub-signature'] = 'sha1=2d51c3a4eaab65832c119ec3db951de54ec38736';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadClose).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadClose)).then(result => {
                 assert.strictEqual(result, true);
             });
         });
@@ -3519,7 +3544,7 @@ jobs:
         it('returns true for a pull request being synchronized', () => {
             testHeaders['x-hub-signature'] = 'sha1=583afb7551c9bc412f7496bc840b027931e97846';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadSync).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadSync)).then(result => {
                 assert.strictEqual(result, true);
             });
         });
@@ -3527,7 +3552,7 @@ jobs:
         it('returns true for a push event payload', () => {
             testHeaders['x-github-event'] = 'push';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadPush).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadPush)).then(result => {
                 assert.strictEqual(result, true);
             });
         });
@@ -3535,7 +3560,7 @@ jobs:
         it('returns false when signature is not valid', () => {
             testHeaders['x-hub-signature'] = 'sha1=25cebb8fff2c10ec8d0712e3ab0163218d375492';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadPing).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadPing)).then(result => {
                 assert.strictEqual(result, false);
             });
         });
@@ -3543,7 +3568,7 @@ jobs:
         it('returns true when the github event is not valid', () => {
             testHeaders['x-github-event'] = 'REEEEEEEE';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadPush).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadPush)).then(result => {
                 assert.strictEqual(result, true);
             });
         });
@@ -3558,7 +3583,7 @@ jobs:
 
             testHeaders['x-hub-signature'] = 'sha1=41d0508ffed278fde2fd5a84fd75c109a7039f90';
 
-            return scm.canHandleWebhook(testHeaders, testPayloadOpen).then(result => {
+            return scm.canHandleWebhook(testHeaders, JSON.stringify(testPayloadOpen)).then(result => {
                 assert.strictEqual(result, false);
             });
         });
