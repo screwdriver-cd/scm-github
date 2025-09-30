@@ -1594,24 +1594,30 @@ class GithubScm extends Scm {
      * @async  _parseHook
      * @param  {Object}  payloadHeaders  The request headers associated with the
      *                                   webhook payload
-     * @param  {Object}  webhookPayload  The webhook payload received from the
+     * @param  {String}  webhookPayload  The webhook payload received from the
      *                                   SCM service.
      * @return {Promise}                 A key-map of data related to the received
      *                                   payload
      */
     async _parseHook(payloadHeaders, webhookPayload) {
         const signature = payloadHeaders['x-hub-signature'];
-
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
-        const checkoutUrl = hoek.reach(webhookPayload, 'repository.ssh_url');
         const scmContexts = this._getScmContexts();
         const scmContext = scmContexts[0];
         const commitAuthors = [];
-        const commits = hoek.reach(webhookPayload, 'commits');
-        const deleted = hoek.reach(webhookPayload, 'deleted');
 
         const checkoutSshHost = this.config.gheHost ? this.config.gheHost : 'github.com';
+
+        // eslint-disable-next-line no-underscore-dangle
+        if (!(await verify(this.config.secret, webhookPayload, signature))) {
+            throwError('Invalid x-hub-signature', 400);
+        }
+
+        const parsedWebhookPayload = JSON.parse(webhookPayload);
+        const checkoutUrl = hoek.reach(parsedWebhookPayload, 'repository.ssh_url');
+        const commits = hoek.reach(parsedWebhookPayload, 'commits');
+        const deleted = hoek.reach(parsedWebhookPayload, 'deleted');
         const regexMatchArray = checkoutUrl.match(CHECKOUT_URL_REGEX);
 
         if (!regexMatchArray || regexMatchArray[1] !== checkoutSshHost) {
@@ -1620,26 +1626,21 @@ class GithubScm extends Scm {
 
         // additional check for github enterprise cloud hooks
         if (this.config.gheCloud) {
-            const enterpriseSlug = hoek.reach(webhookPayload, 'enterprise.slug');
+            const enterpriseSlug = hoek.reach(parsedWebhookPayload, 'enterprise.slug');
 
             if (this.config.gheCloudSlug !== enterpriseSlug) {
                 throwError(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`, 400);
             }
         }
 
-        // eslint-disable-next-line no-underscore-dangle
-        if (!(await verify(this.config.secret, JSON.stringify(webhookPayload), signature))) {
-            throwError('Invalid x-hub-signature', 400);
-        }
-
         switch (type) {
             case 'pull_request': {
-                let action = hoek.reach(webhookPayload, 'action');
-                const prNum = hoek.reach(webhookPayload, 'pull_request.number');
-                const prTitle = hoek.reach(webhookPayload, 'pull_request.title');
-                const baseSource = hoek.reach(webhookPayload, 'pull_request.base.repo.id');
-                const headSource = hoek.reach(webhookPayload, 'pull_request.head.repo.id');
-                const prMerged = hoek.reach(webhookPayload, 'pull_request.merged');
+                let action = hoek.reach(parsedWebhookPayload, 'action');
+                const prNum = hoek.reach(parsedWebhookPayload, 'pull_request.number');
+                const prTitle = hoek.reach(parsedWebhookPayload, 'pull_request.title');
+                const baseSource = hoek.reach(parsedWebhookPayload, 'pull_request.base.repo.id');
+                const headSource = hoek.reach(parsedWebhookPayload, 'pull_request.head.repo.id');
+                const prMerged = hoek.reach(parsedWebhookPayload, 'pull_request.merged');
                 const prSource = baseSource === headSource ? 'branch' : 'fork';
                 const ref = `pull/${prNum}/merge`;
 
@@ -1656,23 +1657,23 @@ class GithubScm extends Scm {
 
                 return {
                     action,
-                    branch: hoek.reach(webhookPayload, 'pull_request.base.ref'),
+                    branch: hoek.reach(parsedWebhookPayload, 'pull_request.base.ref'),
                     checkoutUrl,
                     prNum,
                     prTitle,
                     prRef: ref,
                     ref,
                     prSource,
-                    sha: hoek.reach(webhookPayload, 'pull_request.head.sha'),
+                    sha: hoek.reach(parsedWebhookPayload, 'pull_request.head.sha'),
                     type: 'pr',
-                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    username: hoek.reach(parsedWebhookPayload, 'sender.login'),
                     hookId,
                     scmContext,
                     prMerged
                 };
             }
             case 'push': {
-                const ref = hoek.reach(webhookPayload, 'ref');
+                const ref = hoek.reach(parsedWebhookPayload, 'ref');
 
                 // repository tag pushed
                 if (ref.startsWith('refs/tags/')) {
@@ -1691,23 +1692,23 @@ class GithubScm extends Scm {
 
                 return {
                     action: 'push',
-                    branch: hoek.reach(webhookPayload, 'ref').replace(/^refs\/heads\//, ''),
+                    branch: hoek.reach(parsedWebhookPayload, 'ref').replace(/^refs\/heads\//, ''),
                     checkoutUrl,
-                    sha: hoek.reach(webhookPayload, 'after'),
+                    sha: hoek.reach(parsedWebhookPayload, 'after'),
                     type: 'repo',
-                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    username: hoek.reach(parsedWebhookPayload, 'sender.login'),
                     commitAuthors,
-                    lastCommitMessage: hoek.reach(webhookPayload, 'head_commit.message') || '',
+                    lastCommitMessage: hoek.reach(parsedWebhookPayload, 'head_commit.message') || '',
                     hookId,
                     scmContext,
-                    ref: hoek.reach(webhookPayload, 'ref'),
-                    addedFiles: hoek.reach(webhookPayload, 'head_commit.added', { default: [] }),
-                    modifiedFiles: hoek.reach(webhookPayload, 'head_commit.modified', { default: [] }),
-                    removedFiles: hoek.reach(webhookPayload, 'head_commit.removed', { default: [] })
+                    ref: hoek.reach(parsedWebhookPayload, 'ref'),
+                    addedFiles: hoek.reach(parsedWebhookPayload, 'head_commit.added', { default: [] }),
+                    modifiedFiles: hoek.reach(parsedWebhookPayload, 'head_commit.modified', { default: [] }),
+                    removedFiles: hoek.reach(parsedWebhookPayload, 'head_commit.removed', { default: [] })
                 };
             }
             case 'release': {
-                const action = hoek.reach(webhookPayload, 'action');
+                const action = hoek.reach(parsedWebhookPayload, 'action');
 
                 if (!PERMITTED_RELEASE_EVENT.includes(action)) {
                     return null;
@@ -1715,20 +1716,20 @@ class GithubScm extends Scm {
 
                 return {
                     action: 'release',
-                    branch: hoek.reach(webhookPayload, 'repository.default_branch'),
+                    branch: hoek.reach(parsedWebhookPayload, 'repository.default_branch'),
                     checkoutUrl,
                     type: 'repo',
-                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    username: hoek.reach(parsedWebhookPayload, 'sender.login'),
                     hookId,
                     scmContext,
-                    ref: hoek.reach(webhookPayload, 'release.tag_name'),
-                    releaseId: hoek.reach(webhookPayload, 'release.id').toString(),
-                    releaseName: hoek.reach(webhookPayload, 'release.name') || '',
-                    releaseAuthor: hoek.reach(webhookPayload, 'release.author.login') || ''
+                    ref: hoek.reach(parsedWebhookPayload, 'release.tag_name'),
+                    releaseId: hoek.reach(parsedWebhookPayload, 'release.id').toString(),
+                    releaseName: hoek.reach(parsedWebhookPayload, 'release.name') || '',
+                    releaseAuthor: hoek.reach(parsedWebhookPayload, 'release.author.login') || ''
                 };
             }
             case 'create': {
-                const refType = hoek.reach(webhookPayload, 'ref_type');
+                const refType = hoek.reach(parsedWebhookPayload, 'ref_type');
 
                 if (refType !== 'tag') {
                     logger.info('%s event of %s is not available yet in scm-github plugin', type, refType);
@@ -1738,13 +1739,13 @@ class GithubScm extends Scm {
 
                 return {
                     action: 'tag',
-                    branch: hoek.reach(webhookPayload, 'repository.default_branch'),
+                    branch: hoek.reach(parsedWebhookPayload, 'repository.default_branch'),
                     checkoutUrl,
                     type: 'repo',
-                    username: hoek.reach(webhookPayload, 'sender.login'),
+                    username: hoek.reach(parsedWebhookPayload, 'sender.login'),
                     hookId,
                     scmContext,
-                    ref: hoek.reach(webhookPayload, 'ref')
+                    ref: hoek.reach(parsedWebhookPayload, 'ref')
                 };
             }
 
@@ -1986,7 +1987,7 @@ class GithubScm extends Scm {
      * Determine if an scm module can handle the received webhook
      * @async  _canHandleWebhook
      * @param  {Object}    headers    The request headers associated with the webhook payload
-     * @param  {Object}    payload    The webhook payload received from the SCM service
+     * @param  {String}    payload    The webhook payload received from the SCM service
      * @return {Promise}              Resolves a boolean denoting whether scm module supports webhook
      */
     async _canHandleWebhook(headers, payload) {
