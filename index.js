@@ -308,7 +308,7 @@ class GithubScm extends Scm {
 
                 repoFullName = repo.data.full_name;
                 defaultBranch = repo.data.default_branch;
-                privateRepo = repo.data.private;
+                privateRepo = repo.data.private && repo.data.visibility === 'private';
             } catch (err) {
                 logger.error('Failed to lookupScmUri: ', err);
                 throw err;
