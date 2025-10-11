@@ -2584,6 +2584,66 @@ jobs:
                 });
         });
 
+        it('decorates a scm uri associated with a private repo', () => {
+            const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗';
+
+            githubMock.request.resolves({
+                data: {
+                    full_name: 'iAm/theCaptain',
+                    private: true,
+                    visibility: 'private'
+                }
+            });
+
+            return scm
+                .decorateUrl({
+                    scmUri,
+                    token: 'mytokenfortesting'
+                })
+                .then(data => {
+                    assert.deepEqual(data, {
+                        branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
+                        name: 'iAm/theCaptain',
+                        url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                            'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗'
+                        )}`,
+                        rootDir: '',
+                        private: true
+                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '102498' });
+                });
+        });
+
+        it('decorates a scm uri associated with an internal repo', () => {
+            const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗';
+
+            githubMock.request.resolves({
+                data: {
+                    full_name: 'iAm/theCaptain',
+                    private: true,
+                    visibility: 'internal'
+                }
+            });
+
+            return scm
+                .decorateUrl({
+                    scmUri,
+                    token: 'mytokenfortesting'
+                })
+                .then(data => {
+                    assert.deepEqual(data, {
+                        branch: 'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗',
+                        name: 'iAm/theCaptain',
+                        url: `https://github.com/iAm/theCaptain/tree/${encodeURIComponent(
+                            'boat!"#$%&\'()-=|@`{;+]},<.>/　🚗'
+                        )}`,
+                        rootDir: '',
+                        private: false
+                    });
+                    assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '102498' });
+                });
+        });
+
         it('decorates a scm uri with rootDir', () => {
             const scmUri = 'github.com:102498:boat!"#$%&\'()-=|@`{;+]},<.>/　🚗:src/app/component';
 
