@@ -1553,21 +1553,31 @@ class GithubScm extends Scm {
                 if (scmRepo) {
                     lookupConfig.scmRepo = scmRepo;
                 }
-
+                
                 const scmInfo = await this.lookupScmUri(lookupConfig);
-                const files = await this.breaker.runCommand({
-                    scopeType: 'paginate',
-                    route: 'GET /repos/:owner/:repo/pulls/:pull_number/files',
+
+                // Getting PR Info to check number of changed files
+                const prInfo = await this.breaker.runCommand({
+                    action: 'get',
+                    scopeType: 'pulls',
                     token,
-                    params: {
-                        owner: scmInfo.owner,
-                        repo: scmInfo.repo,
-                        pull_number: prNum,
-                        per_page: PR_FILES_PAGE_SIZE
-                    }
+                    params: { owner: scmInfo.owner, repo: scmInfo.repo, pull_number: prNum }
                 });
 
-                return files.map(file => file.filename);
+                const fileCount = prInfo.data.changed_files;
+                const allFiles = [];
+                for (let page = 1; page <= Math.ceil(fileCount / PR_FILES_PAGE_SIZE); page++) {
+                    const pageFiles = await this.breaker.runCommand({
+                        action: 'listFiles',
+                        scopeType: 'pulls',
+                        token,
+                        params: { owner: scmInfo.owner, repo: scmInfo.repo, pull_number: prNum, per_page: PR_FILES_PAGE_SIZE, page }
+                    });
+                    allFiles.push(...pageFiles.data);
+                    if (pageFiles.data.length < PR_FILES_PAGE_SIZE) break;
+                }
+
+                return allFiles.map(file => file.filename);
             } catch (err) {
                 logger.error('Failed to getChangedFiles: ', err);
 
