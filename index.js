@@ -1553,7 +1553,6 @@ class GithubScm extends Scm {
                 if (scmRepo) {
                     lookupConfig.scmRepo = scmRepo;
                 }
-                
                 const scmInfo = await this.lookupScmUri(lookupConfig);
 
                 // Getting PR Info to check number of changed files
@@ -1565,19 +1564,33 @@ class GithubScm extends Scm {
                 });
 
                 const fileCount = prInfo.data.changed_files;
-                const allFiles = [];
-                for (let page = 1; page <= Math.ceil(fileCount / PR_FILES_PAGE_SIZE); page++) {
-                    const pageFiles = await this.breaker.runCommand({
-                        action: 'listFiles',
-                        scopeType: 'pulls',
-                        token,
-                        params: { owner: scmInfo.owner, repo: scmInfo.repo, pull_number: prNum, per_page: PR_FILES_PAGE_SIZE, page }
-                    });
-                    allFiles.push(...pageFiles.data);
-                    if (pageFiles.data.length < PR_FILES_PAGE_SIZE) break;
-                }
+                const timeoutMultiplier = Math.ceil(fileCount / PR_FILES_PAGE_SIZE);
 
-                return allFiles.map(file => file.filename);
+                // Store original breaker config
+                const originalBreakerConfig = this.breaker.config;
+
+                // Update breaker timeout for large PR file lists
+                this.breaker.config = {
+                    ...originalBreakerConfig,
+                    timeout: (originalBreakerConfig.timeout || 10000) * timeoutMultiplier
+                };
+
+                const files = await this.breaker.runCommand({
+                    scopeType: 'paginate',
+                    route: 'GET /repos/:owner/:repo/pulls/:pull_number/files',
+                    token,
+                    params: {
+                        owner: scmInfo.owner,
+                        repo: scmInfo.repo,
+                        pull_number: prNum,
+                        per_page: PR_FILES_PAGE_SIZE
+                    }
+                });
+
+                // Restore original breaker config
+                this.breaker.config = originalBreakerConfig;
+
+                return files.map(file => file.filename);
             } catch (err) {
                 logger.error('Failed to getChangedFiles: ', err);
 

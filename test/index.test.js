@@ -1573,6 +1573,42 @@ jobs:
                     assert.deepEqual(result, []);
                 });
         });
+
+        it('increases breaker timeout for PRs with more than 100 files', () => {
+            // Mock PR info with 250 files (3 pages, timeout should be 3x)
+            const prInfoWith250Files = {
+                data: {
+                    ...testPrGet,
+                    changed_files: 250
+                }
+            };
+
+            const files = Array.from({ length: 250 }, (_, i) => ({
+                filename: `file${i + 1}.js`,
+                status: 'modified'
+            }));
+
+            githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get
+                .onFirstCall()
+                .resolves({ data: testPrGetNullMergeable })
+                .onSecondCall()
+                .resolves(prInfoWith250Files);
+
+            githubMock.paginate.resolves(files);
+
+            return scm
+                .getChangedFiles({
+                    type: 'pr',
+                    token,
+                    webhookConfig: null,
+                    scmUri: 'github.com:28476:master',
+                    prNum: 1
+                })
+                .then(result => {
+                    assert.equal(result.length, 250);
+                });
+        });
     });
 
     describe('waitPrMergeability', () => {
