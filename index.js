@@ -1567,7 +1567,7 @@ class GithubScm extends Scm {
                 const timeoutMultiplier = Math.ceil(fileCount / PR_FILES_PAGE_SIZE);
 
                 // Store original breaker config
-                const originalBreakerConfig = this.breaker.config;
+                const originalBreakerConfig = this.config.fusebox;
 
                 // Update breaker timeout for large PR file lists
                 this.breaker.config = {
@@ -1588,7 +1588,7 @@ class GithubScm extends Scm {
                 });
 
                 // Restore original breaker config
-                this.breaker.config = originalBreakerConfig;
+                this.config.fusebox = originalBreakerConfig;
 
                 return files.map(file => file.filename);
             } catch (err) {

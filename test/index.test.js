@@ -1,3 +1,5 @@
+/* eslint-disable max-lines-per-function */
+
 'use strict';
 
 const { assert, AssertionError } = require('chai');
@@ -1589,10 +1591,13 @@ jobs:
             }));
 
             githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            // Mock pulls.get to handle multiple calls
             githubMock.pulls.get
                 .onFirstCall()
                 .resolves({ data: testPrGetNullMergeable })
                 .onSecondCall()
+                .resolves({ data: testPrGet })
+                .onCall(2)
                 .resolves(prInfoWith250Files);
 
             githubMock.paginate.resolves(files);
@@ -1607,6 +1612,7 @@ jobs:
                 })
                 .then(result => {
                     assert.equal(result.length, 250);
+                    assert.equal(githubMock.paginate.callCount, 1);
                 });
         });
     });
