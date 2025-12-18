@@ -1566,16 +1566,36 @@ class GithubScm extends Scm {
                 const fileCount = prInfo.data.changed_files;
                 const timeoutMultiplier = Math.ceil(fileCount / PR_FILES_PAGE_SIZE);
 
-                // Store original breaker config
-                const originalBreakerConfig = this.config.fusebox;
+                // Determine timeout value
+                const timeout =
+                    (this.config.fusebox && this.config.fusebox.breaker && this.config.fusebox.breaker.timeout) ||
+                    10000;
 
-                // Update breaker timeout for large PR file lists
-                this.breaker.config = {
-                    ...originalBreakerConfig,
-                    timeout: (originalBreakerConfig.timeout || 10000) * timeoutMultiplier
-                };
+                // Create a new breaker with adjusted timeout if needed
+                let getFilesBreaker = this.breaker;
 
-                const files = await this.breaker.runCommand({
+                if (timeoutMultiplier > 1) {
+                    // Get the existing breaker configuration
+                    const breakerConfig = this.config.fusebox.breaker || {};
+
+                    getFilesBreaker = new Breaker(this._githubCommand.bind(this), {
+                        shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
+                        retry: this.config.fusebox.retry,
+                        breaker: {
+                            ...breakerConfig,
+                            timeout: timeout * timeoutMultiplier,
+                            errorFn(err) {
+                                if (err.statusCode) {
+                                    return !(err.statusCode >= 400 && err.statusCode < 500);
+                                }
+
+                                return true;
+                            }
+                        }
+                    });
+                }
+
+                const files = await getFilesBreaker.runCommand({
                     scopeType: 'paginate',
                     route: 'GET /repos/:owner/:repo/pulls/:pull_number/files',
                     token,
@@ -1586,9 +1606,6 @@ class GithubScm extends Scm {
                         per_page: PR_FILES_PAGE_SIZE
                     }
                 });
-
-                // Restore original breaker config
-                this.config.fusebox = originalBreakerConfig;
 
                 return files.map(file => file.filename);
             } catch (err) {

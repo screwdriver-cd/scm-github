@@ -1580,7 +1580,7 @@ jobs:
             // Mock PR info with 250 files (3 pages, timeout should be 3x)
             const prInfoWith250Files = {
                 data: {
-                    ...testPrGet,
+                    ...testPrGet.data,
                     changed_files: 250
                 }
             };
