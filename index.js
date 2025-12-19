@@ -243,12 +243,32 @@ class GithubScm extends Scm {
         }
 
         // eslint-disable-next-line no-underscore-dangle
-        this.breaker = new Breaker(this._githubCommand.bind(this), {
-            // Do not retry when there is a 4XX error
+        this.breaker = this._createBreakerWithTimeout();
+
+        this.scmGithubGQL = config.gheCloud
+            ? new ScmGithubGraphQL({
+                  graphqlUrl: this.config.githubGraphQLUrl
+              })
+            : null;
+    }
+
+    /**
+     * Create a breaker instance with custom timeout
+     * @method _createBreakerWithTimeout
+     * @param  {Number}  [timeoutMultiplier=1]  Multiplier for the base timeout
+     * @return {Breaker}                        A new Breaker instance with adjusted timeout
+     * @private
+     */
+    _createBreakerWithTimeout(timeoutMultiplier = 1) {
+        const breakerConfig = (this.config.fusebox && this.config.fusebox.breaker) || {};
+        const baseTimeout = breakerConfig.timeout || 10000;
+
+        return new Breaker(this._githubCommand.bind(this), {
             shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
             breaker: {
-                ...this.config.fusebox.breaker,
+                ...breakerConfig,
+                timeout: baseTimeout * timeoutMultiplier,
                 errorFn(err) {
                     if (err.statusCode) {
                         return !(err.statusCode >= 400 && err.statusCode < 500);
@@ -258,12 +278,6 @@ class GithubScm extends Scm {
                 }
             }
         });
-
-        this.scmGithubGQL = config.gheCloud
-            ? new ScmGithubGraphQL({
-                  graphqlUrl: this.config.githubGraphQLUrl
-              })
-            : null;
     }
 
     /**
@@ -1564,35 +1578,13 @@ class GithubScm extends Scm {
                 });
 
                 const fileCount = prInfo.data.changed_files;
-                const timeoutMultiplier = Math.ceil(fileCount / PR_FILES_PAGE_SIZE);
 
-                // Determine timeout value
-                const timeout =
-                    (this.config.fusebox && this.config.fusebox.breaker && this.config.fusebox.breaker.timeout) ||
-                    10000;
-
-                // Create a new breaker with adjusted timeout if needed
                 let getFilesBreaker = this.breaker;
 
-                if (timeoutMultiplier > 1) {
-                    // Get the existing breaker configuration
-                    const breakerConfig = this.config.fusebox.breaker || {};
+                if (fileCount > PR_FILES_PAGE_SIZE) {
+                    const timeoutMultiplier = Math.ceil(fileCount / PR_FILES_PAGE_SIZE);
 
-                    getFilesBreaker = new Breaker(this._githubCommand.bind(this), {
-                        shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
-                        retry: this.config.fusebox.retry,
-                        breaker: {
-                            ...breakerConfig,
-                            timeout: timeout * timeoutMultiplier,
-                            errorFn(err) {
-                                if (err.statusCode) {
-                                    return !(err.statusCode >= 400 && err.statusCode < 500);
-                                }
-
-                                return true;
-                            }
-                        }
-                    });
+                    getFilesBreaker = this._createBreakerWithTimeout(timeoutMultiplier);
                 }
 
                 const files = await getFilesBreaker.runCommand({
