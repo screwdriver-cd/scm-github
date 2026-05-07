@@ -17,6 +17,7 @@ const PR_COMMENTS_REGEX = /^.+pipelines\/(\d+)\/builds.+ ([\w-:]+)$/;
 const PR_COMMENTS_KEYWORD_REGEX = /^__(.*)__.*$/;
 const Scm = require('screwdriver-scm-base');
 const logger = require('screwdriver-logger');
+const { cacheBy, getRequestCacheStorage } = require('./requestCache');
 const DEFAULT_AUTHOR = {
     avatar: 'https://cd.screwdriver.cd/assets/unknown_user.png',
     name: 'n/a',
@@ -131,6 +132,14 @@ function getInfo(scmUrl, rootDir) {
 }
 
 class GithubScm extends Scm {
+    withRequestCache(requestCache, method) {
+        if (!(requestCache instanceof Map)) {
+            return method();
+        }
+
+        return getRequestCacheStorage().run(requestCache, method);
+    }
+
     /**
      * Github command to run
      * @method _githubCommand
@@ -290,55 +299,67 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves to an object containing repository-related information
      */
     async lookupScmUri({ scmUri, scmRepo, token }) {
-        const parts = scmUri.split(':');
-        const [scmHost, scmId, scmBranch, ...rootDirParts] = parts;
-        const rootDir = rootDirParts.join(':');
+        return cacheBy({
+            scope: 'lookupScmUri',
+            params: {
+                scmUri,
+                scmRepoName: scmRepo ? scmRepo.name : null,
+                scmRepoBranch: scmRepo ? scmRepo.branch : null,
+                scmRepoPrivateRepo: scmRepo ? scmRepo.privateRepo || false : null,
+                token: scmRepo ? null : token
+            },
+            fetcher: async () => {
+                const parts = scmUri.split(':');
+                const [scmHost, scmId, scmBranch, ...rootDirParts] = parts;
+                const rootDir = rootDirParts.join(':');
 
-        let repoFullName;
-        let defaultBranch;
-        let privateRepo;
+                let repoFullName;
+                let defaultBranch;
+                let privateRepo;
 
-        if (scmRepo) {
-            repoFullName = scmRepo.name;
-            privateRepo = scmRepo.privateRepo || false;
-            defaultBranch = scmRepo.branch;
-        } else {
-            try {
-                const myHost = this.config.gheHost || 'github.com';
+                if (scmRepo) {
+                    repoFullName = scmRepo.name;
+                    privateRepo = scmRepo.privateRepo || false;
+                    defaultBranch = scmRepo.branch;
+                } else {
+                    try {
+                        const myHost = this.config.gheHost || 'github.com';
 
-                if (scmHost !== myHost) {
-                    throwError(
-                        `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`,
-                        403
-                    );
+                        if (scmHost !== myHost) {
+                            throwError(
+                                `Pipeline's scmHost ${scmHost} does not match with user's scmHost ${this.config.gheHost}`,
+                                403
+                            );
+                        }
+                        // https://github.com/octokit/rest.js/issues/163
+                        const repo = await this.breaker.runCommand({
+                            scopeType: 'request',
+                            route: 'GET /repositories/:id',
+                            token,
+                            params: { id: scmId }
+                        });
+
+                        repoFullName = repo.data.full_name;
+                        defaultBranch = repo.data.default_branch;
+                        privateRepo = repo.data.private && repo.data.visibility === 'private';
+                    } catch (err) {
+                        logger.error('Failed to lookupScmUri: ', err);
+                        throw err;
+                    }
                 }
-                // https://github.com/octokit/rest.js/issues/163
-                const repo = await this.breaker.runCommand({
-                    scopeType: 'request',
-                    route: 'GET /repositories/:id',
-                    token,
-                    params: { id: scmId }
-                });
 
-                repoFullName = repo.data.full_name;
-                defaultBranch = repo.data.default_branch;
-                privateRepo = repo.data.private && repo.data.visibility === 'private';
-            } catch (err) {
-                logger.error('Failed to lookupScmUri: ', err);
-                throw err;
+                const [repoOwner, repoName] = repoFullName.split('/');
+
+                return {
+                    branch: scmBranch || defaultBranch,
+                    host: scmHost,
+                    repo: repoName,
+                    owner: repoOwner,
+                    rootDir: rootDir || '',
+                    privateRepo
+                };
             }
-        }
-
-        const [repoOwner, repoName] = repoFullName.split('/');
-
-        return {
-            branch: scmBranch || defaultBranch,
-            host: scmHost,
-            repo: repoName,
-            owner: repoOwner,
-            rootDir: rootDir || '',
-            privateRepo
-        };
+        });
     }
 
     /**
@@ -1001,43 +1022,53 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves to an array of objects storing opened PR names and refs
      */
     async _getOpenedPRs({ scmUri, token, scmRepo }) {
-        const lookupConfig = {
-            scmUri,
-            token
-        };
+        return cacheBy({
+            scope: 'getOpenedPRs',
+            params: {
+                scmUri,
+                scmRepoName: scmRepo ? scmRepo.name : null,
+                token
+            },
+            fetcher: async () => {
+                const lookupConfig = {
+                    scmUri,
+                    token
+                };
 
-        if (scmRepo) {
-            lookupConfig.scmRepo = scmRepo;
-        }
-
-        const { owner, repo } = await this.lookupScmUri(lookupConfig);
-
-        try {
-            const pullRequests = await this.breaker.runCommand({
-                action: 'list',
-                scopeType: 'pulls',
-                token,
-                params: {
-                    owner,
-                    repo,
-                    state: 'open',
-                    per_page: 100
+                if (scmRepo) {
+                    lookupConfig.scmRepo = scmRepo;
                 }
-            });
 
-            return pullRequests.data.map(pullRequest => ({
-                name: `PR-${pullRequest.number}`,
-                ref: `pull/${pullRequest.number}/merge`,
-                username: pullRequest.user.login,
-                title: pullRequest.title,
-                createTime: pullRequest.created_at,
-                url: pullRequest.html_url,
-                userProfile: pullRequest.user.html_url
-            }));
-        } catch (err) {
-            logger.error('Failed to getOpenedPRs: ', err);
-            throw err;
-        }
+                const { owner, repo } = await this.lookupScmUri(lookupConfig);
+
+                try {
+                    const pullRequests = await this.breaker.runCommand({
+                        action: 'list',
+                        scopeType: 'pulls',
+                        token,
+                        params: {
+                            owner,
+                            repo,
+                            state: 'open',
+                            per_page: 100
+                        }
+                    });
+
+                    return pullRequests.data.map(pullRequest => ({
+                        name: `PR-${pullRequest.number}`,
+                        ref: `pull/${pullRequest.number}/merge`,
+                        username: pullRequest.user.login,
+                        title: pullRequest.title,
+                        createTime: pullRequest.created_at,
+                        url: pullRequest.html_url,
+                        userProfile: pullRequest.user.html_url
+                    }));
+                } catch (err) {
+                    logger.error('Failed to getOpenedPRs: ', err);
+                    throw err;
+                }
+            }
+        });
     }
 
     /**
@@ -1304,57 +1335,70 @@ class GithubScm extends Scm {
      * @return {Promise}                      Resolves to string containing contents of file
      */
     async _getFile({ scmUri, path, token, ref, scmRepo }) {
-        let fullPath = path;
-        let owner;
-        let repo;
-        let branch;
-        let rootDir;
-
-        // If full path to a file is provided, e.g. git@github.com:screwdriver-cd/scm-github.git:path/to/a/file.yaml
-        if (CHECKOUT_URL_REGEX.test(path)) {
-            ({ owner, repo, branch, rootDir } = getInfo(fullPath));
-            fullPath = rootDir;
-        } else {
-            const lookupConfig = {
+        return cacheBy({
+            scope: 'getFile',
+            params: {
                 scmUri,
-                token
-            };
-
-            if (scmRepo) {
-                lookupConfig.scmRepo = scmRepo;
-            }
-
-            ({ owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig));
-            fullPath = rootDir ? Path.join(rootDir, path) : path;
-        }
-
-        try {
-            const file = await this.breaker.runCommand({
-                action: 'getContent',
+                path,
+                ref: ref || null,
+                scmRepoName: scmRepo ? scmRepo.name : null,
                 token,
-                params: {
-                    owner,
-                    repo,
-                    path: fullPath,
-                    ref: ref || branch || DEFAULT_BRANCH
+                isCheckoutPath: CHECKOUT_URL_REGEX.test(path)
+            },
+            fetcher: async () => {
+                let fullPath = path;
+                let owner;
+                let repo;
+                let branch;
+                let rootDir;
+
+                // If full path to a file is provided, e.g. git@github.com:screwdriver-cd/scm-github.git:path/to/a/file.yaml
+                if (CHECKOUT_URL_REGEX.test(path)) {
+                    ({ owner, repo, branch, rootDir } = getInfo(fullPath));
+                    fullPath = rootDir;
+                } else {
+                    const lookupConfig = {
+                        scmUri,
+                        token
+                    };
+
+                    if (scmRepo) {
+                        lookupConfig.scmRepo = scmRepo;
+                    }
+
+                    ({ owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig));
+                    fullPath = rootDir ? Path.join(rootDir, path) : path;
                 }
-            });
 
-            if (file.data.type !== 'file') {
-                throwError(`Path (${fullPath}) does not point to file`);
+                try {
+                    const file = await this.breaker.runCommand({
+                        action: 'getContent',
+                        token,
+                        params: {
+                            owner,
+                            repo,
+                            path: fullPath,
+                            ref: ref || branch || DEFAULT_BRANCH
+                        }
+                    });
+
+                    if (file.data.type !== 'file') {
+                        throwError(`Path (${fullPath}) does not point to file`);
+                    }
+
+                    return Buffer.from(file.data.content, file.data.encoding).toString();
+                } catch (err) {
+                    logger.error('Failed to getFile: ', err);
+
+                    if (err.statusCode === 404) {
+                        // Returns an empty file if there is no screwdriver.yaml
+                        return '';
+                    }
+
+                    throw err;
+                }
             }
-
-            return Buffer.from(file.data.content, file.data.encoding).toString();
-        } catch (err) {
-            logger.error('Failed to getFile: ', err);
-
-            if (err.statusCode === 404) {
-                // Returns an empty file if there is no screwdriver.yaml
-                return '';
-            }
-
-            throw err;
-        }
+        });
     }
 
     /**
@@ -1381,22 +1425,31 @@ class GithubScm extends Scm {
      * @return {Promise}                        Resolves an object with repo id and default branch
      */
     async _getRepoInfo(scmInfo, token, checkoutUrl) {
-        try {
-            const repo = await this.breaker.runCommand({
-                action: 'get',
-                token,
-                params: scmInfo
-            });
+        return cacheBy({
+            scope: 'getRepoInfo',
+            params: {
+                scmInfo,
+                token
+            },
+            fetcher: async () => {
+                try {
+                    const repo = await this.breaker.runCommand({
+                        action: 'get',
+                        token,
+                        params: scmInfo
+                    });
 
-            return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
-        } catch (err) {
-            if (err.statusCode === 404) {
-                throwError(`Cannot find repository ${checkoutUrl}`, 404);
+                    return { repoId: repo.data.id, defaultBranch: repo.data.default_branch };
+                } catch (err) {
+                    if (err.statusCode === 404) {
+                        throwError(`Cannot find repository ${checkoutUrl}`, 404);
+                    }
+
+                    logger.error('Failed to getRepoId: ', err);
+                    throw err;
+                }
             }
-
-            logger.error('Failed to getRepoId: ', err);
-            throw err;
-        }
+        });
     }
 
     /**
@@ -1408,26 +1461,35 @@ class GithubScm extends Scm {
      * @return {Promise}                       Resolves to decorated user object
      */
     async _decorateAuthor(config) {
-        try {
-            const user = await this.breaker.runCommand({
-                action: 'getByUsername',
-                scopeType: 'users',
-                token: config.token,
-                params: { username: config.username }
-            });
-            const name = user.data.name || user.data.login;
+        return cacheBy({
+            scope: 'decorateAuthor',
+            params: {
+                username: config.username,
+                token: config.token
+            },
+            fetcher: async () => {
+                try {
+                    const user = await this.breaker.runCommand({
+                        action: 'getByUsername',
+                        scopeType: 'users',
+                        token: config.token,
+                        params: { username: config.username }
+                    });
+                    const name = user.data.name || user.data.login;
 
-            return {
-                id: user.data.id.toString(),
-                avatar: user.data.avatar_url,
-                name,
-                username: user.data.login,
-                url: user.data.html_url
-            };
-        } catch (err) {
-            logger.error('Failed to decorateAuthor: ', err);
-            throw err;
-        }
+                    return {
+                        id: user.data.id.toString(),
+                        avatar: user.data.avatar_url,
+                        name,
+                        username: user.data.login,
+                        url: user.data.html_url
+                    };
+                } catch (err) {
+                    logger.error('Failed to decorateAuthor: ', err);
+                    throw err;
+                }
+            }
+        });
     }
 
     /**
@@ -1441,67 +1503,78 @@ class GithubScm extends Scm {
      * @return {Promise}                         Resolves to decorated commit object
      */
     async _decorateCommit(config) {
-        const lookupConfig = {
-            scmUri: config.scmUri,
-            token: config.token
-        };
+        return cacheBy({
+            scope: 'decorateCommit',
+            params: {
+                scmUri: config.scmUri,
+                sha: config.sha,
+                scmRepoName: config.scmRepo ? config.scmRepo.name : null,
+                token: config.token
+            },
+            fetcher: async () => {
+                const lookupConfig = {
+                    scmUri: config.scmUri,
+                    token: config.token
+                };
 
-        if (config.scmRepo) {
-            lookupConfig.scmRepo = config.scmRepo;
-        }
-
-        const scmInfo = await this.lookupScmUri(lookupConfig);
-
-        try {
-            const commit = await this.breaker.runCommand({
-                action: 'getCommit',
-                token: config.token,
-                params: {
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo,
-                    ref: config.sha
+                if (config.scmRepo) {
+                    lookupConfig.scmRepo = config.scmRepo;
                 }
-            });
 
-            const authorLogin = hoek.reach(commit, 'data.author.login');
-            const authorName = hoek.reach(commit, 'data.commit.author.name');
-            const committerLogin = hoek.reach(commit, 'data.committer.login');
-            const committerName = hoek.reach(commit, 'data.commit.committer.name');
-            let author = { ...DEFAULT_AUTHOR };
-            let committer = { ...DEFAULT_AUTHOR };
+                const scmInfo = await this.lookupScmUri(lookupConfig);
 
-            if (authorLogin) {
-                author = await this.decorateAuthor({
-                    token: config.token,
-                    username: authorLogin
-                });
-            } else if (authorName) {
-                author.name = authorName;
-            }
-
-            if (committerLogin) {
-                if (committerLogin === authorLogin) {
-                    committer = author;
-                } else {
-                    committer = await this.decorateAuthor({
+                try {
+                    const commit = await this.breaker.runCommand({
+                        action: 'getCommit',
                         token: config.token,
-                        username: committerLogin
+                        params: {
+                            owner: scmInfo.owner,
+                            repo: scmInfo.repo,
+                            ref: config.sha
+                        }
                     });
-                }
-            } else if (committerName) {
-                committer.name = committerName;
-            }
 
-            return {
-                author,
-                committer,
-                message: commit.data.commit.message,
-                url: commit.data.html_url
-            };
-        } catch (err) {
-            logger.error('Failed to decorateCommit: ', err);
-            throw err;
-        }
+                    const authorLogin = hoek.reach(commit, 'data.author.login');
+                    const authorName = hoek.reach(commit, 'data.commit.author.name');
+                    const committerLogin = hoek.reach(commit, 'data.committer.login');
+                    const committerName = hoek.reach(commit, 'data.commit.committer.name');
+                    let author = { ...DEFAULT_AUTHOR };
+                    let committer = { ...DEFAULT_AUTHOR };
+
+                    if (authorLogin) {
+                        author = await this.decorateAuthor({
+                            token: config.token,
+                            username: authorLogin
+                        });
+                    } else if (authorName) {
+                        author.name = authorName;
+                    }
+
+                    if (committerLogin) {
+                        if (committerLogin === authorLogin) {
+                            committer = author;
+                        } else {
+                            committer = await this.decorateAuthor({
+                                token: config.token,
+                                username: committerLogin
+                            });
+                        }
+                    } else if (committerName) {
+                        committer.name = committerName;
+                    }
+
+                    return {
+                        author,
+                        committer,
+                        message: commit.data.commit.message,
+                        url: commit.data.html_url
+                    };
+                } catch (err) {
+                    logger.error('Failed to decorateCommit: ', err);
+                    throw err;
+                }
+            }
+        });
     }
 
     /**
@@ -1867,56 +1940,70 @@ class GithubScm extends Scm {
      * @return {Promise}
      */
     async _getPrInfo(config) {
-        const lookupConfig = {
-            scmUri: config.scmUri,
-            token: config.token
-        };
+        const fetchPrInfo = async () => {
+            const lookupConfig = {
+                scmUri: config.scmUri,
+                token: config.token
+            };
 
-        if (config.scmRepo) {
-            lookupConfig.scmRepo = config.scmRepo;
-        }
-
-        try {
-            const scmInfo = await this.lookupScmUri(lookupConfig);
-
-            const pullRequestInfo = await this.breaker.runCommand({
-                action: 'get',
-                scopeType: 'pulls',
-                token: config.token,
-                params: {
-                    pull_number: config.prNum,
-                    owner: scmInfo.owner,
-                    repo: scmInfo.repo
-                }
-            });
-            let prSource = 'fork';
-
-            if (
-                pullRequestInfo.data.head.repo &&
-                pullRequestInfo.data.base.repo &&
-                pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id
-            ) {
-                prSource = 'branch';
+            if (config.scmRepo) {
+                lookupConfig.scmRepo = config.scmRepo;
             }
 
-            return {
-                name: `PR-${pullRequestInfo.data.number}`,
-                ref: `pull/${pullRequestInfo.data.number}/merge`,
-                sha: pullRequestInfo.data.head.sha,
-                prBranchName: pullRequestInfo.data.head.ref,
-                url: pullRequestInfo.data.html_url,
-                username: pullRequestInfo.data.user.login,
-                title: pullRequestInfo.data.title,
-                createTime: pullRequestInfo.data.created_at,
-                userProfile: pullRequestInfo.data.user.html_url,
-                baseBranch: pullRequestInfo.data.base.ref,
-                mergeable: pullRequestInfo.data.mergeable,
-                prSource
-            };
-        } catch (err) {
-            logger.error('Failed to getPrInfo: ', err);
-            throw err;
-        }
+            try {
+                const scmInfo = await this.lookupScmUri(lookupConfig);
+
+                const pullRequestInfo = await this.breaker.runCommand({
+                    action: 'get',
+                    scopeType: 'pulls',
+                    token: config.token,
+                    params: {
+                        pull_number: config.prNum,
+                        owner: scmInfo.owner,
+                        repo: scmInfo.repo
+                    }
+                });
+                let prSource = 'fork';
+
+                if (
+                    pullRequestInfo.data.head.repo &&
+                    pullRequestInfo.data.base.repo &&
+                    pullRequestInfo.data.head.repo.id === pullRequestInfo.data.base.repo.id
+                ) {
+                    prSource = 'branch';
+                }
+
+                return {
+                    name: `PR-${pullRequestInfo.data.number}`,
+                    ref: `pull/${pullRequestInfo.data.number}/merge`,
+                    sha: pullRequestInfo.data.head.sha,
+                    prBranchName: pullRequestInfo.data.head.ref,
+                    url: pullRequestInfo.data.html_url,
+                    username: pullRequestInfo.data.user.login,
+                    title: pullRequestInfo.data.title,
+                    createTime: pullRequestInfo.data.created_at,
+                    userProfile: pullRequestInfo.data.user.html_url,
+                    baseBranch: pullRequestInfo.data.base.ref,
+                    mergeable: pullRequestInfo.data.mergeable,
+                    prSource
+                };
+            } catch (err) {
+                logger.error('Failed to getPrInfo: ', err);
+                throw err;
+            }
+        };
+
+        return cacheBy({
+            scope: 'getPrInfo',
+            params: {
+                scmUri: config.scmUri,
+                prNum: config.prNum,
+                scmRepoName: config.scmRepo ? config.scmRepo.name : null,
+                token: config.token
+            },
+            fetcher: fetchPrInfo,
+            shouldCache: result => result.mergeable !== null && result.mergeable !== undefined
+        });
     }
 
     /**
