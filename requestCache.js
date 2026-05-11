@@ -1,5 +1,6 @@
 'use strict';
 
+const { createHash } = require('crypto');
 const { AsyncLocalStorage } = require('async_hooks');
 
 const REQUEST_CACHE_STORAGE_KEY = Symbol.for('sd.requestCacheStorage');
@@ -20,10 +21,10 @@ function getRequestCacheStorage() {
  * Build a cache key for the given scope and params.
  * @param {String} scope Cache scope name
  * @param {Object} params Parameters contributing to the cache key
- * @returns {String} Serialized cache key
+ * @returns {String} Hashed cache key
  */
 function getRequestCacheKey(scope, params) {
-    return `${scope}:${JSON.stringify(params)}`;
+    return createHash('sha256').update(JSON.stringify({ scope, params })).digest('hex');
 }
 
 /**
