@@ -928,6 +928,62 @@ describe('index', function () {
                     }
                 );
         });
+
+        it('reuses request-local cache entries', async () => {
+            const testResponse = {
+                full_name: 'screwdriver-cd/models',
+                default_branch: 'master',
+                private: false
+            };
+            const requestCache = new Map();
+
+            githubMock.request.resolves({ data: testResponse });
+
+            const first = await scm.withRequestCache(requestCache, () =>
+                scm.lookupScmUri({
+                    scmUri,
+                    token: 'sometoken'
+                })
+            );
+            const second = await scm.withRequestCache(requestCache, () =>
+                scm.lookupScmUri({
+                    scmUri,
+                    token: 'sometoken'
+                })
+            );
+
+            assert.deepEqual(first, second);
+            assert.calledOnce(githubMock.request);
+        });
+
+        it('does not reuse request-local cache entries across scmRepo privateRepo values', async () => {
+            const requestCache = new Map();
+            const publicRepoConfig = {
+                scmUri,
+                scmRepo: {
+                    name: 'screwdriver-cd/models',
+                    branch: 'targetBranch',
+                    privateRepo: false
+                },
+                token: 'sometoken'
+            };
+            const privateRepoConfig = {
+                scmUri,
+                scmRepo: {
+                    name: 'screwdriver-cd/models',
+                    branch: 'targetBranch',
+                    privateRepo: true
+                },
+                token: 'sometoken'
+            };
+
+            const first = await scm.withRequestCache(requestCache, () => scm.lookupScmUri(publicRepoConfig));
+            const second = await scm.withRequestCache(requestCache, () => scm.lookupScmUri(privateRepoConfig));
+
+            assert.strictEqual(first.privateRepo, false);
+            assert.strictEqual(second.privateRepo, true);
+            assert.notCalled(githubMock.request);
+        });
     });
 
     describe('updateCommitStatus', () => {
@@ -1313,6 +1369,20 @@ jobs:
                     ref: 'master'
                 });
             });
+        });
+
+        it('reuses request-local cache entries', async () => {
+            const requestCache = new Map();
+
+            githubMock.repos.getContent.resolves({ data: returnData });
+
+            const first = await scm.withRequestCache(requestCache, () => scm.getFile(config));
+            const second = await scm.withRequestCache(requestCache, () => scm.getFile(config));
+
+            assert.deepEqual(first, expectedYaml);
+            assert.deepEqual(second, expectedYaml);
+            assert.calledOnce(githubMock.request);
+            assert.calledOnce(githubMock.repos.getContent);
         });
 
         it('promises to get content when rootDir exists', () => {
@@ -2147,6 +2217,29 @@ jobs:
                     assert.strictEqual(result, 'github.com:8675309:main');
                     assert.calledWith(githubMock.repos.get, sinon.match(repoInfo));
                 });
+        });
+
+        it('reuses request-local cache entries', async () => {
+            const requestCache = new Map();
+
+            githubMock.repos.get.resolves({ data: repoData });
+
+            const first = await scm.withRequestCache(requestCache, () =>
+                scm.parseUrl({
+                    checkoutUrl,
+                    token
+                })
+            );
+            const second = await scm.withRequestCache(requestCache, () =>
+                scm.parseUrl({
+                    checkoutUrl,
+                    token
+                })
+            );
+
+            assert.strictEqual(first, 'github.com:8675309:boat');
+            assert.strictEqual(second, 'github.com:8675309:boat');
+            assert.calledOnce(githubMock.repos.get);
         });
 
         it('rejects when unable to match', () => {
@@ -3382,6 +3475,30 @@ jobs:
                 assert.instanceOf(err, Error);
                 assert.strictEqual(testError.message, err.message);
             });
+        });
+
+        it('reuses request-local cache entries when mergeable is resolved', async () => {
+            const requestCache = new Map();
+
+            githubMock.pulls.get.resolves({ data: testPrGet });
+
+            const first = await scm.withRequestCache(requestCache, () => scm._getPrInfo(config));
+            const second = await scm.withRequestCache(requestCache, () => scm._getPrInfo(config));
+
+            assert.deepEqual(first, second);
+            assert.calledOnce(githubMock.request);
+            assert.calledOnce(githubMock.pulls.get);
+        });
+
+        it('does not cache unresolved mergeability responses', async () => {
+            const requestCache = new Map();
+
+            githubMock.pulls.get.resolves({ data: testPrGetNullMergeable });
+
+            await scm.withRequestCache(requestCache, () => scm._getPrInfo(config));
+            await scm.withRequestCache(requestCache, () => scm._getPrInfo(config));
+
+            assert.calledTwice(githubMock.pulls.get);
         });
     });
 
