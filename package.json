@@ -55,5 +55,10 @@
   },
   "release": {
     "debug": false
+  },
+  "overrides": {
+    "ssh-keygen": {
+      "underscore": "^1.13.8"
+    }
   }
 }
