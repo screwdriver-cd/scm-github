@@ -24,11 +24,9 @@ const testWebhookConfigOpen = require('./data/webhookConfig.pull_request.opened.
 const testWebhookConfigPushBadHead = require('./data/webhookConfig.push.badHead.json');
 const testWebhookConfigPush = require('./data/webhookConfig.push.json');
 const testCommands = require('./data/commands.json');
-const testSpecialCharacterCommands = require('./data/specialCharacterCommands.json');
 const testReadOnlyCommandsSsh = require('./data/readOnlyCommandsSsh.json');
 const testReadOnlyCommandsHttps = require('./data/readOnlyCommandsHttps.json');
 const testPrCommands = require('./data/prCommands.json');
-const testSpecialCharacterPrCommands = require('./data/specialCharacterPrCommands.json');
 const testForkPrCommands = require('./data/forkPrCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
@@ -293,11 +291,24 @@ describe('index', function () {
                 assert.deepEqual(command, testCommands);
             }));
 
-        it('promises to get the checkout command for the pipeline special character branch', () => {
-            config.branch = `'"\`/@.]!#&%$<>,🚗`;
+        it('rejects branch names containing shell metacharacters', () => {
+            config.branch = `'"\`;!#&$<>`;
+
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
+        });
+
+        it('accepts branch names with conservatively-safe special characters', () => {
+            config.branch = 'feature/some_module.v1+rc1-final@host';
 
             return scm.getCheckoutCommand(config).then(command => {
-                assert.deepEqual(command, testSpecialCharacterCommands);
+                assert.isString(command.command);
+                assert.isAbove(command.command.length, 0);
             });
         });
 
@@ -343,13 +354,17 @@ describe('index', function () {
             });
         });
 
-        it('promises to get the checkout command for a pull request with special character branch', () => {
+        it('rejects PR branch names containing shell metacharacters', () => {
             config.prRef = 'pull/3/merge';
-            config.prBranchName = `'"\`/@.]!#&%$<>,🚗`;
+            config.prBranchName = `'"\`;!#&$<>`;
 
-            return scm.getCheckoutCommand(config).then(command => {
-                assert.deepEqual(command, testSpecialCharacterPrCommands);
-            });
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid PR branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
         });
 
         it('promises to get the checkout command for a pull request from forked repo', () => {
