@@ -7,6 +7,9 @@ const { Octokit } = require('@octokit/rest');
 const { verify } = require('@octokit/webhooks-methods');
 const hoek = require('@hapi/hoek');
 const Path = require('path');
+const fs = require('fs');
+const os = require('os');
+const crypto = require('crypto');
 const joi = require('joi');
 const keygen = require('ssh-keygen');
 const schema = require('screwdriver-data-schema');
@@ -47,7 +50,6 @@ const DESCRIPTION_MAP = {
 const PERMITTED_RELEASE_EVENT = ['published'];
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
-    DEPLOY_KEYS_FILE: `${__dirname}/keys_rsa`,
     DEPLOY_KEYS_FORMAT: 'PEM',
     DEPLOY_KEYS_PASSWORD: '',
     DEPLOY_KEY_TITLE: 'sd@screwdriver.cd'
@@ -478,31 +480,36 @@ class GithubScm extends Scm {
      * @return {Promise}                    Resolves to object containing the public and private key pair
      */
     async generateDeployKey() {
-        return new Promise((resolve, reject) => {
-            const location = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FILE;
-            const comment = this.config.email;
-            const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
-            const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
+        const tmpDir = await fs.promises.mkdtemp(Path.join(os.tmpdir(), 'sd-deploykey-'));
+        const location = Path.join(tmpDir, `keys_rsa_${crypto.randomBytes(8).toString('hex')}`);
+        const comment = this.config.email;
+        const password = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_PASSWORD;
+        const format = DEPLOY_KEY_GENERATOR_CONFIG.DEPLOY_KEYS_FORMAT;
 
-            keygen(
-                {
-                    location,
-                    comment,
-                    password,
-                    read: true,
-                    format
-                },
-                (err, keyPair) => {
-                    if (err) {
-                        logger.error('Failed to create keys: ', err);
+        try {
+            return await new Promise((resolve, reject) => {
+                keygen(
+                    {
+                        location,
+                        comment,
+                        password,
+                        read: true,
+                        format
+                    },
+                    (err, keyPair) => {
+                        if (err) {
+                            logger.error('Failed to create keys: ', err);
 
-                        return reject(err);
+                            return reject(err);
+                        }
+
+                        return resolve(keyPair);
                     }
-
-                    return resolve(keyPair);
-                }
-            );
-        });
+                );
+            });
+        } finally {
+            await fs.promises.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+        }
     }
 
     /**
