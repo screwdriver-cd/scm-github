@@ -55,6 +55,11 @@ const DEPLOY_KEY_GENERATOR_CONFIG = {
 const DEFAULT_BRANCH = 'main';
 const ENTERPRISE_USER = 'EnterpriseUserAccount';
 
+// Allowlist for branch / parentBranch / prBranchName values before they
+// are interpolated into shell command strings. Stricter than git's own
+// ref-name rules — widen deliberately if a real branch fails.
+const BRANCH_NAME_SAFE_RE = /^[\w./@\-+]+$/;
+
 /**
  * Trim shell command indents
  * @param {String[]} commands
@@ -694,6 +699,10 @@ class GithubScm extends Scm {
         const checkoutUrl = `${config.host}/${config.org}/${config.repo}`; // URL for https
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
+
+        if (!BRANCH_NAME_SAFE_RE.test(branch)) {
+            throwError(`Invalid branch name: ${branch}`, 400);
+        }
         const singleQuoteEscapedBranch = escapeForSingleQuoteEnclosure(branch);
         const doubleQuoteEscapedBranch = escapeForDoubleQuoteEnclosure(
             escapeDollarForDoubleQuoteEnclosure(singleQuoteEscapedBranch)
@@ -805,6 +814,10 @@ class GithubScm extends Scm {
             const parentCheckoutUrl = `${config.parentConfig.host}/${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for https
             const parentSshCheckoutUrl = `git@${config.parentConfig.host}:${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
             const parentBranch = config.parentConfig.branch;
+
+            if (!BRANCH_NAME_SAFE_RE.test(parentBranch)) {
+                throwError(`Invalid parent branch name: ${parentBranch}`, 400);
+            }
             const escapedParentBranch = escapeForDoubleQuoteEnclosure(escapeForSingleQuoteEnclosure(parentBranch));
             const externalConfigDir = '$SD_ROOT_DIR/config';
 
@@ -950,6 +963,10 @@ class GithubScm extends Scm {
             const prRef = config.prRef.replace('merge', `head:${LOCAL_BRANCH_NAME}`);
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
             const prBranch = config.prBranchName;
+
+            if (!BRANCH_NAME_SAFE_RE.test(prBranch)) {
+                throwError(`Invalid PR branch name: ${prBranch}`, 400);
+            }
             const singleQuoteEscapedPrBranch = escapeForSingleQuoteEnclosure(prBranch);
 
             // Fetch a pull request
