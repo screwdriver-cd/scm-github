@@ -4,7 +4,6 @@ npm-debug.log
 .DS_STORE
 .*.swp
 .nyc_output
-package-lock.json
 jwt.pem
 jwt.pub
 keys_rsa
