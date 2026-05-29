@@ -1705,7 +1705,7 @@ class GithubScm extends Scm {
      *                                   payload
      */
     async _parseHook(payloadHeaders, webhookPayload) {
-        const signature = payloadHeaders['x-hub-signature'];
+        const signature = payloadHeaders['x-hub-signature-256'] || payloadHeaders['x-hub-signature'];
         const type = payloadHeaders['x-github-event'];
         const hookId = payloadHeaders['x-github-delivery'];
         const scmContexts = this._getScmContexts();
@@ -1714,9 +1714,13 @@ class GithubScm extends Scm {
 
         const checkoutSshHost = this.config.gheHost ? this.config.gheHost : 'github.com';
 
+        if (!signature) {
+            throwError('Missing webhook signature', 400);
+        }
+
         // eslint-disable-next-line no-underscore-dangle
         if (!(await verify(this.config.secret, webhookPayload, signature))) {
-            throwError('Invalid x-hub-signature', 400);
+            throwError('Invalid webhook signature', 400);
         }
 
         const parsedWebhookPayload = JSON.parse(webhookPayload);

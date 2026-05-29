@@ -2115,7 +2115,52 @@ jobs:
                     assert.fail('This should not fail the tests');
                 })
                 .catch(err => {
-                    assert.equal(err.message, 'Invalid x-hub-signature');
+                    assert.equal(err.message, 'Invalid webhook signature');
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('accepts x-hub-signature-256 as the webhook signature', () => {
+            const payloadText = JSON.stringify(testPayloadPush);
+            const headers = {
+                'x-hub-signature-256': `sha256=${crypto
+                    .createHmac('sha256', 'somesecret')
+                    .update(payloadText)
+                    .digest('hex')}`,
+                'x-github-event': 'push',
+                'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+            };
+
+            return scm.parseHook(headers, payloadText).then(result => {
+                assert.deepEqual(result, {
+                    action: 'push',
+                    branch: 'master',
+                    checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+                    sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+                    type: 'repo',
+                    username: 'baxterthehacker2',
+                    commitAuthors: ['baxterthehacker'],
+                    lastCommitMessage: 'lastcommitmessage',
+                    hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                    scmContext: 'github:github.com',
+                    ref: 'refs/heads/master',
+                    addedFiles: ['README.md'],
+                    modifiedFiles: ['README.md', 'package.json'],
+                    removedFiles: ['screwdriver.yaml']
+                });
+            });
+        });
+
+        it('rejects webhooks with no signature header', () => {
+            delete testHeaders['x-hub-signature'];
+
+            return scm
+                .parseHook(testHeaders, JSON.stringify(testPayloadPush))
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Missing webhook signature/);
                     assert.strictEqual(err.statusCode, 400);
                 });
         });
