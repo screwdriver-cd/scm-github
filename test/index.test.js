@@ -1507,6 +1507,22 @@ jobs:
                     assert.strictEqual(error.statusCode, 403);
                 });
         });
+
+        it('rejects getFile when the path contains traversal segments', () => {
+            return scm
+                .getFile({
+                    scmUri: 'github.com:123456:master',
+                    path: '../etc/passwd',
+                    token: 'fake-token'
+                })
+                .then(
+                    () => assert.fail('expected getFile to reject'),
+                    err => {
+                        assert.match(err.message, /Path traversal detected/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+        });
     });
 
     describe('_getRepoInfo', () => {
