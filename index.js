@@ -104,6 +104,56 @@ function throwError(errorReason, errorCode = 500) {
     throw err;
 }
 
+const SENSITIVE_KEY_RE = /token|authoriz|authentic|secret|password|cookie|^auth$|api[_-]?key/i;
+
+/**
+ * Deep-copy an error-like object, redacting any property whose key matches
+ * the sensitive-key pattern. Used to keep Octokit request-config (which
+ * may carry an Authorization header) out of log output.
+ * @param  {*} err  The error / value to sanitize.
+ * @returns {*}     A sanitized copy safe to log.
+ */
+function sanitizeError(err) {
+    if (err === null || typeof err !== 'object') {
+        return err;
+    }
+
+    const seen = new WeakSet();
+
+    /**
+     * Recursively copy a value while redacting sensitive keys.
+     * @param  {*} value Value to copy.
+     * @returns {*}      Copied value with sensitive keys redacted.
+     */
+    function redact(value) {
+        if (value === null || typeof value !== 'object') {
+            return value;
+        }
+        if (seen.has(value)) {
+            return '[Circular]';
+        }
+        seen.add(value);
+
+        if (Array.isArray(value)) {
+            return value.map(redact);
+        }
+
+        const out = {};
+
+        Object.keys(value).forEach(key => {
+            if (SENSITIVE_KEY_RE.test(key)) {
+                out[key] = '[REDACTED]';
+            } else {
+                out[key] = redact(value[key]);
+            }
+        });
+
+        return out;
+    }
+
+    return redact(err);
+}
+
 /**
  * Get repo information
  * @method getInfo
@@ -343,7 +393,7 @@ class GithubScm extends Scm {
                         defaultBranch = repo.data.default_branch;
                         privateRepo = repo.data.private && repo.data.visibility === 'private';
                     } catch (err) {
-                        logger.error('Failed to lookupScmUri: ', err);
+                        logger.error('Failed to lookupScmUri: ', sanitizeError(err));
                         throw err;
                     }
                 }
@@ -404,7 +454,7 @@ class GithubScm extends Scm {
 
             await this.promiseToWait(POLLING_INTERVAL);
         } catch (err) {
-            logger.error('Failed to getPrInfo: ', err);
+            logger.error('Failed to getPrInfo: ', sanitizeError(err));
             throw err;
         }
 
@@ -436,7 +486,7 @@ class GithubScm extends Scm {
                 comments: data
             };
         } catch (err) {
-            logger.error('Failed to fetch PR comments: ', err);
+            logger.error('Failed to fetch PR comments: ', sanitizeError(err));
 
             return null;
         }
@@ -466,7 +516,7 @@ class GithubScm extends Scm {
 
             return pullRequestComment;
         } catch (err) {
-            logger.error('Failed to edit PR comment: ', err);
+            logger.error('Failed to edit PR comment: ', sanitizeError(err));
 
             return null;
         }
@@ -494,7 +544,7 @@ class GithubScm extends Scm {
                 },
                 (err, keyPair) => {
                     if (err) {
-                        logger.error('Failed to create keys: ', err);
+                        logger.error('Failed to create keys: ', sanitizeError(err));
 
                         return reject(err);
                     }
@@ -533,7 +583,7 @@ class GithubScm extends Scm {
 
             return key;
         } catch (err) {
-            logger.error('Failed to add token: ', err);
+            logger.error('Failed to add token: ', sanitizeError(err));
             throw err;
         }
     }
@@ -585,7 +635,7 @@ class GithubScm extends Scm {
 
             return screwdriverHook;
         } catch (err) {
-            logger.error('Failed to findWebhook: ', err);
+            logger.error('Failed to findWebhook: ', sanitizeError(err));
             throw err;
         }
     }
@@ -630,7 +680,7 @@ class GithubScm extends Scm {
 
             return hooks.data;
         } catch (err) {
-            logger.error('Failed to createWebhook: ', err);
+            logger.error('Failed to createWebhook: ', sanitizeError(err));
             throw err;
         }
     }
@@ -1064,7 +1114,7 @@ class GithubScm extends Scm {
                         userProfile: pullRequest.user.html_url
                     }));
                 } catch (err) {
-                    logger.error('Failed to getOpenedPRs: ', err);
+                    logger.error('Failed to getOpenedPRs: ', sanitizeError(err));
                     throw err;
                 }
             }
@@ -1111,7 +1161,7 @@ class GithubScm extends Scm {
                 return { admin: false, push: false, pull: false };
             }
 
-            logger.error('Failed to getPermissions: ', err);
+            logger.error('Failed to getPermissions: ', sanitizeError(err));
             throw err;
         }
     }
@@ -1152,7 +1202,7 @@ class GithubScm extends Scm {
 
             return result;
         } catch (err) {
-            logger.error('Failed to getOrgPermissions: ', err);
+            logger.error('Failed to getOrgPermissions: ', sanitizeError(err));
             throw err;
         }
     }
@@ -1198,7 +1248,7 @@ class GithubScm extends Scm {
 
             return branch.data.commit.sha;
         } catch (err) {
-            logger.error('Failed to getCommitSha: ', err);
+            logger.error('Failed to getCommitSha: ', sanitizeError(err));
             throw err;
         }
     }
@@ -1249,7 +1299,7 @@ class GithubScm extends Scm {
 
             return throwError(`Cannot handle ${refObj.data.object.type} type`);
         } catch (err) {
-            logger.error('Failed to getCommitRefSha: ', err);
+            logger.error('Failed to getCommitRefSha: ', sanitizeError(err));
             throw err;
         }
     }
@@ -1315,7 +1365,7 @@ class GithubScm extends Scm {
             return status ? status.data : undefined;
         } catch (err) {
             if (err.statusCode !== 422) {
-                logger.error('Failed to updateCommitStatus: ', err);
+                logger.error('Failed to updateCommitStatus: ', sanitizeError(err));
                 throw err;
             }
 
@@ -1388,7 +1438,7 @@ class GithubScm extends Scm {
 
                     return Buffer.from(file.data.content, file.data.encoding).toString();
                 } catch (err) {
-                    logger.error('Failed to getFile: ', err);
+                    logger.error('Failed to getFile: ', sanitizeError(err));
 
                     if (err.statusCode === 404) {
                         // Returns an empty file if there is no screwdriver.yaml
@@ -1445,7 +1495,7 @@ class GithubScm extends Scm {
                         throwError(`Cannot find repository ${checkoutUrl}`, 404);
                     }
 
-                    logger.error('Failed to getRepoId: ', err);
+                    logger.error('Failed to getRepoId: ', sanitizeError(err));
                     throw err;
                 }
             }
@@ -1485,7 +1535,7 @@ class GithubScm extends Scm {
                         url: user.data.html_url
                     };
                 } catch (err) {
-                    logger.error('Failed to decorateAuthor: ', err);
+                    logger.error('Failed to decorateAuthor: ', sanitizeError(err));
                     throw err;
                 }
             }
@@ -1570,7 +1620,7 @@ class GithubScm extends Scm {
                         url: commit.data.html_url
                     };
                 } catch (err) {
-                    logger.error('Failed to decorateCommit: ', err);
+                    logger.error('Failed to decorateCommit: ', sanitizeError(err));
                     throw err;
                 }
             }
@@ -1674,7 +1724,7 @@ class GithubScm extends Scm {
 
                 return files.map(file => file.filename);
             } catch (err) {
-                logger.error('Failed to getChangedFiles: ', err);
+                logger.error('Failed to getChangedFiles: ', sanitizeError(err));
 
                 return [];
             }
@@ -1988,7 +2038,7 @@ class GithubScm extends Scm {
                     prSource
                 };
             } catch (err) {
-                logger.error('Failed to getPrInfo: ', err);
+                logger.error('Failed to getPrInfo: ', sanitizeError(err));
                 throw err;
             }
         };
@@ -2057,7 +2107,7 @@ class GithubScm extends Scm {
                         username: pullRequestComment.data.user.login
                     });
                 } catch (err) {
-                    logger.error('Failed to addPRComment: ', err);
+                    logger.error('Failed to addPRComment: ', sanitizeError(err));
                 }
             } else {
                 try {
@@ -2079,7 +2129,7 @@ class GithubScm extends Scm {
                         username: pullRequestComment.data.user.login
                     });
                 } catch (err) {
-                    logger.error('Failed to addPRComment: ', err);
+                    logger.error('Failed to addPRComment: ', sanitizeError(err));
                 }
             }
         }
@@ -2115,7 +2165,7 @@ class GithubScm extends Scm {
 
             return true;
         } catch (err) {
-            logger.error('Failed to run canHandleWebhook', err);
+            logger.error('Failed to run canHandleWebhook', sanitizeError(err));
 
             return false;
         }
@@ -2154,7 +2204,7 @@ class GithubScm extends Scm {
 
             return branches.map(branch => ({ name: hoek.reach(branch, 'name') }));
         } catch (err) {
-            logger.error('Failed to findBranches: ', err);
+            logger.error('Failed to findBranches: ', sanitizeError(err));
             throw err;
         }
     }
@@ -2185,7 +2235,7 @@ class GithubScm extends Scm {
             page: 1,
             token: config.token
         }).catch(err => {
-            logger.error('Failed to getBranchList: ', err);
+            logger.error('Failed to getBranchList: ', sanitizeError(err));
             throw err;
         });
     }
@@ -2266,7 +2316,7 @@ class GithubScm extends Scm {
                 })
             )
             .catch(err => {
-                logger.error('Failed to openPr: ', err);
+                logger.error('Failed to openPr: ', sanitizeError(err));
                 throw err;
             });
     }
@@ -2292,3 +2342,4 @@ class GithubScm extends Scm {
 }
 
 module.exports = GithubScm;
+module.exports.sanitizeError = sanitizeError;

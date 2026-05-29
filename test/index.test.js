@@ -4125,3 +4125,45 @@ jobs:
         });
     });
 });
+
+describe('sanitizeError', () => {
+    const { sanitizeError } = require('../index.js');
+
+    it('redacts authorization-bearing fields at top level', () => {
+        const err = new Error('boom');
+        err.token = 'ghp_topsecret';
+        err.headers = { Authorization: 'token ghp_topsecret', 'content-type': 'application/json' };
+
+        const out = sanitizeError(err);
+        assert.equal(out.token, '[REDACTED]');
+        assert.equal(out.headers.Authorization, '[REDACTED]');
+        assert.equal(out.headers['content-type'], 'application/json');
+    });
+
+    it('redacts at arbitrary depth in Octokit-shaped errors', () => {
+        const err = {
+            message: 'Request failed',
+            request: { headers: { authorization: 'token ghp_x' }, url: 'https://api.github.com/foo' },
+            response: { status: 500, headers: { 'x-ratelimit-remaining': '0' } }
+        };
+
+        const out = sanitizeError(err);
+        assert.equal(out.request.headers.authorization, '[REDACTED]');
+        assert.equal(out.request.url, 'https://api.github.com/foo');
+        assert.equal(out.response.status, 500);
+    });
+
+    it('handles circular references without throwing', () => {
+        const err = { name: 'CircularErr' };
+        err.self = err;
+        const out = sanitizeError(err);
+        assert.equal(out.name, 'CircularErr');
+        assert.equal(out.self, '[Circular]');
+    });
+
+    it('returns primitives unchanged', () => {
+        assert.equal(sanitizeError(null), null);
+        assert.equal(sanitizeError('plain'), 'plain');
+        assert.equal(sanitizeError(42), 42);
+    });
+});
