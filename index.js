@@ -1367,7 +1367,27 @@ class GithubScm extends Scm {
                     }
 
                     ({ owner, repo, branch, rootDir } = await this.lookupScmUri(lookupConfig));
-                    fullPath = rootDir ? Path.join(rootDir, path) : path;
+
+                    // Reject explicit traversal sequences and confine the resolved path within
+                    // rootDir when set. These are git paths, always '/'-separated, so use
+                    // Path.posix.* regardless of the host OS.
+                    const joined = rootDir ? Path.posix.join(rootDir, path) : path;
+
+                    if (/(^|\/)\.\.(\/|$)/.test(joined)) {
+                        throwError('Path traversal detected', 400);
+                    }
+
+                    if (rootDir) {
+                        const base = `${Path.posix.normalize(rootDir.replace(/^\/+|\/+$/g, ''))}/`;
+                        const normalized = Path.posix.normalize(joined);
+
+                        if (!normalized.startsWith(base) && normalized !== base.slice(0, -1)) {
+                            throwError('Path outside repository rootDir', 403);
+                        }
+                        fullPath = normalized;
+                    } else {
+                        fullPath = Path.posix.normalize(joined);
+                    }
                 }
 
                 try {
