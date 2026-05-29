@@ -855,6 +855,7 @@ class GithubScm extends Scm {
         }
 
         if (config.manifest) {
+            const singleQuoteEscapedManifest = escapeForSingleQuoteEnclosure(config.manifest);
             const curlWrapper =
                 '$(if curl --version > /dev/null 2>&1; ' +
                 "then echo 'eval'; " +
@@ -875,7 +876,7 @@ class GithubScm extends Scm {
             const sourcePath = 'sourcePath';
 
             command.push(
-                `echo Checking out code using the repo manifest defined in ${config.manifest}`,
+                `echo Checking out code using the repo manifest defined in '${singleQuoteEscapedManifest}'`,
                 // Get the repo binary
                 `${curlWrapper} "curl -s ${repoDownloadUrl} > /usr/local/bin/repo"`,
                 'chmod a+x /usr/local/bin/repo',
@@ -884,7 +885,7 @@ class GithubScm extends Scm {
                 `${grepWrapper} "grep -E -o '${sdRepoDownloadUrl}' ${sdRepoReleasesFile} > ${sdRepoLatestFile}"`,
                 `${curlWrapper} "curl -Ls $(cat ${sdRepoLatestFile}) > /usr/local/bin/sd-repo"`,
                 'chmod a+x /usr/local/bin/sd-repo',
-                `sd-repo -manifestUrl=${config.manifest} -sourceRepo=${config.org}/${config.repo}`,
+                `sd-repo -manifestUrl='${singleQuoteEscapedManifest}' -sourceRepo=${config.org}/${config.repo}`,
                 // Export $SD_SOURCE_DIR to source repo path and cd into it
                 trimIndentJoin([
                     `if [ $(cat ${sourcePath}) != "." ]; then`,
