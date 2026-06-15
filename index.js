@@ -60,7 +60,19 @@ const ENTERPRISE_USER = 'EnterpriseUserAccount';
 // Allowlist for branch / parentBranch / prBranchName values before they
 // are interpolated into shell command strings. Stricter than git's own
 // ref-name rules — widen deliberately if a real branch fails.
-const BRANCH_NAME_SAFE_RE = /^[\w./@\-+]+$/;
+const allowedChars = [
+    '0-9', // ASCII digits
+    'A-Za-z', // ASCII alphabets
+    '\\p{Script=Hiragana}', // Hiragana
+    '\\p{Script=Katakana}', // Katakana
+    '\\p{Script=Han}', // CJK Han (Kanji)
+    '\\p{Script=Hangul}', // Hangul
+    '._/@\\-+', // ASCII symbols (Common filename-safe symbols allowed by Git)
+    '\\u3005' // Ideographic iteration mark: 々
+];
+const BRANCH_NAME_ALLOWED_CHAR_RE = new RegExp(`^[${allowedChars.join('')}]+$`, 'u');
+const BRANCH_NAME_DANGEROUS_CHAR_RE = /['"`;!#$&<>|]/u;
+const BRANCH_NAME_FORBIDDEN_SEQUENCE_RE = /(\/\/|(^|\/)\.|\/$|\.\.|@\{|\.lock$|\.$)/;
 
 /**
  * Trim shell command indents
@@ -109,6 +121,41 @@ function throwError(errorReason, errorCode = 500) {
 
     err.statusCode = errorCode;
     throw err;
+}
+
+/**
+ * Detect ASCII control characters (0x00-0x1F, 0x7F).
+ * @param  {String} name branch-like name
+ * @returns {Boolean}    true when control chars are included
+ */
+function hasControlCharacters(name) {
+    for (const char of name) {
+        const codePoint = char.codePointAt(0);
+
+        if (codePoint <= 0x1f || codePoint === 0x7f) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Validate branch-like names used in shell command interpolation.
+ * @param  {String} name branch-like name
+ * @returns {Boolean}    true when the name is safe
+ */
+function isSafeBranchName(name) {
+    if (typeof name !== 'string' || name.length === 0) {
+        return false;
+    }
+
+    return (
+        BRANCH_NAME_ALLOWED_CHAR_RE.test(name) &&
+        !hasControlCharacters(name) &&
+        !BRANCH_NAME_DANGEROUS_CHAR_RE.test(name) &&
+        !BRANCH_NAME_FORBIDDEN_SEQUENCE_RE.test(name)
+    );
 }
 
 const SENSITIVE_KEY_RE = /token|authoriz|authentic|secret|password|cookie|^auth$|api[_-]?key/i;
@@ -757,7 +804,7 @@ class GithubScm extends Scm {
         const sshCheckoutUrl = `git@${config.host}:${config.org}/${config.repo}`; // URL for ssh
         const branch = config.commitBranch ? config.commitBranch : config.branch; // use commit branch
 
-        if (!BRANCH_NAME_SAFE_RE.test(branch)) {
+        if (!isSafeBranchName(branch)) {
             throwError(`Invalid branch name: ${branch}`, 400);
         }
         const singleQuoteEscapedBranch = escapeForSingleQuoteEnclosure(branch);
@@ -872,7 +919,7 @@ class GithubScm extends Scm {
             const parentSshCheckoutUrl = `git@${config.parentConfig.host}:${config.parentConfig.org}/${config.parentConfig.repo}`; // URL for ssh
             const parentBranch = config.parentConfig.branch;
 
-            if (!BRANCH_NAME_SAFE_RE.test(parentBranch)) {
+            if (!isSafeBranchName(parentBranch)) {
                 throwError(`Invalid parent branch name: ${parentBranch}`, 400);
             }
             const escapedParentBranch = escapeForDoubleQuoteEnclosure(escapeForSingleQuoteEnclosure(parentBranch));
@@ -1022,7 +1069,7 @@ class GithubScm extends Scm {
             const baseRepo = config.prSource === 'fork' ? 'upstream' : 'origin';
             const prBranch = config.prBranchName;
 
-            if (!BRANCH_NAME_SAFE_RE.test(prBranch)) {
+            if (!isSafeBranchName(prBranch)) {
                 throwError(`Invalid PR branch name: ${prBranch}`, 400);
             }
             const singleQuoteEscapedPrBranch = escapeForSingleQuoteEnclosure(prBranch);

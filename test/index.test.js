@@ -273,6 +273,28 @@ describe('index', function () {
 
     describe('getCheckoutCommand', () => {
         let config;
+        const allowedBranchCategorySamples = [
+            { category: 'ASCII digits', value: 'feature/20260615' },
+            { category: 'ASCII uppercase', value: 'feature/RELEASE' },
+            { category: 'ASCII lowercase', value: 'feature/release' },
+            { category: 'hiragana', value: 'feature/ひらがなゔ' },
+            { category: 'katakana', value: 'feature/カタカナヴ' },
+            { category: 'cjk', value: 'feature/漢字東京' },
+            { category: 'hangul', value: 'feature/한글테스트' }
+        ];
+        const rejectedBranchCategorySamples = [
+            { category: 'ASCII symbols', value: 'feature/a+b.c=d,e@_](-)%' },
+            { category: 'extended latin', value: 'feature/Angstrom-Ångström-Đ' },
+            { category: 'greek', value: 'feature/alpha-β' },
+            { category: 'control-special', value: 'feature/zero\u200bwidth※↑→−' },
+            { category: 'circled numbers', value: 'feature/④⑥⑧' },
+            { category: 'jp punctuation', value: 'feature/、。々' },
+            { category: 'jp brackets', value: 'feature/「名」【称】' },
+            { category: 'variation selector', value: 'feature/テスト\ufe0f' },
+            { category: 'fullwidth symbols', value: 'feature/＆（）：＞＿' },
+            { category: 'fullwidth digits', value: 'feature/９８７' },
+            { category: 'fullwidth letters', value: 'feature/Ｍｍ' }
+        ];
 
         beforeEach(() => {
             config = {
@@ -292,7 +314,7 @@ describe('index', function () {
             }));
 
         it('rejects branch names containing shell metacharacters', () => {
-            config.branch = `'"\`;!#&$<>`;
+            config.branch = `'"\`;!#&$<>|`;
 
             return scm.getCheckoutCommand(config).then(
                 () => assert.fail('expected getCheckoutCommand to reject'),
@@ -303,12 +325,91 @@ describe('index', function () {
             );
         });
 
+        [`'`, '"', '`', ';', '!', '#', '&', '$', '<', '>', '|'].forEach(char => {
+            it(`rejects branch names containing shell metacharacter: ${char}`, () => {
+                config.branch = `branch${char}name`;
+
+                return scm.getCheckoutCommand(config).then(
+                    () => assert.fail('expected getCheckoutCommand to reject'),
+                    err => {
+                        assert.match(err.message, /Invalid branch name/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+            });
+        });
+
+        ['branch..name', 'branch@{name', 'branch/.name', 'branch/', '.branch', 'branch.lock'].forEach(branchName => {
+            it(`rejects branch names with forbidden git ref sequence: ${branchName}`, () => {
+                config.branch = branchName;
+
+                return scm.getCheckoutCommand(config).then(
+                    () => assert.fail('expected getCheckoutCommand to reject'),
+                    err => {
+                        assert.match(err.message, /Invalid branch name/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+            });
+        });
+
         it('accepts branch names with conservatively-safe special characters', () => {
             config.branch = 'feature/some_module.v1+rc1-final@host';
 
             return scm.getCheckoutCommand(config).then(command => {
                 assert.isString(command.command);
                 assert.isAbove(command.command.length, 0);
+            });
+        });
+
+        it('rejects branch names containing unsupported unicode categories', () => {
+            config.branch = 'feature/①②③※↑→−「」【】＆（）０１２３：＿ｍ./@+-()=,¥×Đα';
+
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
+        });
+
+        allowedBranchCategorySamples.forEach(sample => {
+            it(`accepts branch names from category: ${sample.category}`, () => {
+                config.branch = sample.value;
+
+                return scm.getCheckoutCommand(config).then(command => {
+                    assert.isString(command.command);
+                    assert.isAbove(command.command.length, 0);
+                });
+            });
+        });
+
+        rejectedBranchCategorySamples.forEach(sample => {
+            it(`rejects branch names from unsupported category: ${sample.category}`, () => {
+                config.branch = sample.value;
+
+                return scm.getCheckoutCommand(config).then(
+                    () => assert.fail('expected getCheckoutCommand to reject'),
+                    err => {
+                        assert.match(err.message, /Invalid branch name/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+            });
+        });
+
+        ['🚗', ':', '[', '\\'].forEach(char => {
+            it(`rejects branch names containing unsupported character: ${char}`, () => {
+                config.branch = `branch${char}name`;
+
+                return scm.getCheckoutCommand(config).then(
+                    () => assert.fail('expected getCheckoutCommand to reject'),
+                    err => {
+                        assert.match(err.message, /Invalid branch name/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
             });
         });
 
@@ -356,7 +457,35 @@ describe('index', function () {
 
         it('rejects PR branch names containing shell metacharacters', () => {
             config.prRef = 'pull/3/merge';
-            config.prBranchName = `'"\`;!#&$<>`;
+            config.prBranchName = `'"\`;!#&$<>|`;
+
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid PR branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
+        });
+
+        [`'`, '"', '`', ';', '!', '#', '&', '$', '<', '>', '|'].forEach(char => {
+            it(`rejects PR branch names containing shell metacharacter: ${char}`, () => {
+                config.prRef = 'pull/3/merge';
+                config.prBranchName = `branch${char}name`;
+
+                return scm.getCheckoutCommand(config).then(
+                    () => assert.fail('expected getCheckoutCommand to reject'),
+                    err => {
+                        assert.match(err.message, /Invalid PR branch name/);
+                        assert.equal(err.statusCode, 400);
+                    }
+                );
+            });
+        });
+
+        it('rejects PR branch names containing unsupported unicode categories', () => {
+            config.prRef = 'pull/3/merge';
+            config.prBranchName = 'pr/①②③※↑→−「」【】＆（）０１２３：＿ｍ./@+-()=,¥×Đα';
 
             return scm.getCheckoutCommand(config).then(
                 () => assert.fail('expected getCheckoutCommand to reject'),
@@ -447,6 +576,24 @@ describe('index', function () {
             return scm.getCheckoutCommand(config).then(command => {
                 assert.deepEqual(command, testChildCommands);
             });
+        });
+
+        it('rejects parent branch names containing unsupported unicode categories', () => {
+            config.parentConfig = {
+                branch: '①②③※＆β',
+                host: 'github.com',
+                org: 'screwdriver-cd',
+                repo: 'parent-to-guide',
+                sha: '54321'
+            };
+
+            return scm.getCheckoutCommand(config).then(
+                () => assert.fail('expected getCheckoutCommand to reject'),
+                err => {
+                    assert.match(err.message, /Invalid parent branch name/);
+                    assert.equal(err.statusCode, 400);
+                }
+            );
         });
     });
 
