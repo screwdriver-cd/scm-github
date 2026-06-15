@@ -580,7 +580,7 @@ describe('index', function () {
 
         it('rejects parent branch names containing unsupported unicode categories', () => {
             config.parentConfig = {
-                branch: '①②③※＆β',
+                branch: 'feature/①②③※↑→−「」【】＆（）０１２３：＿ｍ./@+-()=,¥×Đα',
                 host: 'github.com',
                 org: 'screwdriver-cd',
                 repo: 'parent-to-guide',
