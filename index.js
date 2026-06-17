@@ -75,7 +75,7 @@ const allowedChars = [
     '\\uff1a', // Full-width colon: ：
     '\\uff08', // Full-width opening parenthesis: （
     '\\uff09', // Full-width closing parenthesis: ）
-    '\\u200b', // Full-width space
+    '\\u3000', // Full-width space
     '\\uff10-\\uff19', // Full-width digits: ０-９
     '\\uff21-\\uff3a', // Full-width uppercase letters: Ａ-Ｚ
     '\\uff41-\\uff5a' // Full-width lowercase letters: ａ-ｚ
