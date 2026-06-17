@@ -63,16 +63,25 @@ const ENTERPRISE_USER = 'EnterpriseUserAccount';
 const allowedChars = [
     '0-9', // ASCII digits
     'A-Za-z', // ASCII alphabets
-    '\\p{Script=Hiragana}', // Hiragana
-    '\\p{Script=Katakana}', // Katakana
-    '\\p{Script=Han}', // CJK Han (Kanji)
-    '\\p{Script=Hangul}', // Hangul
-    '._/@\\-+', // ASCII symbols (Common filename-safe symbols allowed by Git)
-    '\\u3005' // Ideographic iteration mark: 々
+    '\\p{Script_Extensions=Hiragana}', // Hiragana
+    '\\p{Script_Extensions=Katakana}', // Katakana
+    '\\p{Script_Extensions=Han}', // CJK Han (Kanji)
+    '\\p{Script_Extensions=Hangul}', // Hangul
+    '\\p{Script_Extensions=Greek}', // Greek (e.g. α β γ)
+    ',._/#%@\\-+=()', // ASCII symbols (Common filename-safe symbols allowed by Git)
+    '\\u3005', // Ideographic iteration mark: 々
+    '\\u3010', // Full-width opening black lenticular bracket: 【
+    '\\u3011', // Full-width closing black lenticular bracket: 】
+    '\\uff1a', // Full-width colon: ：
+    '\\uff08', // Full-width opening parenthesis: （
+    '\\uff09', // Full-width closing parenthesis: ）
+    '\\u200b', // Full-width space
+    '\\uff10-\\uff19', // Full-width digits: ０-９
+    '\\uff21-\\uff3a', // Full-width uppercase letters: Ａ-Ｚ
+    '\\uff41-\\uff5a' // Full-width lowercase letters: ａ-ｚ
 ];
 const BRANCH_NAME_ALLOWED_CHAR_RE = new RegExp(`^[${allowedChars.join('')}]+$`, 'u');
-const BRANCH_NAME_DANGEROUS_CHAR_RE = /['"`;!#$&<>|]/u;
-const BRANCH_NAME_FORBIDDEN_SEQUENCE_RE = /(\/\/|(^|\/)\.|\/$|\.\.|@\{|\.lock$|\.$)/;
+const BRANCH_NAME_DANGEROUS_CHAR_RE = /['"`;!$&<>|]/u;
 
 /**
  * Trim shell command indents
@@ -153,8 +162,7 @@ function isSafeBranchName(name) {
     return (
         BRANCH_NAME_ALLOWED_CHAR_RE.test(name) &&
         !hasControlCharacters(name) &&
-        !BRANCH_NAME_DANGEROUS_CHAR_RE.test(name) &&
-        !BRANCH_NAME_FORBIDDEN_SEQUENCE_RE.test(name)
+        !BRANCH_NAME_DANGEROUS_CHAR_RE.test(name)
     );
 }
 
