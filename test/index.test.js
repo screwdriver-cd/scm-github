@@ -283,10 +283,10 @@ describe('index', function () {
             { category: 'hangul', value: 'feature/한글테스트' },
             { category: 'greek', value: 'feature/alpha-β' },
             { category: 'jp punctuation', value: 'feature/、。々' },
-            { category: 'jp brackets', value: 'feature/「名」【称】' }
+            { category: 'jp brackets', value: 'feature/「名」【称】' },
             { category: 'fullwidth symbols', value: 'feature/（）：' },
             { category: 'fullwidth digits', value: 'feature/９８７' },
-            { category: 'fullwidth letters', value: 'feature/Ｍｍ' },
+            { category: 'fullwidth letters', value: 'feature/Ｍｍ' }
         ];
         const rejectedBranchCategorySamples = [
             { category: 'ASCII symbols', value: 'feature/a+b.c=d,e@_](-)%' },
