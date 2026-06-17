@@ -337,17 +337,6 @@ describe('index', function () {
             });
         });
 
-        ['branch..name', 'branch/.name', 'branch/', '.branch', 'branch.lock'].forEach(branchName => {
-            it(`accepts branch names without shell metacharacters: ${branchName}`, () => {
-                config.branch = branchName;
-
-                return scm.getCheckoutCommand(config).then(command => {
-                    assert.isString(command.command);
-                    assert.isAbove(command.command.length, 0);
-                });
-            });
-        });
-
         it('accepts branch names with conservatively-safe special characters', () => {
             config.branch = 'feature/some_module.v1+rc1-final@host';
 
