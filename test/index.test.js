@@ -279,13 +279,14 @@ describe('index', function () {
             { category: 'ASCII lowercase', value: 'feature/release' },
             { category: 'hiragana', value: 'feature/ひらがなゔー' },
             { category: 'katakana', value: 'feature/カタカナヴー' },
-            { category: 'cjk', value: 'feature/漢字東京々' },
+            { category: 'cjk', value: 'feature/漢字東京' },
             { category: 'hangul', value: 'feature/한글테스트' },
             { category: 'greek', value: 'feature/alpha-β' },
+            { category: 'jp punctuation', value: 'feature/、。々' },
+            { category: 'jp brackets', value: 'feature/「名」【称】' }
             { category: 'fullwidth symbols', value: 'feature/（）：' },
             { category: 'fullwidth digits', value: 'feature/９８７' },
             { category: 'fullwidth letters', value: 'feature/Ｍｍ' },
-            { category: 'jp brackets', value: 'feature/「名」【称】' }
         ];
         const rejectedBranchCategorySamples = [
             { category: 'ASCII symbols', value: 'feature/a+b.c=d,e@_](-)%' },
