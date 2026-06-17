@@ -282,8 +282,10 @@ describe('index', function () {
             { category: 'cjk', value: 'feature/漢字東京々' },
             { category: 'hangul', value: 'feature/한글테스트' },
             { category: 'greek', value: 'feature/alpha-β' },
+            { category: 'fullwidth symbols', value: 'feature/（）：' },
             { category: 'fullwidth digits', value: 'feature/９８７' },
-            { category: 'fullwidth letters', value: 'feature/Ｍｍ' }
+            { category: 'fullwidth letters', value: 'feature/Ｍｍ' },
+            { category: 'jp brackets', value: 'feature/「名」【称】' }
         ];
         const rejectedBranchCategorySamples = [
             { category: 'ASCII symbols', value: 'feature/a+b.c=d,e@_](-)%' },
@@ -291,7 +293,7 @@ describe('index', function () {
             { category: 'control-special', value: 'feature/zero\u200bwidth※↑→−' },
             { category: 'circled numbers', value: 'feature/④⑥⑧' },
             { category: 'variation selector', value: 'feature/テスト\ufe0f' },
-            { category: 'fullwidth symbols', value: 'feature/＆＞＿' }
+            { category: 'fullwidth symbols', value: 'feature/＃＆＞＿' }
         ];
 
         beforeEach(() => {
