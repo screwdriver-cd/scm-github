@@ -52,85 +52,52 @@ const PERMITTED_RELEASE_EVENT = ['published'];
 
 // Narrow allow-list schemas covering only the webhook payload fields this plugin
 // actually dereaches downstream (index.js _parseHook). Not a mirror of GitHub's
-// full webhook schema -- `.unknown(true)` everywhere else so unmodeled fields
-// GitHub adds later never require a schema update here.
-const HOOK_REPO_SCHEMA = joi.object({ ssh_url: joi.string().required() }).unknown(true);
-const HOOK_SENDER_SCHEMA = joi.object({ login: joi.string().required() }).unknown(true);
-const BASE_HOOK_SCHEMA = joi
-    .object({
-        repository: HOOK_REPO_SCHEMA.required(),
-        sender: HOOK_SENDER_SCHEMA.required()
-    })
-    .unknown(true);
+// full webhook schema -- `looseObject` (unknown(true)) everywhere so unmodeled
+// fields GitHub adds later never require a schema update here.
+const looseObject = shape => joi.object(shape).unknown(true);
+const HOOK_REPO_ID_SCHEMA = looseObject({ id: joi.any() });
+const HOOK_REPO_SCHEMA = looseObject({ ssh_url: joi.string().required() });
+const HOOK_SENDER_SCHEMA = looseObject({ login: joi.string().required() });
+const BASE_HOOK_SCHEMA = looseObject({
+    repository: HOOK_REPO_SCHEMA.required(),
+    sender: HOOK_SENDER_SCHEMA.required()
+});
 const HOOK_EVENT_SCHEMAS = {
-    pull_request: joi
-        .object({
-            action: joi.string().required(),
-            pull_request: joi
-                .object({
-                    number: joi.number().integer().required(),
-                    title: joi.string().allow('').required(),
-                    merged: joi.boolean(),
-                    base: joi
-                        .object({
-                            ref: joi.string().required(),
-                            repo: joi.object({ id: joi.any() }).unknown(true)
-                        })
-                        .unknown(true)
-                        .required(),
-                    head: joi
-                        .object({
-                            sha: joi.string().required(),
-                            repo: joi.object({ id: joi.any() }).unknown(true)
-                        })
-                        .unknown(true)
-                        .required()
-                })
-                .unknown(true)
-                .required()
-        })
-        .unknown(true),
-    push: joi
-        .object({
-            ref: joi.string().required(),
-            after: joi.string(),
-            deleted: joi.boolean(),
-            commits: joi
-                .array()
-                .items(
-                    joi.object({ author: joi.object({ name: joi.string().required() }).unknown(true) }).unknown(true)
-                ),
-            head_commit: joi
-                .object({
-                    message: joi.string().allow(''),
-                    added: joi.array().items(joi.string()),
-                    modified: joi.array().items(joi.string()),
-                    removed: joi.array().items(joi.string())
-                })
-                .unknown(true)
-                .allow(null)
-        })
-        .unknown(true),
-    release: joi
-        .object({
-            action: joi.string().required(),
-            release: joi
-                .object({
-                    id: joi.any().required(),
-                    tag_name: joi.string().required(),
-                    name: joi.string().allow('', null),
-                    author: joi.object({ login: joi.string() }).unknown(true)
-                })
-                .unknown(true)
-                .required()
-        })
-        .unknown(true),
-    create: joi
-        .object({
-            ref_type: joi.string().required(),
-            ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() })
-        })
-        .unknown(true)
+    pull_request: looseObject({
+        action: joi.string().required(),
+        pull_request: looseObject({
+            number: joi.number().integer().required(),
+            title: joi.string().allow('').required(),
+            merged: joi.boolean(),
+            base: looseObject({ ref: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA }).required(),
+            head: looseObject({ sha: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA }).required()
+        }).required()
+    }),
+    push: looseObject({
+        ref: joi.string().required(),
+        after: joi.string(),
+        deleted: joi.boolean(),
+        commits: joi.array().items(looseObject({ author: looseObject({ name: joi.string().required() }) })),
+        head_commit: looseObject({
+            message: joi.string().allow(''),
+            added: joi.array().items(joi.string()),
+            modified: joi.array().items(joi.string()),
+            removed: joi.array().items(joi.string())
+        }).allow(null)
+    }),
+    release: looseObject({
+        action: joi.string().required(),
+        release: looseObject({
+            id: joi.any().required(),
+            tag_name: joi.string().required(),
+            name: joi.string().allow('', null),
+            author: looseObject({ login: joi.string() })
+        }).required()
+    }),
+    create: looseObject({
+        ref_type: joi.string().required(),
+        ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() })
+    })
 };
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
