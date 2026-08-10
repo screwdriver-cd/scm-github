@@ -161,6 +161,32 @@ describe('index', function () {
                 assert.equal(err.name, 'ValidationError');
             }
         });
+
+        it('accepts a well-formed sshHostKey array', () => {
+            assert.doesNotThrow(() => {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: ['ssh-ed25519 AAAAKEY1', 'ssh-rsa AAAAKEY2']
+                });
+            });
+        });
+
+        it('rejects an sshHostKey entry missing the base64 key portion', () => {
+            try {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: ['ssh-ed25519-with-no-key-portion']
+                });
+                assert.fail('should not get here');
+            } catch (err) {
+                assert.instanceOf(err, Error);
+                assert.equal(err.name, 'ValidationError');
+            }
+        });
     });
 
     describe('_githubCommand', () => {
@@ -397,6 +423,38 @@ describe('index', function () {
                         assert.equal(err.statusCode, 400);
                     }
                 );
+            });
+        });
+
+        it('does not pin the host key or touch known_hosts when sshHostKey is not configured', () =>
+            scm.getCheckoutCommand(config).then(command => {
+                const configMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/config/);
+
+                assert.isOk(configMatch, 'expected an ~/.ssh/config printf step');
+                assert.include(Buffer.from(configMatch[1], 'base64').toString(), 'StrictHostKeyChecking accept-new');
+                assert.notInclude(command.command, 'known_hosts');
+            }));
+
+        it('pins the host key and seeds known_hosts when sshHostKey is configured', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                sshHostKey: ['ssh-ed25519 AAAAKEY1', 'ssh-rsa AAAAKEY2']
+            });
+
+            return scm.getCheckoutCommand(config).then(command => {
+                const configMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/config/);
+                const knownHostsMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/known_hosts/);
+
+                assert.isOk(configMatch, 'expected an ~/.ssh/config printf step');
+                assert.isOk(knownHostsMatch, 'expected an ~/.ssh/known_hosts printf step');
+
+                const decodedConfig = Buffer.from(configMatch[1], 'base64').toString();
+                const decodedKnownHosts = Buffer.from(knownHostsMatch[1], 'base64').toString();
+
+                assert.include(decodedConfig, 'StrictHostKeyChecking yes');
+                assert.strictEqual(decodedKnownHosts, 'github.com ssh-ed25519 AAAAKEY1\ngithub.com ssh-rsa AAAAKEY2\n');
             });
         });
 

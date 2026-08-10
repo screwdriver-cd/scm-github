@@ -394,6 +394,10 @@ class GithubScm extends Scm {
      * @param  {Boolean} [config.gheCloudCookie]     The Github Enterprise Cloud Cookie name
      * @param  {Boolean} [config.gheCloudContext]    The Github Enterprise Cloud scm context
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
+     * @param  {String[]} [config.sshHostKey]        Pinned SSH host public keys for the checkout host, one per
+     *                                                algorithm, each "<keytype> <base64key>" (no hostname). When
+     *                                                set, checkout pins the host key instead of trusting it on
+     *                                                first use.
      * @return {GithubScm}
      */
     constructor(config = {}) {
@@ -431,7 +435,17 @@ class GithubScm extends Scm {
                     gheCloudSlug: joi.string().optional(),
                     gheCloudCookie: joi.string().optional(),
                     gheCloudContext: joi.string().optional(),
-                    githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql')
+                    githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql'),
+                    // Pinned SSH host public keys for the checkout host, one entry per algorithm
+                    // (e.g. rsa/ecdsa/ed25519), each formatted as "<keytype> <base64key>" (no
+                    // hostname -- ghHost/gheHost already supplies that). When set, checkout uses
+                    // StrictHostKeyChecking yes against a pre-seeded known_hosts instead of
+                    // accept-new's trust-on-first-use. Optional and additive: omitting it preserves
+                    // today's accept-new behavior exactly.
+                    sshHostKey: joi
+                        .array()
+                        .items(joi.string().pattern(/^\S+\s+\S+$/, 'known_hosts key entry "<keytype> <base64key>"'))
+                        .optional()
                 })
                 .unknown(true),
             'Invalid config for GitHub'
@@ -872,6 +886,32 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Build the one-time SSH config + optional known_hosts seed used to trust the checkout host
+     * @method _buildSshHostTrust
+     * @param  {String}  ghHost  Host to checkout source code from
+     * @return {Object}          { gitConfigB64, knownHostsB64, hasPinnedHostKeys }
+     * @private
+     */
+    _buildSshHostTrust(ghHost) {
+        const pinnedHostKeys = this.config.sshHostKey;
+        const hasPinnedHostKeys = Array.isArray(pinnedHostKeys) && pinnedHostKeys.length > 0;
+        // Pinned keys let us fully verify the host key instead of trusting it on first use.
+        const strictHostKeyChecking = hasPinnedHostKeys ? 'yes' : 'accept-new';
+        const gitConfigString = `
+        Host ${ghHost}
+            StrictHostKeyChecking ${strictHostKeyChecking}
+        `; // config to permit SCM host for one time SSH connect
+        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+        // One known_hosts line per pinned key (e.g. one per algorithm: rsa/ecdsa/ed25519) so
+        // pinning works regardless of which algorithm the build container's SSH client negotiates.
+        const knownHostsB64 = hasPinnedHostKeys
+            ? Buffer.from(`${pinnedHostKeys.map(key => `${ghHost} ${key}`).join('\n')}\n`).toString('base64')
+            : '';
+
+        return { gitConfigB64, knownHostsB64, hasPinnedHostKeys };
+    }
+
+    /**
      * Get the command to check out source code from a repository
      * @async  _getCheckoutCommand
      * @param  {Object}    config
@@ -901,11 +941,7 @@ class GithubScm extends Scm {
             escapeDollarForDoubleQuoteEnclosure(singleQuoteEscapedBranch)
         );
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
-        const gitConfigString = `
-        Host ${ghHost}
-            StrictHostKeyChecking accept-new
-        `; // config to permit SCM host for one time SSH connect
-        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+        const { gitConfigB64, knownHostsB64, hasPinnedHostKeys } = this._buildSshHostTrust(ghHost);
 
         const command = [];
 
@@ -980,7 +1016,12 @@ class GithubScm extends Scm {
                 'if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; then',
                 '    echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key &&',
                 '    chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" &&',
-                `    mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config;`,
+                `    mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config${
+                    hasPinnedHostKeys ? ' &&' : ';'
+                }`,
+                ...(hasPinnedHostKeys
+                    ? [`    printf "%s\n" "${knownHostsB64}" | base64 -d >> ~/.ssh/known_hosts;`]
+                    : []),
                 'fi'
             ]),
             // Set config
