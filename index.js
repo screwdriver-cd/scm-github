@@ -394,10 +394,12 @@ class GithubScm extends Scm {
      * @param  {Boolean} [config.gheCloudCookie]     The Github Enterprise Cloud Cookie name
      * @param  {Boolean} [config.gheCloudContext]    The Github Enterprise Cloud scm context
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
-     * @param  {String[]} [config.sshHostKey]        Pinned SSH host public keys for the checkout host, one per
-     *                                                algorithm, each "<keytype> <base64key>" (no hostname). When
-     *                                                set, checkout pins the host key instead of trusting it on
-     *                                                first use.
+     * @param  {String[]} [config.sshHostKey]        Pinned SSH host keys for the checkout host, one per algorithm,
+     *                                                each a full known_hosts-format line ("<host> <keytype>
+     *                                                <base64key>") exactly as published, e.g. by
+     *                                                https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints.
+     *                                                When set, checkout pins the host key instead of trusting it
+     *                                                on first use.
      * @return {GithubScm}
      */
     constructor(config = {}) {
@@ -436,15 +438,20 @@ class GithubScm extends Scm {
                     gheCloudCookie: joi.string().optional(),
                     gheCloudContext: joi.string().optional(),
                     githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql'),
-                    // Pinned SSH host public keys for the checkout host, one entry per algorithm
-                    // (e.g. rsa/ecdsa/ed25519), each formatted as "<keytype> <base64key>" (no
-                    // hostname -- ghHost/gheHost already supplies that). When set, checkout uses
-                    // StrictHostKeyChecking yes against a pre-seeded known_hosts instead of
-                    // accept-new's trust-on-first-use. Optional and additive: omitting it preserves
-                    // today's accept-new behavior exactly.
+                    // Pinned SSH host keys for the checkout host, one entry per algorithm (e.g.
+                    // rsa/ecdsa/ed25519), each a full known_hosts-format line ("<host> <keytype>
+                    // <base64key>") exactly as published (e.g. GitHub's SSH key fingerprints page
+                    // lists these ready to paste, hostname included) -- copy-paste, no editing.
+                    // When set, checkout uses StrictHostKeyChecking yes against a pre-seeded
+                    // known_hosts instead of accept-new's trust-on-first-use. Optional and
+                    // additive: omitting it preserves today's accept-new behavior exactly.
                     sshHostKey: joi
                         .array()
-                        .items(joi.string().pattern(/^\S+\s+\S+$/, 'known_hosts key entry "<keytype> <base64key>"'))
+                        .items(
+                            joi
+                                .string()
+                                .pattern(/^\S+\s+\S+\s+\S+$/, 'known_hosts entry "<host> <keytype> <base64key>"')
+                        )
                         .optional()
                 })
                 .unknown(true),
@@ -904,9 +911,8 @@ class GithubScm extends Scm {
         const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
         // One known_hosts line per pinned key (e.g. one per algorithm: rsa/ecdsa/ed25519) so
         // pinning works regardless of which algorithm the build container's SSH client negotiates.
-        const knownHostsB64 = hasPinnedHostKeys
-            ? Buffer.from(`${pinnedHostKeys.map(key => `${ghHost} ${key}`).join('\n')}\n`).toString('base64')
-            : '';
+        // Entries are already full known_hosts lines (host keytype base64key) -- written as-is.
+        const knownHostsB64 = hasPinnedHostKeys ? Buffer.from(`${pinnedHostKeys.join('\n')}\n`).toString('base64') : '';
 
         return { gitConfigB64, knownHostsB64, hasPinnedHostKeys };
     }
