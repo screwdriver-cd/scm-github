@@ -2486,9 +2486,14 @@ jobs:
 
         [
             { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.head.sha' },
+            { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.base.repo.id' },
+            { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.head.repo.id' },
             { event: 'push', payload: testPayloadPush, missingPath: 'repository.ssh_url' },
+            { event: 'push', payload: testPayloadPush, missingPath: 'after' },
             { event: 'release', payload: testPayloadRelease, missingPath: 'release.tag_name' },
-            { event: 'create', payload: testPayloadTag, missingPath: 'ref_type' }
+            { event: 'release', payload: testPayloadRelease, missingPath: 'repository.default_branch' },
+            { event: 'create', payload: testPayloadTag, missingPath: 'ref_type' },
+            { event: 'create', payload: testPayloadTag, missingPath: 'repository.default_branch' }
         ].forEach(({ event, payload, missingPath }) => {
             it(`rejects a ${event} payload missing ${missingPath}`, () => {
                 const clonedPayload = JSON.parse(JSON.stringify(payload));
@@ -2515,6 +2520,29 @@ jobs:
                         assert.strictEqual(err.statusCode, 400);
                     });
             });
+        });
+
+        it('rejects a push payload with a commit missing author', () => {
+            const payload = JSON.parse(JSON.stringify(testPayloadPush));
+
+            payload.commits = [{}];
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'push',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
         });
     });
 

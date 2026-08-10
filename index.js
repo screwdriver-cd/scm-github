@@ -55,9 +55,10 @@ const PERMITTED_RELEASE_EVENT = ['published'];
 // full webhook schema -- `.unknown(true)` everywhere so unmodeled fields GitHub
 // adds later never require a schema update here. Every unknown(true) is deliberate:
 // it only exempts fields this code never reads, not the fields validated below.
-const HOOK_REPO_ID_SCHEMA = joi.object({ id: joi.any() }).unknown(true);
+const HOOK_REPO_ID_SCHEMA = joi.object({ id: joi.number().required() }).unknown(true);
 const HOOK_REPO_SCHEMA = joi.object({ ssh_url: joi.string().required() }).unknown(true);
 const HOOK_SENDER_SCHEMA = joi.object({ login: joi.string().required() }).unknown(true);
+const HOOK_REPO_DEFAULT_BRANCH_SCHEMA = joi.object({ default_branch: joi.string().required() }).unknown(true);
 const BASE_HOOK_SCHEMA = joi
     .object({
         repository: HOOK_REPO_SCHEMA.required(),
@@ -74,11 +75,11 @@ const HOOK_EVENT_SCHEMAS = {
                     title: joi.string().allow('').required(),
                     merged: joi.boolean(),
                     base: joi
-                        .object({ ref: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA })
+                        .object({ ref: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA.required() })
                         .unknown(true)
                         .required(),
                     head: joi
-                        .object({ sha: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA })
+                        .object({ sha: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA.required() })
                         .unknown(true)
                         .required()
                 })
@@ -89,12 +90,14 @@ const HOOK_EVENT_SCHEMAS = {
     push: joi
         .object({
             ref: joi.string().required(),
-            after: joi.string(),
+            after: joi.string().required(),
             deleted: joi.boolean(),
             commits: joi
                 .array()
                 .items(
-                    joi.object({ author: joi.object({ name: joi.string().required() }).unknown(true) }).unknown(true)
+                    joi
+                        .object({ author: joi.object({ name: joi.string().required() }).unknown(true).required() })
+                        .unknown(true)
                 ),
             head_commit: joi
                 .object({
@@ -118,13 +121,15 @@ const HOOK_EVENT_SCHEMAS = {
                     author: joi.object({ login: joi.string() }).unknown(true)
                 })
                 .unknown(true)
-                .required()
+                .required(),
+            repository: HOOK_REPO_DEFAULT_BRANCH_SCHEMA.required()
         })
         .unknown(true),
     create: joi
         .object({
             ref_type: joi.string().required(),
-            ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() })
+            ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() }),
+            repository: HOOK_REPO_DEFAULT_BRANCH_SCHEMA.required()
         })
         .unknown(true)
 };
