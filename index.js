@@ -35,6 +35,7 @@ const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
 const BRANCH_PAGE_SIZE = 100;
 const PR_FILES_PAGE_SIZE = 100;
+const MAX_BREAKER_TIMEOUT_MULTIPLIER = 10;
 const POLLING_INTERVAL = 0.2;
 const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
@@ -48,6 +49,89 @@ const DESCRIPTION_MAP = {
     PENDING: 'Parked it as Pending...'
 };
 const PERMITTED_RELEASE_EVENT = ['published'];
+
+// Narrow allow-list schemas covering only the webhook payload fields this plugin
+// actually dereaches downstream (index.js _parseHook). Not a mirror of GitHub's
+// full webhook schema -- `.unknown(true)` everywhere else so unmodeled fields
+// GitHub adds later never require a schema update here.
+const HOOK_REPO_SCHEMA = joi.object({ ssh_url: joi.string().required() }).unknown(true);
+const HOOK_SENDER_SCHEMA = joi.object({ login: joi.string().required() }).unknown(true);
+const BASE_HOOK_SCHEMA = joi
+    .object({
+        repository: HOOK_REPO_SCHEMA.required(),
+        sender: HOOK_SENDER_SCHEMA.required()
+    })
+    .unknown(true);
+const HOOK_EVENT_SCHEMAS = {
+    pull_request: joi
+        .object({
+            action: joi.string().required(),
+            pull_request: joi
+                .object({
+                    number: joi.number().integer().required(),
+                    title: joi.string().allow('').required(),
+                    merged: joi.boolean(),
+                    base: joi
+                        .object({
+                            ref: joi.string().required(),
+                            repo: joi.object({ id: joi.any() }).unknown(true)
+                        })
+                        .unknown(true)
+                        .required(),
+                    head: joi
+                        .object({
+                            sha: joi.string().required(),
+                            repo: joi.object({ id: joi.any() }).unknown(true)
+                        })
+                        .unknown(true)
+                        .required()
+                })
+                .unknown(true)
+                .required()
+        })
+        .unknown(true),
+    push: joi
+        .object({
+            ref: joi.string().required(),
+            after: joi.string(),
+            deleted: joi.boolean(),
+            commits: joi
+                .array()
+                .items(
+                    joi.object({ author: joi.object({ name: joi.string().required() }).unknown(true) }).unknown(true)
+                ),
+            head_commit: joi
+                .object({
+                    message: joi.string().allow(''),
+                    added: joi.array().items(joi.string()),
+                    modified: joi.array().items(joi.string()),
+                    removed: joi.array().items(joi.string())
+                })
+                .unknown(true)
+                .allow(null)
+        })
+        .unknown(true),
+    release: joi
+        .object({
+            action: joi.string().required(),
+            release: joi
+                .object({
+                    id: joi.any().required(),
+                    tag_name: joi.string().required(),
+                    name: joi.string().allow('', null),
+                    author: joi.object({ login: joi.string() }).unknown(true)
+                })
+                .unknown(true)
+                .required()
+        })
+        .unknown(true),
+    create: joi
+        .object({
+            ref_type: joi.string().required(),
+            ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() })
+        })
+        .unknown(true)
+};
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEYS_FORMAT: 'PEM',
@@ -376,20 +460,21 @@ class GithubScm extends Scm {
     /**
      * Create a breaker instance with custom timeout
      * @method _createBreakerWithTimeout
-     * @param  {Number}  [timeoutMultiplier=1]  Multiplier for the base timeout
+     * @param  {Number}  [timeoutMultiplier=1]  Multiplier for the base timeout, capped at MAX_BREAKER_TIMEOUT_MULTIPLIER
      * @return {Breaker}                        A new Breaker instance with adjusted timeout
      * @private
      */
     _createBreakerWithTimeout(timeoutMultiplier = 1) {
         const breakerConfig = (this.config.fusebox && this.config.fusebox.breaker) || {};
         const baseTimeout = breakerConfig.timeout || 10000;
+        const cappedMultiplier = Math.min(timeoutMultiplier, MAX_BREAKER_TIMEOUT_MULTIPLIER);
 
         return new Breaker(this._githubCommand.bind(this), {
             shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
             breaker: {
                 ...breakerConfig,
-                timeout: baseTimeout * timeoutMultiplier,
+                timeout: baseTimeout * cappedMultiplier,
                 errorFn(err) {
                     if (err.statusCode) {
                         return !(err.statusCode >= 400 && err.statusCode < 500);
@@ -822,7 +907,7 @@ class GithubScm extends Scm {
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
         const gitConfigString = `
         Host ${ghHost}
-            StrictHostKeyChecking no
+            StrictHostKeyChecking accept-new
         `; // config to permit SCM host for one time SSH connect
         const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
 
@@ -1874,6 +1959,12 @@ class GithubScm extends Scm {
         }
 
         const parsedWebhookPayload = JSON.parse(webhookPayload);
+        const { error: baseHookError } = BASE_HOOK_SCHEMA.validate(parsedWebhookPayload);
+
+        if (baseHookError) {
+            throwError(`Invalid webhook payload for event type "${type}": ${baseHookError.message}`, 400);
+        }
+
         const checkoutUrl = hoek.reach(parsedWebhookPayload, 'repository.ssh_url');
         const commits = hoek.reach(parsedWebhookPayload, 'commits');
         const deleted = hoek.reach(parsedWebhookPayload, 'deleted');
@@ -1889,6 +1980,16 @@ class GithubScm extends Scm {
 
             if (this.config.gheCloudSlug !== enterpriseSlug) {
                 throwError(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`, 400);
+            }
+        }
+
+        const hookEventSchema = HOOK_EVENT_SCHEMAS[type];
+
+        if (hookEventSchema) {
+            const { error: hookError } = hookEventSchema.validate(parsedWebhookPayload);
+
+            if (hookError) {
+                throwError(`Invalid webhook payload for event type "${type}": ${hookError.message}`, 400);
             }
         }
 

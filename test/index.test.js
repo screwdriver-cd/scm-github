@@ -1861,6 +1861,80 @@ jobs:
                     assert.equal(githubMock.paginate.callCount, 1);
                 });
         });
+
+        it('uses the pre-cap timeout at the 1000-file cap boundary', () => {
+            const breakerSpy = sinon.spy(scm, '_createBreakerWithTimeout');
+            const prInfoWith1000Files = {
+                data: {
+                    ...testPrGet.data,
+                    changed_files: 1000
+                }
+            };
+
+            githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get
+                .onFirstCall()
+                .resolves({ data: testPrGetNullMergeable })
+                .onSecondCall()
+                .resolves({ data: testPrGet })
+                .onCall(2)
+                .resolves(prInfoWith1000Files);
+
+            githubMock.paginate.resolves([]);
+
+            return scm
+                .getChangedFiles({
+                    type: 'pr',
+                    token,
+                    webhookConfig: null,
+                    scmUri: 'github.com:28476:master',
+                    prNum: 1
+                })
+                .then(() => {
+                    assert.calledWith(breakerSpy, 10);
+
+                    const createdBreaker = breakerSpy.returnValues[0];
+
+                    assert.strictEqual(createdBreaker.breakerOptions.timeout, 100000);
+                });
+        });
+
+        it('caps the breaker timeout for PRs with more than 1000 files', () => {
+            const breakerSpy = sinon.spy(scm, '_createBreakerWithTimeout');
+            const prInfoWith5000Files = {
+                data: {
+                    ...testPrGet.data,
+                    changed_files: 5000
+                }
+            };
+
+            githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+            githubMock.pulls.get
+                .onFirstCall()
+                .resolves({ data: testPrGetNullMergeable })
+                .onSecondCall()
+                .resolves({ data: testPrGet })
+                .onCall(2)
+                .resolves(prInfoWith5000Files);
+
+            githubMock.paginate.resolves([]);
+
+            return scm
+                .getChangedFiles({
+                    type: 'pr',
+                    token,
+                    webhookConfig: null,
+                    scmUri: 'github.com:28476:master',
+                    prNum: 1
+                })
+                .then(() => {
+                    assert.calledWith(breakerSpy, 50);
+
+                    const createdBreaker = breakerSpy.returnValues[0];
+
+                    assert.strictEqual(createdBreaker.breakerOptions.timeout, 100000);
+                });
+        });
     });
 
     describe('waitPrMergeability', () => {
@@ -2337,6 +2411,98 @@ jobs:
                 })
                 .catch(err => {
                     assert.match(err.message, /Missing webhook signature/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('rejects a pull_request payload missing pull_request.head.sha', () => {
+            const payload = JSON.parse(JSON.stringify(testPayloadOpen));
+
+            delete payload.pull_request.head.sha;
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'pull_request',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('rejects a push payload missing repository.ssh_url', () => {
+            const payload = JSON.parse(JSON.stringify(testPayloadPush));
+
+            delete payload.repository.ssh_url;
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'push',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('rejects a release payload missing release.tag_name', () => {
+            const payload = JSON.parse(JSON.stringify(testPayloadRelease));
+
+            delete payload.release.tag_name;
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'release',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        it('rejects a create payload missing ref_type', () => {
+            const payload = { ...testPayloadTag };
+
+            delete payload.ref_type;
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'create',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
                     assert.strictEqual(err.statusCode, 400);
                 });
         });
