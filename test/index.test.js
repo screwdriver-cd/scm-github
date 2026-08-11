@@ -161,6 +161,65 @@ describe('index', function () {
                 assert.equal(err.name, 'ValidationError');
             }
         });
+
+        it('accepts a well-formed sshHostKey array', () => {
+            assert.doesNotThrow(() => {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: ['github.com ssh-ed25519 AAAAKEY1', 'github.com ssh-rsa AAAAKEY2']
+                });
+            });
+        });
+
+        // Verbatim "Full Public Key Entries" from
+        // https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+        // -- must be pastable into sshHostKey with zero editing.
+        it("accepts GitHub's published SSH host key entries verbatim", () => {
+            assert.doesNotThrow(() => {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: [
+                        'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl',
+                        'github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=',
+                        'github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk='
+                    ]
+                });
+            });
+        });
+
+        it('rejects an sshHostKey entry missing the base64 key portion', () => {
+            try {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: ['ssh-ed25519-with-no-key-portion']
+                });
+                assert.fail('should not get here');
+            } catch (err) {
+                assert.instanceOf(err, Error);
+                assert.equal(err.name, 'ValidationError');
+            }
+        });
+
+        it('rejects a legacy two-token sshHostKey entry now that the host is required', () => {
+            try {
+                scm = new GithubScm({
+                    oauthClientId: 'abcdefg',
+                    oauthClientSecret: 'hijklmno',
+                    secret: 'somesecret',
+                    sshHostKey: ['ssh-ed25519 AAAAKEY1']
+                });
+                assert.fail('should not get here');
+            } catch (err) {
+                assert.instanceOf(err, Error);
+                assert.equal(err.name, 'ValidationError');
+            }
+        });
     });
 
     describe('_githubCommand', () => {
@@ -397,6 +456,38 @@ describe('index', function () {
                         assert.equal(err.statusCode, 400);
                     }
                 );
+            });
+        });
+
+        it('does not pin the host key or touch known_hosts when sshHostKey is not configured', () =>
+            scm.getCheckoutCommand(config).then(command => {
+                const configMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/config/);
+
+                assert.isOk(configMatch, 'expected an ~/.ssh/config printf step');
+                assert.include(Buffer.from(configMatch[1], 'base64').toString(), 'StrictHostKeyChecking accept-new');
+                assert.notInclude(command.command, 'known_hosts');
+            }));
+
+        it('pins the host key and seeds known_hosts when sshHostKey is configured', () => {
+            scm = new GithubScm({
+                oauthClientId: 'abcdefg',
+                oauthClientSecret: 'hijklmno',
+                secret: 'somesecret',
+                sshHostKey: ['github.com ssh-ed25519 AAAAKEY1', 'github.com ssh-rsa AAAAKEY2']
+            });
+
+            return scm.getCheckoutCommand(config).then(command => {
+                const configMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/config/);
+                const knownHostsMatch = command.command.match(/"([^"]+)"\s*\|\s*base64 -d >> ~\/\.ssh\/known_hosts/);
+
+                assert.isOk(configMatch, 'expected an ~/.ssh/config printf step');
+                assert.isOk(knownHostsMatch, 'expected an ~/.ssh/known_hosts printf step');
+
+                const decodedConfig = Buffer.from(configMatch[1], 'base64').toString();
+                const decodedKnownHosts = Buffer.from(knownHostsMatch[1], 'base64').toString();
+
+                assert.include(decodedConfig, 'StrictHostKeyChecking yes');
+                assert.strictEqual(decodedKnownHosts, 'github.com ssh-ed25519 AAAAKEY1\ngithub.com ssh-rsa AAAAKEY2\n');
             });
         });
 
@@ -1861,6 +1952,58 @@ jobs:
                     assert.equal(githubMock.paginate.callCount, 1);
                 });
         });
+
+        [
+            {
+                description: 'uses the pre-cap timeout at the 1000-file cap boundary',
+                changedFiles: 1000,
+                expectedMultiplier: 10
+            },
+            {
+                description: 'caps the breaker timeout for PRs with more than 1000 files',
+                changedFiles: 5000,
+                expectedMultiplier: 50
+            }
+        ].forEach(({ description, changedFiles, expectedMultiplier }) => {
+            it(description, () => {
+                const breakerSpy = sinon.spy(scm, '_createBreakerWithTimeout');
+                const prInfoWithFiles = {
+                    data: {
+                        ...testPrGet.data,
+                        changed_files: changedFiles
+                    }
+                };
+
+                githubMock.request.resolves({ data: { full_name: 'iAm/theCaptain' } });
+                githubMock.pulls.get
+                    .onFirstCall()
+                    .resolves({ data: testPrGetNullMergeable })
+                    .onSecondCall()
+                    .resolves({ data: testPrGet })
+                    .onCall(2)
+                    .resolves(prInfoWithFiles);
+
+                githubMock.paginate.resolves([]);
+
+                return scm
+                    .getChangedFiles({
+                        type: 'pr',
+                        token,
+                        webhookConfig: null,
+                        scmUri: 'github.com:28476:master',
+                        prNum: 1
+                    })
+                    .then(() => {
+                        assert.calledWith(breakerSpy, expectedMultiplier);
+
+                        const createdBreaker = breakerSpy.returnValues[0];
+
+                        // Both cases resolve to the same capped timeout: 10 is the cap boundary
+                        // (uncapped-equivalent), 50 is above it and clamped down to the same value.
+                        assert.strictEqual(createdBreaker.breakerOptions.timeout, 100000);
+                    });
+            });
+        });
     });
 
     describe('waitPrMergeability', () => {
@@ -2337,6 +2480,67 @@ jobs:
                 })
                 .catch(err => {
                     assert.match(err.message, /Missing webhook signature/);
+                    assert.strictEqual(err.statusCode, 400);
+                });
+        });
+
+        [
+            { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.head.sha' },
+            { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.base.repo.id' },
+            { event: 'pull_request', payload: testPayloadOpen, missingPath: 'pull_request.head.repo.id' },
+            { event: 'push', payload: testPayloadPush, missingPath: 'repository.ssh_url' },
+            { event: 'push', payload: testPayloadPush, missingPath: 'after' },
+            { event: 'release', payload: testPayloadRelease, missingPath: 'release.tag_name' },
+            { event: 'release', payload: testPayloadRelease, missingPath: 'repository.default_branch' },
+            { event: 'create', payload: testPayloadTag, missingPath: 'ref_type' },
+            { event: 'create', payload: testPayloadTag, missingPath: 'repository.default_branch' }
+        ].forEach(({ event, payload, missingPath }) => {
+            it(`rejects a ${event} payload missing ${missingPath}`, () => {
+                const clonedPayload = JSON.parse(JSON.stringify(payload));
+                const keys = missingPath.split('.');
+                const lastKey = keys.pop();
+                const parent = keys.reduce((obj, key) => obj[key], clonedPayload);
+
+                delete parent[lastKey];
+
+                const payloadText = JSON.stringify(clonedPayload);
+                const headers = {
+                    ...testHeaders,
+                    'x-github-event': event,
+                    'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+                };
+
+                return scm
+                    .parseHook(headers, payloadText)
+                    .then(() => {
+                        assert.fail('This should not fail the tests');
+                    })
+                    .catch(err => {
+                        assert.match(err.message, /Invalid webhook payload/);
+                        assert.strictEqual(err.statusCode, 400);
+                    });
+            });
+        });
+
+        it('rejects a push payload with a commit missing author', () => {
+            const payload = JSON.parse(JSON.stringify(testPayloadPush));
+
+            payload.commits = [{}];
+
+            const payloadText = JSON.stringify(payload);
+            const headers = {
+                ...testHeaders,
+                'x-github-event': 'push',
+                'x-hub-signature': `sha1=${crypto.createHmac('sha1', 'somesecret').update(payloadText).digest('hex')}`
+            };
+
+            return scm
+                .parseHook(headers, payloadText)
+                .then(() => {
+                    assert.fail('This should not fail the tests');
+                })
+                .catch(err => {
+                    assert.match(err.message, /Invalid webhook payload/);
                     assert.strictEqual(err.statusCode, 400);
                 });
         });

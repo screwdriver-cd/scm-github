@@ -35,6 +35,7 @@ const MATCH_COMPONENT_HOST_NAME = 1;
 const WEBHOOK_PAGE_SIZE = 30;
 const BRANCH_PAGE_SIZE = 100;
 const PR_FILES_PAGE_SIZE = 100;
+const MAX_BREAKER_TIMEOUT_MULTIPLIER = 10;
 const POLLING_INTERVAL = 0.2;
 const POLLING_MAX_ATTEMPT = 10;
 const STATE_MAP = {
@@ -48,6 +49,90 @@ const DESCRIPTION_MAP = {
     PENDING: 'Parked it as Pending...'
 };
 const PERMITTED_RELEASE_EVENT = ['published'];
+
+// Narrow allow-list schemas covering only the webhook payload fields this plugin
+// actually dereaches downstream (index.js _parseHook). Not a mirror of GitHub's
+// full webhook schema -- `.unknown(true)` everywhere so unmodeled fields GitHub
+// adds later never require a schema update here. Every unknown(true) is deliberate:
+// it only exempts fields this code never reads, not the fields validated below.
+const HOOK_REPO_ID_SCHEMA = joi.object({ id: joi.number().required() }).unknown(true);
+const HOOK_REPO_SCHEMA = joi.object({ ssh_url: joi.string().required() }).unknown(true);
+const HOOK_SENDER_SCHEMA = joi.object({ login: joi.string().required() }).unknown(true);
+const HOOK_REPO_DEFAULT_BRANCH_SCHEMA = joi.object({ default_branch: joi.string().required() }).unknown(true);
+const BASE_HOOK_SCHEMA = joi
+    .object({
+        repository: HOOK_REPO_SCHEMA.required(),
+        sender: HOOK_SENDER_SCHEMA.required()
+    })
+    .unknown(true);
+const HOOK_EVENT_SCHEMAS = {
+    pull_request: joi
+        .object({
+            action: joi.string().required(),
+            pull_request: joi
+                .object({
+                    number: joi.number().integer().required(),
+                    title: joi.string().allow('').required(),
+                    merged: joi.boolean(),
+                    base: joi
+                        .object({ ref: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA.required() })
+                        .unknown(true)
+                        .required(),
+                    head: joi
+                        .object({ sha: joi.string().required(), repo: HOOK_REPO_ID_SCHEMA.required() })
+                        .unknown(true)
+                        .required()
+                })
+                .unknown(true)
+                .required()
+        })
+        .unknown(true),
+    push: joi
+        .object({
+            ref: joi.string().required(),
+            after: joi.string().required(),
+            deleted: joi.boolean(),
+            commits: joi
+                .array()
+                .items(
+                    joi
+                        .object({ author: joi.object({ name: joi.string().required() }).unknown(true).required() })
+                        .unknown(true)
+                ),
+            head_commit: joi
+                .object({
+                    message: joi.string().allow(''),
+                    added: joi.array().items(joi.string()),
+                    modified: joi.array().items(joi.string()),
+                    removed: joi.array().items(joi.string())
+                })
+                .unknown(true)
+                .allow(null)
+        })
+        .unknown(true),
+    release: joi
+        .object({
+            action: joi.string().required(),
+            release: joi
+                .object({
+                    id: joi.any().required(),
+                    tag_name: joi.string().required(),
+                    name: joi.string().allow('', null),
+                    author: joi.object({ login: joi.string() }).unknown(true)
+                })
+                .unknown(true)
+                .required(),
+            repository: HOOK_REPO_DEFAULT_BRANCH_SCHEMA.required()
+        })
+        .unknown(true),
+    create: joi
+        .object({
+            ref_type: joi.string().required(),
+            ref: joi.string().when('ref_type', { is: 'tag', then: joi.required() }),
+            repository: HOOK_REPO_DEFAULT_BRANCH_SCHEMA.required()
+        })
+        .unknown(true)
+};
 
 const DEPLOY_KEY_GENERATOR_CONFIG = {
     DEPLOY_KEYS_FORMAT: 'PEM',
@@ -314,6 +399,12 @@ class GithubScm extends Scm {
      * @param  {Boolean} [config.gheCloudCookie]     The Github Enterprise Cloud Cookie name
      * @param  {Boolean} [config.gheCloudContext]    The Github Enterprise Cloud scm context
      * @param  {String}  config.githubGraphQLUrl     GraphQL endpoint for GitHub https://api.github.com/graphql
+     * @param  {String[]} [config.sshHostKey]        Pinned SSH host keys for the checkout host, one per algorithm,
+     *                                                each a full known_hosts-format line ("<host> <keytype>
+     *                                                <base64key>") exactly as published, e.g. by
+     *                                                https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints.
+     *                                                When set, checkout pins the host key instead of trusting it
+     *                                                on first use.
      * @return {GithubScm}
      */
     constructor(config = {}) {
@@ -351,7 +442,22 @@ class GithubScm extends Scm {
                     gheCloudSlug: joi.string().optional(),
                     gheCloudCookie: joi.string().optional(),
                     gheCloudContext: joi.string().optional(),
-                    githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql')
+                    githubGraphQLUrl: joi.string().optional().default('https://api.github.com/graphql'),
+                    // Pinned SSH host keys for the checkout host, one entry per algorithm (e.g.
+                    // rsa/ecdsa/ed25519), each a full known_hosts-format line ("<host> <keytype>
+                    // <base64key>") exactly as published (e.g. GitHub's SSH key fingerprints page
+                    // lists these ready to paste, hostname included) -- copy-paste, no editing.
+                    // When set, checkout uses StrictHostKeyChecking yes against a pre-seeded
+                    // known_hosts instead of accept-new's trust-on-first-use. Optional and
+                    // additive: omitting it preserves today's accept-new behavior exactly.
+                    sshHostKey: joi
+                        .array()
+                        .items(
+                            joi
+                                .string()
+                                .pattern(/^\S+\s+\S+\s+\S+$/, 'known_hosts entry "<host> <keytype> <base64key>"')
+                        )
+                        .optional()
                 })
                 .unknown(true),
             'Invalid config for GitHub'
@@ -376,20 +482,21 @@ class GithubScm extends Scm {
     /**
      * Create a breaker instance with custom timeout
      * @method _createBreakerWithTimeout
-     * @param  {Number}  [timeoutMultiplier=1]  Multiplier for the base timeout
+     * @param  {Number}  [timeoutMultiplier=1]  Multiplier for the base timeout, capped at MAX_BREAKER_TIMEOUT_MULTIPLIER
      * @return {Breaker}                        A new Breaker instance with adjusted timeout
      * @private
      */
     _createBreakerWithTimeout(timeoutMultiplier = 1) {
         const breakerConfig = (this.config.fusebox && this.config.fusebox.breaker) || {};
         const baseTimeout = breakerConfig.timeout || 10000;
+        const cappedMultiplier = Math.min(timeoutMultiplier, MAX_BREAKER_TIMEOUT_MULTIPLIER);
 
         return new Breaker(this._githubCommand.bind(this), {
             shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: this.config.fusebox.retry,
             breaker: {
                 ...breakerConfig,
-                timeout: baseTimeout * timeoutMultiplier,
+                timeout: baseTimeout * cappedMultiplier,
                 errorFn(err) {
                     if (err.statusCode) {
                         return !(err.statusCode >= 400 && err.statusCode < 500);
@@ -791,6 +898,31 @@ class GithubScm extends Scm {
     }
 
     /**
+     * Build the one-time SSH config + optional known_hosts seed used to trust the checkout host
+     * @method _buildSshHostTrust
+     * @param  {String}  ghHost  Host to checkout source code from
+     * @return {Object}          { gitConfigB64, knownHostsB64, hasPinnedHostKeys }
+     * @private
+     */
+    _buildSshHostTrust(ghHost) {
+        const pinnedHostKeys = this.config.sshHostKey;
+        const hasPinnedHostKeys = Array.isArray(pinnedHostKeys) && pinnedHostKeys.length > 0;
+        // Pinned keys let us fully verify the host key instead of trusting it on first use.
+        const strictHostKeyChecking = hasPinnedHostKeys ? 'yes' : 'accept-new';
+        const gitConfigString = `
+        Host ${ghHost}
+            StrictHostKeyChecking ${strictHostKeyChecking}
+        `; // config to permit SCM host for one time SSH connect
+        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+        // One known_hosts line per pinned key (e.g. one per algorithm: rsa/ecdsa/ed25519) so
+        // pinning works regardless of which algorithm the build container's SSH client negotiates.
+        // Entries are already full known_hosts lines (host keytype base64key) -- written as-is.
+        const knownHostsB64 = hasPinnedHostKeys ? Buffer.from(`${pinnedHostKeys.join('\n')}\n`).toString('base64') : '';
+
+        return { gitConfigB64, knownHostsB64, hasPinnedHostKeys };
+    }
+
+    /**
      * Get the command to check out source code from a repository
      * @async  _getCheckoutCommand
      * @param  {Object}    config
@@ -820,11 +952,7 @@ class GithubScm extends Scm {
             escapeDollarForDoubleQuoteEnclosure(singleQuoteEscapedBranch)
         );
         const ghHost = config.host || 'github.com'; // URL for host to checkout from
-        const gitConfigString = `
-        Host ${ghHost}
-            StrictHostKeyChecking no
-        `; // config to permit SCM host for one time SSH connect
-        const gitConfigB64 = Buffer.from(gitConfigString).toString('base64'); // encode the config to b64 to maintain format
+        const { gitConfigB64, knownHostsB64, hasPinnedHostKeys } = this._buildSshHostTrust(ghHost);
 
         const command = [];
 
@@ -899,7 +1027,12 @@ class GithubScm extends Scm {
                 'if [ ! -z $SD_SCM_DEPLOY_KEY ] && [ $SCM_CLONE_TYPE = ssh ]; then',
                 '    echo $SD_SCM_DEPLOY_KEY | base64 -d > /tmp/git_key && echo "" >> /tmp/git_key &&',
                 '    chmod 600 /tmp/git_key && export GIT_SSH_COMMAND="ssh -i /tmp/git_key" &&',
-                `    mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config;`,
+                `    mkdir -p ~/.ssh/ && printf "%s\n" "${gitConfigB64}" | base64 -d >> ~/.ssh/config${
+                    hasPinnedHostKeys ? ' &&' : ';'
+                }`,
+                ...(hasPinnedHostKeys
+                    ? [`    printf "%s\n" "${knownHostsB64}" | base64 -d >> ~/.ssh/known_hosts;`]
+                    : []),
                 'fi'
             ]),
             // Set config
@@ -1874,6 +2007,12 @@ class GithubScm extends Scm {
         }
 
         const parsedWebhookPayload = JSON.parse(webhookPayload);
+        const { error: baseHookError } = BASE_HOOK_SCHEMA.validate(parsedWebhookPayload);
+
+        if (baseHookError) {
+            throwError(`Invalid webhook payload for event type "${type}": ${baseHookError.message}`, 400);
+        }
+
         const checkoutUrl = hoek.reach(parsedWebhookPayload, 'repository.ssh_url');
         const commits = hoek.reach(parsedWebhookPayload, 'commits');
         const deleted = hoek.reach(parsedWebhookPayload, 'deleted');
@@ -1889,6 +2028,16 @@ class GithubScm extends Scm {
 
             if (this.config.gheCloudSlug !== enterpriseSlug) {
                 throwError(`Skipping incorrect scm context for hook parsing, ${checkoutUrl}, ${scmContext}`, 400);
+            }
+        }
+
+        const hookEventSchema = HOOK_EVENT_SCHEMAS[type];
+
+        if (hookEventSchema) {
+            const { error: hookError } = hookEventSchema.validate(parsedWebhookPayload);
+
+            if (hookError) {
+                throwError(`Invalid webhook payload for event type "${type}": ${hookError.message}`, 400);
             }
         }
 
