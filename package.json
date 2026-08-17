@@ -46,7 +46,7 @@
     "@octokit/rest": "^20.1.0",
     "@octokit/webhooks-methods": "^4.1.0",
     "circuit-fuses": "^6.0.0",
-    "joi": "^17.13.3",
+    "joi": "^18.2.1",
     "screwdriver-data-schema": "^25.0.0",
     "screwdriver-logger": "^3.0.0",
     "screwdriver-scm-base": "^10.0.1",
