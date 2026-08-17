@@ -634,6 +634,15 @@ describe('index', function () {
             });
         });
 
+        it('quotes rootDir containing parentheses for shell commands', () => {
+            config.rootDir = 'src/app/(component)';
+
+            return scm.getCheckoutCommand(config).then(command => {
+                assert.include(command.command, "mkdir -p 'src/app/(component)'");
+                assert.include(command.command, "cd 'src/app/(component)'");
+            });
+        });
+
         it('promises to use committed branch', () => {
             config.commitBranch = 'commitBranch';
 
