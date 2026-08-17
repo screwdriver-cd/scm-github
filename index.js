@@ -1254,14 +1254,12 @@ class GithubScm extends Scm {
 
             // cd into rootDir after merging
             if (config.rootDir) {
-                // Escape single quotes in the root directory path to handle special characters.
-                // The path is then wrapped in single quotes to safely change directories using the 'cd' command.
-                const escapedRootDir = config.rootDir.replace(/'/g, "'\\''");
+                const escapedRootDir = escapeForSingleQuoteEnclosure(config.rootDir);
 
                 command.push(
                     trimIndentJoin([
                         'if [ ! -z $SD_SKIP_REPOSITORY_CLONE ] && [ $SD_SKIP_REPOSITORY_CLONE = true ]; then',
-                        `    mkdir -p ${escapedRootDir};`,
+                        `    mkdir -p '${escapedRootDir}';`,
                         'fi'
                     ]),
                     `cd '${escapedRootDir}'`
