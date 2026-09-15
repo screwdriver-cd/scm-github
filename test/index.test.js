@@ -1591,6 +1591,9 @@ jobs:
                     path: config.path,
                     ref: config.ref
                 });
+                // the repo-accessibility probe is 404-only; a successful getContent
+                // must not cost an extra API call
+                assert.notCalled(githubMock.repos.get);
             });
         });
 
@@ -1685,12 +1688,14 @@ jobs:
                 });
         });
 
-        it('promises to get empty content when file is not found', () => {
+        it('promises to get empty content when file is not found and the repo is confirmed accessible', () => {
             const err = new Error('githubError');
 
             err.status = 404;
 
             githubMock.repos.getContent.rejects(err);
+            // repo itself is visible - confirms this 404 really means "no screwdriver.yaml"
+            githubMock.repos.get.resolves({ data: { full_name: 'screwdriver-cd/models' } });
 
             return scm.getFile(config).then(data => {
                 assert.deepEqual(data, '');
@@ -1701,7 +1706,38 @@ jobs:
                     path: config.path,
                     ref: config.ref
                 });
+                assert.calledWith(githubMock.repos.get, {
+                    owner: 'screwdriver-cd',
+                    repo: 'models'
+                });
             });
+        });
+
+        it('rethrows the original 404 when the repo itself is also unreachable', () => {
+            const contentErr = new Error('githubError');
+            const repoErr = new Error('repoError');
+
+            contentErr.status = 404;
+            repoErr.status = 404;
+
+            githubMock.repos.getContent.rejects(contentErr);
+            // the token can't see the repo at all - this 404 is an auth problem,
+            // not "file doesn't exist"
+            githubMock.repos.get.rejects(repoErr);
+
+            return scm.getFile(config).then(
+                () => {
+                    assert.fail('This should not fail the test');
+                },
+                error => {
+                    // the original getContent error propagates, not the probe's own error
+                    assert.strictEqual(error, contentErr);
+                    assert.calledWith(githubMock.repos.get, {
+                        owner: 'screwdriver-cd',
+                        repo: 'models'
+                    });
+                }
+            );
         });
 
         it('returns error when path is not a file', () => {

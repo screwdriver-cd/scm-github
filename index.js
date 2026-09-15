@@ -1672,6 +1672,26 @@ class GithubScm extends Scm {
                     logger.error('Failed to getFile: ', sanitizeError(err));
 
                     if (err.statusCode === 404) {
+                        // GitHub returns 404 both when the file genuinely doesn't exist and
+                        // when the token can't see the repo at all (e.g. a transient auth
+                        // failure) - the two are indistinguishable from getContent's response
+                        // alone. Probe the repo itself before trusting "empty file": only
+                        // when the repo is confirmed visible do we know this 404 really means
+                        // "no screwdriver.yaml", rather than "couldn't read anything here".
+                        try {
+                            await this.breaker.runCommand({
+                                action: 'get',
+                                token,
+                                params: { owner, repo }
+                            });
+                        } catch (repoErr) {
+                            logger.error(
+                                'Failed to confirm repo accessibility after getFile 404: ',
+                                sanitizeError(repoErr)
+                            );
+                            throw err;
+                        }
+
                         // Returns an empty file if there is no screwdriver.yaml
                         return '';
                     }
