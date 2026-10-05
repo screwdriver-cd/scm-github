@@ -887,7 +887,8 @@ describe('index', function () {
                 admin: true,
                 push: false,
                 pull: false
-            }
+            },
+            archived: false
         };
         const config = {
             scmUri,
@@ -906,7 +907,7 @@ describe('index', function () {
             githubMock.repos.get.resolves({ data: repo });
 
             return scm.getPermissions(config).then(data => {
-                assert.deepEqual(data, repo.permissions);
+                assert.deepEqual(data, { ...repo.permissions, archived: repo.archived });
 
                 assert.calledWith(githubMock.request, 'GET /repositories/:id', { id: '359478' });
 
@@ -929,7 +930,7 @@ describe('index', function () {
             githubMock.repos.get.resolves({ data: repo });
 
             return scm.getPermissions(configWithScmRepo).then(data => {
-                assert.deepEqual(data, repo.permissions);
+                assert.deepEqual(data, { ...repo.permissions, archived: repo.archived });
 
                 assert.notCalled(githubMock.request);
 
