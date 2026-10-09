@@ -1362,8 +1362,9 @@ class GithubScm extends Scm {
                     repo: scmInfo.repo
                 }
             });
+            const archived = repo.data.archived;
 
-            return repo.data.permissions;
+            return { ...repo.data.permissions, archived };
         } catch (err) {
             // Suspended user
             if (err.message.match(/suspend/i)) {
